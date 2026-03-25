@@ -1,3 +1,5 @@
+'use client'
+
 import { useState, useEffect, useRef, useMemo, useCallback } from "react";
 
 /* ═══════════════════════════════════════════════════════════════
@@ -249,135 +251,108 @@ const WEEKLY_MAR23 = {
 
 const emptyWeekly = () => ({ date: TODAY_STR, presenters: {}, focos: {}, compromisos: [], synced: [] });
 
-function withTimeout(promise, ms = 3000) {
-  return Promise.race([promise, new Promise((_, rej) => setTimeout(() => rej(new Error("timeout")), ms))]);
-}
+// ─── Storage: Next.js API route (/api/storage) ───────────────────
 async function storeGet(key) {
-  try { const r = await withTimeout(window.storage.get(key, true)); return r ? JSON.parse(r.value) : null; }
-  catch { return null; }
+  try {
+    const r = await fetch(`/api/storage?action=get&key=${encodeURIComponent(key)}`)
+    const d = await r.json()
+    if (!d.value) return null
+    return typeof d.value === 'string' ? JSON.parse(d.value) : d.value
+  } catch { return null }
 }
 async function storeSet(key, val) {
-  try { await withTimeout(window.storage.set(key, JSON.stringify(val), true)); } catch {}
+  try {
+    await fetch('/api/storage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'set', key, value: JSON.stringify(val) }),
+    })
+  } catch {}
 }
 async function storeDel(key) {
-  try { await withTimeout(window.storage.delete(key, true)); } catch {}
+  try {
+    await fetch('/api/storage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'delete', key }),
+    })
+  } catch {}
 }
-// FIX: storeList with parallel fallback (no sequential await)
 async function storeList(prefix) {
   try {
-    const r = await withTimeout(window.storage.list(prefix, true));
-    if (r?.keys?.length > 0) return r.keys;
+    const r = await fetch(`/api/storage?action=list&prefix=${encodeURIComponent(prefix)}`)
+    const d = await r.json()
+    if (d.keys?.length > 0) return d.keys
   } catch {}
-  // Parallel fallback: scan last 8 Mondays simultaneously
-  const base = new Date(TODAY_STR);
+  // Fallback: scan last 8 Mondays
+  const base = new Date(TODAY_STR)
   const candidates = Array.from({ length: 8 }, (_, i) => {
-    const d = new Date(base); d.setDate(base.getDate() - i * 7);
-    return `weekly:${d.toISOString().split("T")[0]}`;
-  });
+    const d = new Date(base); d.setDate(base.getDate() - i * 7)
+    return `weekly:${d.toISOString().split("T")[0]}`
+  })
   const results = await Promise.all(candidates.map(async (k) => {
-    const v = await storeGet(k); return v ? k : null;
-  }));
-  return results.filter(Boolean);
+    const v = await storeGet(k); return v ? k : null
+  }))
+  return results.filter(Boolean)
 }
 async function storeGetRaw(key) {
-  try { const r = await withTimeout(window.storage.get(key, true)); return r?.value || null; }
-  catch { return null; }
+  try {
+    const r = await fetch(`/api/storage?action=get&key=${encodeURIComponent(key)}`)
+    const d = await r.json()
+    return d.value ? (typeof d.value === 'string' ? d.value : JSON.stringify(d.value)) : null
+  } catch { return null }
 }
 async function storeSetRaw(key, val) {
-  try { await withTimeout(window.storage.set(key, val, true)); } catch {}
+  try {
+    await fetch('/api/storage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ action: 'set', key, value: val }),
+    })
+  } catch {}
 }
 
 /* ═══════════════════════════════════════════════════════════════
-   SECTION 4: MONDAY API
+   SECTION 4: DATA LAYER — Next.js API routes
+   Reemplaza MCP calls por fetch directo a rutas propias
    ═══════════════════════════════════════════════════════════════ */
 
-async function mcpCall(prompt, maxTokens = 4000) {
-  const TIMEOUT_MS = 60000;
-  try {
-    const fetchPromise = fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514", max_tokens: maxTokens,
-        messages: [{ role: "user", content: prompt }],
-        mcp_servers: [{ type: "url", url: MCP_URL, name: "monday" }],
-      }),
-    });
-    const timeoutPromise = new Promise((_, rej) =>
-      setTimeout(() => rej(new Error("timeout")), TIMEOUT_MS)
-    );
-    const resp = await Promise.race([fetchPromise, timeoutPromise]);
-    if (!resp.ok) return null;
-    const data = await resp.json();
-    const tr = data.content?.find((b) => b.type === "mcp_tool_result");
-    if (tr?.content?.[0]?.text) return tr.content[0].text;
-    const tb = data.content?.find((b) => b.type === "text" && b.text?.includes("{"));
-    if (tb?.text) return tb.text;
-    return null;
-  } catch { return null; }
-}
 async function fetchAllItems() {
-  let all = [], cursor = null, page = 0;
-  const filter = `filters [{"columnId":"group","compareValue":["${GROUP_DELIVERY}"],"operator":"any_of"}]`;
-  while (page < 12) {
-    const prompt = cursor
-      ? `Use the monday.com get_board_items_page tool with these exact parameters: boardId=${BOARD_ID}, cursor="${cursor}", limit=100, includeColumns=true, includeSubItems=true, subItemLimit=50, columnIds=${JSON.stringify(COL_IDS)}`
-      : `Use the monday.com get_board_items_page tool with these exact parameters: boardId=${BOARD_ID}, limit=100, includeColumns=true, includeSubItems=true, subItemLimit=50, columnIds=${JSON.stringify(COL_IDS)}, filters=[{"columnId":"group","compareValue":["${GROUP_DELIVERY}"],"operator":"any_of"}]`;
-    try {
-      const text = await mcpCall(prompt);
-      if (!text) break;
-      let parsed = null;
-      // Intento 1: JSON directo
-      try { parsed = JSON.parse(text); } catch {}
-      // Intento 2: extraer JSON del texto
-      if (!parsed) {
-        const m = text.match(/\{[\s\S]*\}/);
-        if (m) { try { parsed = JSON.parse(m[0]); } catch {} }
-      }
-      if (!parsed) break;
-      // Extraer items de cualquier estructura posible
-      const pageItems =
-        parsed.items ||
-        parsed.data?.boards?.[0]?.items_page?.items ||
-        parsed.data?.items_page?.items ||
-        [];
-      const nextCursor =
-        parsed.pagination?.nextCursor ||
-        parsed.data?.boards?.[0]?.items_page?.cursor ||
-        parsed.data?.items_page?.cursor ||
-        null;
-      all = [...all, ...pageItems];
-      cursor = nextCursor;
-      if (!cursor) break;
-    } catch { break; }
-    page++;
+  try {
+    const res = await fetch('/api/monday', { cache: 'no-store' })
+    if (!res.ok) throw new Error(`HTTP ${res.status}`)
+    const data = await res.json()
+    if (data.error) throw new Error(data.error)
+    return data.items || []
+  } catch (e) {
+    console.error('fetchAllItems error:', e)
+    return []
   }
-  return all;
 }
 
 async function createMondayItem(name, dateStr, personName) {
-  let extra = "";
-  if (dateStr) extra += ` Set the Cronograma timeline column (timerange_mkzcqv0j) with start date "${dateStr}" and end date "${dateStr}".`;
-  const userId = personName ? MONDAY_USERS[personName] : null;
-  if (userId) extra += ` Set the Responsable people column (person) to person id ${userId}.`;
   try {
-    await mcpCall(`Use create_item on board ${BOARD_ID} in group "${GROUP_ACUERDOS}" with name "${name}". Set Fase (color_mkz09na) to Sprint (index 0).${extra}`, 1500);
-    return true;
-  } catch { return false; }
+    const userId = personName ? MONDAY_USERS[personName] : null
+    const res = await fetch('/api/monday-write', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, dateStr, personId: userId }),
+    })
+    const data = await res.json()
+    return data.success === true
+  } catch { return false }
 }
 
 async function sendToSlack(text) {
   try {
-    const resp = await fetch("https://api.anthropic.com/v1/messages", {
-      method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        model: "claude-sonnet-4-20250514", max_tokens: 1000,
-        messages: [{ role: "user", content: `Use slack_send_message to send a message to channel ${SLACK_GENERAL_CHANNEL}. The message is:\n\n${text}` }],
-        mcp_servers: [{ type: "url", url: SLACK_MCP_URL, name: "slack" }],
-      }),
-    });
-    const data = await resp.json();
-    return data.content?.some((b) => b.type === "mcp_tool_result");
-  } catch { return false; }
+    const res = await fetch('/api/slack', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+    })
+    const data = await res.json()
+    return data.success === true
+  } catch { return false }
 }
 
 /* ═══════════════════════════════════════════════════════════════
@@ -2701,24 +2676,13 @@ export default function App() {
               {err && <span style={{ fontSize: 10, color: "var(--yellow)" }}>· {err}</span>}
               <button onClick={refresh} disabled={refreshing} style={{ background: "var(--bg2)", color: refreshing ? "var(--yellow)" : "var(--tx3)", border: "1px solid var(--bg4)", borderRadius: "var(--r-sm)", padding: "3px 10px", fontSize: 10, fontWeight: 500, cursor: refreshing ? "default" : "pointer" }}>{refreshing ? "⏳" : "↻"} Sync</button>
               <button onClick={async () => {
-                setErr("Probando MCP...");
+                setErr("Probando API...");
                 try {
-                  const resp = await fetch("https://api.anthropic.com/v1/messages", {
-                    method: "POST", headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      model: "claude-sonnet-4-20250514", max_tokens: 200,
-                      messages: [{ role: "user", content: "Reply with just: OK" }],
-                      mcp_servers: [{ type: "url", url: "https://mcp.monday.com/mcp", name: "monday" }],
-                    }),
-                  });
+                  const resp = await fetch("/api/monday", { cache: "no-store" });
                   const data = await resp.json();
-                  const status = resp.status;
-                  const hasResult = data.content?.some(b => b.type === "mcp_tool_result");
-                  const textBlock = data.content?.find(b => b.type === "text")?.text || "";
-                  const errMsg = data.error?.message || "";
-                  setErr(`HTTP ${status} · MCP result: ${hasResult} · text: "${textBlock.slice(0,40)}" · err: "${errMsg.slice(0,60)}"`);
+                  setErr(resp.ok ? `✅ Monday OK · ${data.total || 0} items` : `❌ Error: ${data.error || resp.status}`);
                 } catch(e) {
-                  setErr("Fetch error: " + e.message);
+                  setErr("Error: " + e.message);
                 }
               }} style={{ background: "var(--bg2)", color: "var(--purple)", border: "1px solid var(--bg4)", borderRadius: "var(--r-sm)", padding: "3px 10px", fontSize: 10, fontWeight: 500, cursor: "pointer" }}>🔍 Test</button>
 
