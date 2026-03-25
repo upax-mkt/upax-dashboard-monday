@@ -5,66 +5,10 @@ export const revalidate = 0
 
 const MONDAY_API_URL = 'https://api.monday.com/v2'
 const BOARD_ID = process.env.MONDAY_BOARD_ID || '18044324200'
+const GROUP_DELIVERY = 'group_mm15cfz2'
+const COL_IDS = ['person','color_mkz0s203','color_mkz09na','timerange_mkzcqv0j','date_mm1b10rx','date_mkzchmsq','color_mkzjvp66','timerange_mkzx7r55']
 
-const COL_IDS = ['person', 'color_mkz0s203', 'color_mkz09na', 'timerange_mkzcqv0j', 'date_mm1b10rx', 'date_mkzchmsq']
-
-async function fetchPage(apiKey, cursor = null) {
-  const filterArg = cursor ? '' : `, filters: [{columnId: "group", compareValue: ["group_mm15cfz2"], operator: any_of}]`
-  const cursorArg = cursor ? `, cursor: "${cursor}"` : ''
-
-  const query = `
-    query {
-      next_items_page(limit: 100${cursorArg}) {
-        cursor
-        items {
-          id
-          name
-          group { id title }
-          column_values(ids: ${JSON.stringify(COL_IDS)}) {
-            id
-            text
-            value
-            column { id title type }
-          }
-          subitems {
-            id
-            name
-            column_values(ids: ["person"]) {
-              id text value column { id type }
-            }
-          }
-        }
-      }
-    }
-  `
-
-  // First page uses boards query with filter
-  const firstQuery = `
-    query {
-      boards(ids: [${BOARD_ID}]) {
-        groups { id title color }
-        columns { id title type }
-        items_page(limit: 100${filterArg}) {
-          cursor
-          items {
-            id
-            name
-            group { id title }
-            column_values(ids: ${JSON.stringify(COL_IDS)}) {
-              id text value column { id title type }
-            }
-            subitems {
-              id name
-              column_values(ids: ["person"]) {
-                id text value column { id type }
-              }
-            }
-          }
-        }
-      }
-    }
-  `
-
+async function mondayQuery(apiKey, query) {
   const res = await fetch(MONDAY_API_URL, {
     method: 'POST',
     headers: {
@@ -72,12 +16,12 @@ async function fetchPage(apiKey, cursor = null) {
       'Authorization': apiKey,
       'API-Version': '2024-01',
     },
-    body: JSON.stringify({ query: cursor ? query : firstQuery }),
+    body: JSON.stringify({ query }),
+    cache: 'no-store',
   })
-
-  if (!res.ok) throw new Error(`Monday API HTTP error: ${res.status}`)
+  if (!res.ok) throw new Error(`Monday HTTP ${res.status}`)
   const data = await res.json()
-  if (data.errors) throw new Error(data.errors[0]?.message || 'GraphQL error')
+  if (data.errors) throw new Error(data.errors[0]?.message || 'Monday GraphQL error')
   return data
 }
 
@@ -86,29 +30,104 @@ export async function GET() {
     const apiKey = process.env.MONDAY_API_KEY
     if (!apiKey) return NextResponse.json({ error: 'MONDAY_API_KEY no configurada' }, { status: 500 })
 
-    // Fetch first page (includes groups + columns metadata)
-    const firstData = await fetchPage(apiKey)
+    const colIds = JSON.stringify(COL_IDS)
+
+    // Primera página — también trae grupos y columnas del board
+    const firstQuery = `
+      query {
+        boards(ids: [${BOARD_ID}]) {
+          groups { id title color }
+          items_page(limit: 100, query_params: {
+            rules: [{ column_id: "group", compare_value: ["${GROUP_DELIVERY}"] }]
+          }) {
+            cursor
+            items {
+              id name
+              group { id title }
+              column_values(ids: ${colIds}) { id text value column { id title type } }
+              subitems {
+                id name
+                column_values(ids: ["person","color_mkzjvp66","timerange_mkzx7r55"]) {
+                  id text value column { id type }
+                }
+              }
+            }
+          }
+        }
+      }
+    `
+
+    const firstData = await mondayQuery(apiKey, firstQuery)
     const board = firstData.data?.boards?.[0]
-    if (!board) throw new Error('No se encontró el board')
+    if (!board) throw new Error('Board no encontrado')
 
     let allItems = [...(board.items_page?.items || [])]
     let cursor = board.items_page?.cursor
-
-    // Paginate if needed
     let page = 0
-    while (cursor && page < 10) {
-      const nextData = await fetchPage(apiKey, cursor)
-      const nextPage = nextData.data?.next_items_page
-      allItems = [...allItems, ...(nextPage?.items || [])]
-      cursor = nextPage?.cursor
+
+    // Paginar
+    while (cursor && page < 15) {
+      const nextQuery = `
+        query {
+          next_items_page(limit: 100, cursor: "${cursor}") {
+            cursor
+            items {
+              id name
+              group { id title }
+              column_values(ids: ${colIds}) { id text value column { id title type } }
+              subitems {
+                id name
+                column_values(ids: ["person","color_mkzjvp66","timerange_mkzx7r55"]) {
+                  id text value column { id type }
+                }
+              }
+            }
+          }
+        }
+      `
+      const nextData = await mondayQuery(apiKey, nextQuery)
+      const page_data = nextData.data?.next_items_page
+      if (!page_data?.items?.length) break
+      allItems = [...allItems, ...page_data.items]
+      cursor = page_data.cursor
       page++
     }
 
+    // Normalizar column_values a objeto plano keyed por column ID
+    // para que el frontend pueda acceder como item.column_values.color_mkz09na
+    const normalized = allItems.map(item => {
+      const cv = {}
+      ;(item.column_values || []).forEach(col => {
+        let val = col.text || null
+        if (!val && col.value) {
+          try {
+            const p = JSON.parse(col.value)
+            val = p?.label?.text || p?.text || p?.name || null
+            // Para columna person: extraer nombres
+            if (col.column?.type === 'multiple-person' || col.column?.type === 'people') {
+              const persons = p?.personsAndTeams || []
+              // val ya tiene el texto plano de la API
+              val = col.text || null
+            }
+          } catch {}
+        }
+        cv[col.id] = val
+      })
+      // Normalizar subitems igualmente
+      const subitems = (item.subitems || []).map(sub => {
+        const scv = {}
+        ;(sub.column_values || []).forEach(col => {
+          scv[col.id] = col.text || null
+        })
+        return { ...sub, column_values: scv }
+      })
+      return { ...item, column_values: cv, subitems }
+    })
+
     return NextResponse.json({
-      items: allItems,
+      items: normalized,
       groups: board.groups || [],
-      columns: board.columns || [],
-      total: allItems.length,
+      total: normalized.length,
       ts: new Date().toISOString(),
     }, {
       headers: { 'Cache-Control': 'no-store, no-cache, must-revalidate' }
