@@ -1436,6 +1436,8 @@ function TabMinutas() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
+  const [editingLabel, setEditingLabel] = useState(null); // key de la minuta cuyo nombre se edita
+  const [labelDraft, setLabelDraft] = useState("");
 
   useEffect(() => {
     (async () => {
@@ -1462,6 +1464,12 @@ function TabMinutas() {
     setEditing(null);
   }
   async function remove(k) { await storeDel(k); setKeys((prev) => prev.filter((x) => x !== k)); if (selKey === k) { setSelKey(null); setData(null); } setConfirmDel(null); }
+  async function saveLabel(k, label) {
+    const d = await storeGet(k) || {};
+    await storeSet(k, { ...d, label: label.trim() });
+    if (selKey === k) setData((prev) => ({ ...(prev || {}), label: label.trim() }));
+    setEditingLabel(null); setLabelDraft("");
+  }
   async function saveText(text) { const upd = { ...data, minutaText: text }; await storeSet(selKey, upd); setData(upd); setEditing(null); }
 
   function getMinutaText() {
@@ -1484,7 +1492,12 @@ function TabMinutas() {
     return t;
   }
 
-  const dateFmt = (k) => new Date(k.replace("weekly:", "")).toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short" });
+  const dateFmt = (k) => {
+    const dateStr = k.replace("weekly:", "");
+    // Agregar T12:00:00 para evitar timezone offset que cambia el día
+    const d = new Date(dateStr + "T12:00:00");
+    return d.toLocaleDateString("es-MX", { weekday: "short", day: "numeric", month: "short" });
+  };
   if (loading) return <div style={{ textAlign: "center", padding: 40, color: "var(--tx3)" }}>Cargando minutas...</div>;
   if (!keys.length) return <Alerta icon="ℹ️" text="No hay minutas aún." color="var(--blue)" />;
 
@@ -1506,8 +1519,23 @@ function TabMinutas() {
           const isCur = k === STORE_KEY, isSel = k === selKey;
           return (
             <div key={k} style={{ display: "flex", alignItems: "center" }}>
-              <button onClick={() => select(k)} style={{ background: isSel ? "var(--blue)" : "var(--bg2)", color: isSel ? "#fff" : "var(--tx2)", border: isSel ? "none" : "1px solid var(--bg4)", borderRadius: !isCur ? "8px 0 0 8px" : 8, padding: "5px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>{dateFmt(k)} {isCur && "(hoy)"}</button>
-              {!isCur && <button onClick={() => setConfirmDel(k)} style={{ background: isSel ? "var(--blue)" : "var(--bg2)", color: isSel ? "#fff" : "var(--tx3)", border: isSel ? "none" : "1px solid var(--bg4)", borderLeft: "none", borderRadius: "0 8px 8px 0", padding: "5px 6px", fontSize: 10, cursor: "pointer" }}>✕</button>}
+              {editingLabel === k ? (
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <input autoFocus value={labelDraft} onChange={e => setLabelDraft(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") saveLabel(k, labelDraft); if (e.key === "Escape") { setEditingLabel(null); } }}
+                    style={{ border: "2px solid var(--blue)", borderRadius: "8px 0 0 8px", padding: "4px 8px", fontSize: 12, fontFamily: "var(--sans)", outline: "none", width: 140 }} />
+                  <button onClick={() => saveLabel(k, labelDraft)} style={{ background: "var(--blue)", color: "#fff", border: "none", padding: "4px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✓</button>
+                  <button onClick={() => setEditingLabel(null)} style={{ background: "var(--bg3)", color: "var(--tx3)", border: "1px solid var(--bg4)", borderLeft: "none", borderRadius: "0 8px 8px 0", padding: "4px 6px", fontSize: 10, cursor: "pointer" }}>✕</button>
+                </div>
+              ) : (
+                <div style={{ display: "flex", alignItems: "center" }}>
+                  <button onClick={() => select(k)} style={{ background: isSel ? "var(--blue)" : "var(--bg2)", color: isSel ? "#fff" : "var(--tx2)", border: isSel ? "none" : "1px solid var(--bg4)", borderRadius: "8px 0 0 8px", padding: "5px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+                    {data?.label && selKey === k ? data.label : dateFmt(k)}{isCur && " (hoy)"}
+                  </button>
+                  {!isCur && <button onClick={() => { setEditingLabel(k); setLabelDraft(data?.label || dateFmt(k)); }} title="Renombrar" style={{ background: isSel ? "var(--blue)" : "var(--bg2)", color: isSel ? "rgba(255,255,255,.6)" : "var(--tx3)", border: isSel ? "none" : "1px solid var(--bg4)", borderLeft: "none", padding: "5px 5px", fontSize: 10, cursor: "pointer" }}>✏</button>}
+                  {!isCur && <button onClick={() => setConfirmDel(k)} style={{ background: isSel ? "var(--blue)" : "var(--bg2)", color: isSel ? "#fff" : "var(--tx3)", border: isSel ? "none" : "1px solid var(--bg4)", borderLeft: "none", borderRadius: "0 8px 8px 0", padding: "5px 6px", fontSize: 10, cursor: "pointer" }}>✕</button>}
+                </div>
+              )}
             </div>
           );
         })}
@@ -2700,6 +2728,7 @@ export default function App() {
   const [finished, setFinished] = useState(false);
   const [minutaDraft, setMinutaDraft] = useState("");
   const [minutaSaved, setMinutaSaved] = useState(false);
+  const [slackStatus, setSlackStatus] = useState(null); // null | "sending" | "ok" | "error"
   const [activeSquad, setActiveSquad] = useState(SQUADS[0].id);
   const [currentBlockIdx, setCurrentBlockIdx] = useState(0); // FIX: index-based block tracking
   const [blockTimes, setBlockTimes] = useState({});          // FIX: time per block
