@@ -527,10 +527,10 @@ const CSS = `
 :root{
   --bg:#FAFAFA;--bg2:#FFFFFF;--bg3:#F2F2F7;--bg4:#E5E5EA;
   --tx:#1D1D1F;--tx2:#3A3A3C;--tx3:#6E6E73;--border:#D1D1D6;
-  --red:#FF3B30;--green:#34C759;--yellow:#FF9F0A;--blue:#007AFF;--purple:#AF52DE;--cyan:#5AC8FA;
+  --red:#FF3B30;--green:#34C759;--yellow:#FF9F0A;--orange:#FF9500;--blue:#007AFF;--purple:#AF52DE;--cyan:#5AC8FA;--pink:#FF2D55;
   --shadow:0 1px 3px rgba(0,0,0,.06),0 2px 8px rgba(0,0,0,.04);
-  --mono:'JetBrains Mono',monospace;--sans:'Inter',-apple-system,sans-serif;
-  --r:14px;--r-sm:10px;--r-lg:18px;
+  --mono:'JetBrains Mono',monospace;--sans:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+  --r:14px;--r-sm:10px;--r-md:14px;--r-lg:18px;
 }
 body{background:var(--bg);font-family:var(--sans);color:var(--tx);-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.5}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
@@ -544,10 +544,13 @@ select{-webkit-appearance:auto}
 ::-webkit-scrollbar{width:5px}
 ::-webkit-scrollbar-thumb{background:var(--bg4);border-radius:3px}
 ::selection{background:rgba(0,122,255,.15)}
-.presenter-mode [style*="fontSize: 11"]{font-size:14px !important}
-.presenter-mode [style*="fontSize: 12"]{font-size:15px !important}
-.presenter-mode [style*="fontSize: 13"]{font-size:16px !important}
-.sticky-nav{position:sticky;top:0;z-index:90;background:var(--bg);border-bottom:1px solid var(--bg4);padding:0 20px;margin:0 -20px;}
+:root{--ps:1}
+.presenter-mode{--ps:1.25}
+.presenter-mode .fade *{font-size:calc(var(--font-size,13px)*var(--ps,1)) !important}
+/* Fallback selectores para texto inline — más específicos que el hack anterior */
+.presenter-mode [style]{transform-origin:top left}
+.presenter-mode .card-title{font-size:calc(14px * var(--ps)) !important}
+.sticky-nav{position:sticky;top:0;z-index:90;background:var(--bg);border-bottom:1px solid var(--bg4);padding:0 20px;margin:0 -20px;box-shadow:0 1px 0 var(--bg4),0 4px 12px rgba(0,0,0,.04);}
 
 @media print{body>div>*:not(#print-root){display:none!important}#print-root{display:block!important;position:static!important;background:#fff!important}#print-bar{display:none!important}}
 @keyframes spin{to{transform:rotate(360deg)}}
@@ -905,8 +908,8 @@ function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
           <span className="mobile-hide" style={{ fontSize: 10, color: squadColor, fontWeight: 600, background: squadColor + "15", borderRadius: 4, padding: "1px 6px", flexShrink: 0 }}>{squadShort}</span>
           {/* Detenidos */}
           {d.stopped > 0 && <span style={{ fontSize: 10, color: "var(--red)", fontWeight: 700, flexShrink: 0 }}>{d.stopped}🚫</span>}
-          {/* Barra de progreso */}
-          <div style={{ width: 60, height: 4, background: "var(--bg4)", borderRadius: 3, overflow: "hidden", flexShrink: 0 }}>
+          {/* Barra de progreso — relativa al máximo del equipo */}
+          <div title={`${d.total} de ${maxVal} (máximo del equipo)`} style={{ width: 60, height: 4, background: "var(--bg4)", borderRadius: 3, overflow: "hidden", flexShrink: 0, cursor: "help" }}>
             <div style={{ width: Math.min(pct * 100, 100) + "%", height: "100%", background: barColor, borderRadius: 3, transition: "width .4s ease" }} />
           </div>
           {/* Total + desglose proyectos/tareas */}
@@ -915,12 +918,12 @@ function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
             {(projects > 0 || tasks > 0) && (
               <div style={{ display: "flex", gap: 4, marginTop: 2 }}>
                 {projects > 0 && (
-                  <span style={{ fontSize: 9, fontWeight: 700, color: "var(--blue)", background: "rgba(0,122,255,.1)", borderRadius: 3, padding: "1px 4px", whiteSpace: "nowrap" }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "var(--blue)", background: "rgba(0,122,255,.1)", borderRadius: 3, padding: "1px 4px", whiteSpace: "nowrap" }}>
                     {projects}P
                   </span>
                 )}
                 {tasks > 0 && (
-                  <span style={{ fontSize: 9, fontWeight: 700, color: "var(--purple)", background: "rgba(175,82,222,.1)", borderRadius: 3, padding: "1px 4px", whiteSpace: "nowrap" }}>
+                  <span style={{ fontSize: 10, fontWeight: 700, color: "var(--purple)", background: "rgba(175,82,222,.1)", borderRadius: 3, padding: "1px 4px", whiteSpace: "nowrap" }}>
                     {tasks}T
                   </span>
                 )}
@@ -962,7 +965,7 @@ function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
   return (
     <div className="fade">
       {elapsed === 0 && (
-        <div style={{ textAlign: "center", padding: "32px 0 36px" }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "32px 0 36px" }}>
           <button onClick={onStart} style={{ background: "linear-gradient(135deg,#34C759,#30B350)", color: "#fff", border: "none", borderRadius: "var(--r-sm)", padding: "12px 36px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "var(--sans)", boxShadow: "0 2px 8px rgba(52,199,89,.25)" }}>
             ▶  Iniciar Weekly
           </button>
@@ -3044,7 +3047,7 @@ export default function App() {
             </h1>
             <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 6, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
               <span style={{ fontFamily: "var(--mono)", fontSize: 10 }}>{items.length} items</span>
-              {lastUpdate && <span style={{ fontSize: 10, opacity: 0.5 }}>· sync {new Date(lastUpdate).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}</span>}
+              {lastUpdate && <span style={{ fontSize: 11, color: "var(--tx3)" }}>· sync {new Date(lastUpdate).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}</span>}
               {err && <span style={{ fontSize: 10, color: "var(--yellow)" }}>· {err}</span>}
               <button onClick={refresh} disabled={refreshing} style={{ background: "var(--bg2)", color: refreshing ? "var(--yellow)" : "var(--tx3)", border: "1px solid var(--bg4)", borderRadius: "var(--r-sm)", padding: "3px 10px", fontSize: 10, fontWeight: 500, cursor: refreshing ? "default" : "pointer", display: "flex", alignItems: "center", gap: 4 }}>
                 <span style={{ display: "inline-block", animation: refreshing ? "spin 1s linear infinite" : "none" }}>↻</span>
@@ -3074,15 +3077,15 @@ export default function App() {
           </div>
           <div style={{ display: "flex", gap: 4 }}>
             {[
-              { l: "BKL", tooltip: "Backlog — importantes pero no urgentes, sin trabajo activo", v: an.byPhase["⏳Backlog"] || 0, c: "var(--tx3)", ph: "⏳Backlog", its: items.filter(it => it.column_values?.color_mkz09na === "⏳Backlog") },
-              { l: "SPR", tooltip: "Sprint — en ejecución activa ahora mismo", v: an.byPhase["🚧 Sprint"] || 0, c: "var(--yellow)", ph: "🚧 Sprint", its: items.filter(it => it.column_values?.color_mkz09na === "🚧 Sprint") },
-              { l: "REV", tooltip: "Review — en revisión o aprobación", v: an.byPhase["👀 Review"] || 0, c: "var(--cyan)", ph: "👀 Review", its: items.filter(it => it.column_values?.color_mkz09na === "👀 Review") },
-              { l: "DET", tooltip: "Detenidos — bloqueados, requieren acción", v: an.byPhase["🚫 Detenido"] || 0, c: "var(--red)", ph: "🚫 Detenido", its: items.filter(it => it.column_values?.color_mkz09na === "🚫 Detenido") },
-              { l: "VEN", tooltip: "Vencidos — cronograma expirado sin completar", v: (an.overdue || []).length, c: "var(--red)", ph: "⏰ Vencidos", its: an.overdue || [] },
+              { l: "BKL", tooltip: "Backlog — importantes pero no urgentes, sin trabajo activo", v: an.byPhase["⏳Backlog"] || 0, c: "var(--tx3)", bg: "transparent", border: "var(--bg4)", ph: "⏳Backlog", its: items.filter(it => it.column_values?.color_mkz09na === "⏳Backlog") },
+              { l: "SPR", tooltip: "Sprint — en ejecución activa ahora mismo", v: an.byPhase["🚧 Sprint"] || 0, c: "var(--yellow)", bg: "rgba(245,158,11,.06)", border: "rgba(245,158,11,.25)", ph: "🚧 Sprint", its: items.filter(it => it.column_values?.color_mkz09na === "🚧 Sprint") },
+              { l: "REV", tooltip: "Review — en revisión o aprobación", v: an.byPhase["👀 Review"] || 0, c: "var(--cyan)", bg: "rgba(90,200,250,.06)", border: "rgba(90,200,250,.25)", ph: "👀 Review", its: items.filter(it => it.column_values?.color_mkz09na === "👀 Review") },
+              { l: "DET", tooltip: "Detenidos — bloqueados, requieren acción", v: an.byPhase["🚫 Detenido"] || 0, c: "var(--orange)", bg: "rgba(255,149,0,.08)", border: "rgba(255,149,0,.3)", ph: "🚫 Detenido", its: items.filter(it => it.column_values?.color_mkz09na === "🚫 Detenido") },
+              { l: "VEN", tooltip: "Vencidos — cronograma expirado sin completar", v: (an.overdue || []).length, c: "var(--red)", bg: "rgba(255,59,48,.08)", border: "rgba(255,59,48,.3)", ph: "⏰ Vencidos", its: an.overdue || [] },
             ].map((s) => (
-              <div key={s.l} onClick={() => setPhaseModal({ phase: s.ph, items: s.its })} title={s.tooltip} style={{ background: "var(--bg)", border: "1px solid var(--bg4)", borderRadius: "var(--r-sm)", padding: "5px 8px", textAlign: "center", minWidth: 40, cursor: "pointer", transition: "all .15s" }}
+              <div key={s.l} onClick={() => setPhaseModal({ phase: s.ph, items: s.its })} title={s.tooltip} style={{ background: s.bg || "var(--bg)", border: `1px solid ${s.border || "var(--bg4)"}`, borderRadius: "var(--r-sm)", padding: "5px 8px", textAlign: "center", minWidth: 40, cursor: "pointer", transition: "all .15s" }}
                 onMouseEnter={e => e.currentTarget.style.background = "var(--bg3)"}
-                onMouseLeave={e => e.currentTarget.style.background = "var(--bg)"}>
+                onMouseLeave={e => e.currentTarget.style.background = s.bg || "var(--bg)"}>
                 <div style={{ fontFamily: "var(--mono)", fontSize: 16, fontWeight: 700, color: s.c, letterSpacing: "-0.04em" }}>{s.v}</div>
                 <div style={{ fontSize: 8, color: "var(--tx3)", fontWeight: 600, letterSpacing: "0.1em" }}>{s.l}</div>
               </div>
@@ -3151,7 +3154,7 @@ export default function App() {
             </div>
           ) : (
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 10, color: "var(--tx3)", opacity: 0.4, fontFamily: "var(--mono)" }}>v7.9 · mkt corp upax</span>
+              <span style={{ fontSize: 11, color: "var(--tx2)", opacity: 0.5, fontFamily: "var(--mono)" }}>v7.9 · mkt corp upax</span>
               <button onClick={() => setConfirmReset(true)} title="Limpiar focos, compromisos y presentadores de la sesión actual" style={{ background: "transparent", color: "var(--red)", border: "1px solid rgba(255,59,48,.2)", borderRadius: "var(--r-sm)", padding: "3px 10px", fontSize: 10, cursor: "pointer", opacity: 0.5 }}>🗑 Reset sesión</button>
             </div>
           )}
