@@ -2586,19 +2586,25 @@ export default function App() {
       if (isActive(ph) && pr) pr.split(", ").forEach((p) => { if (!byPerson[p]) byPerson[p] = { items: 0, subitems: 0, total: 0 }; byPerson[p].items++; byPerson[p].total++; });
 
       if (isActive(ph)) {
-        (it.subitems || []).forEach((sub) => {
-          const sp = sub.column_values?.person, subPhase = sub.column_values?.color_mkzjvp66, subTimeline = sub.column_values?.timerange_mkzx7r55;
-          if (!sp || subPhase === "✅ Done") return;
-          if (subTimeline && overlapsThisWeek(subTimeline)) {
+        const hasSubs = (it.subitems || []).length > 0;
+        if (hasSubs) {
+          (it.subitems || []).forEach((sub) => {
+            const sp = sub.column_values?.person;
+            const subPhase = sub.column_values?.color_mkzjvp66;
+            const subTimeline = sub.column_values?.timerange_mkzx7r55;
+            if (!sp || subPhase === "✅ Done") return;
+            // Si subitem tiene cronograma propio, usar ese; si no, heredar del padre
+            const subThisWeek = subTimeline ? overlapsThisWeek(subTimeline) : isThisWeek;
+            if (!subThisWeek) return;
             sp.split(", ").forEach((p) => {
               const n = normalizePersonName(p); if (!isTeamMember(n)) return;
               if (!byPersonWeek[n]) byPersonWeek[n] = { items: 0, stopped: 0, total: 0 };
               if (subPhase === "🚫 Detenido") byPersonWeek[n].stopped++; else byPersonWeek[n].items++;
               byPersonWeek[n].total++;
             });
-          }
-        });
-        if ((it.subitems || []).length === 0 && isThisWeek && pr) {
+          });
+        } else if (isThisWeek && pr) {
+          // Item sin subitems — usar responsable del item padre
           pr.split(", ").forEach((p) => {
             const n = normalizePersonName(p); if (!isTeamMember(n)) return;
             if (!byPersonWeek[n]) byPersonWeek[n] = { items: 0, stopped: 0, total: 0 };
