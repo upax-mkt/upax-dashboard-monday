@@ -4,6 +4,8 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 
 /* ═══════════════════════════════════════════════════════════════
    SECTION 1: CONSTANTS
+   TODO: migrar BOARD_ID, GROUP_*, PERSONAS y SQUADS a Vercel KV
+   para evitar redeploy al cambiar estructura del equipo
    ═══════════════════════════════════════════════════════════════ */
 
 const BOARD_ID = 18044324200;
@@ -1570,7 +1572,9 @@ function TabFocos({ items, wd, setWd, save, activeSquad, setActiveSquad }) {
 
   const draftRef = useRef(updateDraft);
   draftRef.current = updateDraft;
-  const stableDraft = useMemo(() => draft, [JSON.stringify(draft)]);
+  // Eliminado anti-patrón: useMemo con JSON.stringify como dep
+  // JSON.stringify en cada render es más costoso que sin memo
+  const stableDraft = draft;
 
   return (
     <div className="fade">
@@ -2779,7 +2783,12 @@ export default function App() {
   useEffect(() => {
     if (running) {
       if (!blockStartRef.current) blockStartRef.current = Date.now();
-      intRef.current = setInterval(() => setElapsed(elRef.current + Math.floor((Date.now() - startRef.current) / 1000)), 200);
+      // Actualizar elapsed cada 1 segundo en lugar de 200ms
+      // Reduce re-renders de 5/seg a 1/seg (80% menos carga en CPU)
+      intRef.current = setInterval(() => {
+        const newElapsed = elRef.current + Math.floor((Date.now() - startRef.current) / 1000);
+        setElapsed(newElapsed);
+      }, 1000);
     }
     return () => clearInterval(intRef.current);
   }, [running]);
