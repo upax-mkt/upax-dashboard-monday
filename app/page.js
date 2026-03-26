@@ -2884,29 +2884,41 @@ export default function App() {
       if (isActive(ph) && pr) pr.split(", ").forEach((p) => { if (!byPerson[p]) byPerson[p] = { items: 0, subitems: 0, total: 0 }; byPerson[p].items++; byPerson[p].total++; });
 
       if (isActive(ph)) {
-        const hasSubs = (it.subitems || []).length > 0;
-        if (hasSubs) {
+        // CRITERIO CORRECTO: contar PROYECTOS (items padre), no subitems individuales
+        // Un proyecto cuenta para esta semana si:
+        //   - Cronograma del padre traslapa esta semana, O
+        //   - No tiene Cronograma pero tiene Deadline esta semana
+        const deadline = it.column_values?.date_mm1b10rx;
+        const deadlineThisWeek = deadline ? overlapsThisWeek(`${deadline} - ${deadline}`) : false;
+        const projectThisWeek = isThisWeek || (!timeline && deadlineThisWeek);
+
+        if (projectThisWeek) {
+          // Recopilar TODAS las personas tocando este proyecto (padre + subitems activos)
+          // pero contar el proyecto UNA SOLA VEZ por persona — no por subitem
+          const touchedBy = new Set();
+
+          // Responsable del item padre
+          if (pr) pr.split(", ").forEach((p) => {
+            const n = normalizePersonName(p);
+            if (isTeamMember(n)) touchedBy.add(n);
+          });
+
+          // Personas en subitems activos (no Done)
           (it.subitems || []).forEach((sub) => {
             const sp = sub.column_values?.person;
             const subPhase = sub.column_values?.color_mkzjvp66;
-            const subTimeline = sub.column_values?.timerange_mkzx7r55;
             if (!sp || subPhase === "✅ Done") return;
-            // Si subitem tiene cronograma propio, usar ese; si no, heredar del padre
-            const subThisWeek = subTimeline ? overlapsThisWeek(subTimeline) : isThisWeek;
-            if (!subThisWeek) return;
             sp.split(", ").forEach((p) => {
-              const n = normalizePersonName(p); if (!isTeamMember(n)) return;
-              if (!byPersonWeek[n]) byPersonWeek[n] = { items: 0, stopped: 0, total: 0 };
-              if (subPhase === "🚫 Detenido") byPersonWeek[n].stopped++; else byPersonWeek[n].items++;
-              byPersonWeek[n].total++;
+              const n = normalizePersonName(p);
+              if (isTeamMember(n)) touchedBy.add(n);
             });
           });
-        } else if (isThisWeek && pr) {
-          // Item sin subitems — usar responsable del item padre
-          pr.split(", ").forEach((p) => {
-            const n = normalizePersonName(p); if (!isTeamMember(n)) return;
+
+          // Registrar 1 proyecto por persona — sin importar cuántos subitems tenga
+          touchedBy.forEach((n) => {
             if (!byPersonWeek[n]) byPersonWeek[n] = { items: 0, stopped: 0, total: 0 };
-            byPersonWeek[n].items++; byPersonWeek[n].total++;
+            byPersonWeek[n].items++;
+            byPersonWeek[n].total++;
           });
         }
       }
