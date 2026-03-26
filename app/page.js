@@ -148,14 +148,17 @@ function isOverdue(it) {
 function isActive(ph) { return ["🚧 Sprint", "👀 Review", "⚙️ Modificación"].includes(ph); }
 
 function getWeekBounds() {
+  // Semana ACTUAL (lunes al viernes de esta semana calendario)
+  // Alineado con Monday.com "esta semana"
   const now = new Date(TODAY_STR);
-  const day = now.getDay();
-  const nextMon = new Date(now);
-  if (day === 0) nextMon.setDate(now.getDate() + 1);
-  else if (day !== 1) nextMon.setDate(now.getDate() + (8 - day));
-  const fri = new Date(nextMon);
-  fri.setDate(nextMon.getDate() + 4);
-  return { start: nextMon, end: fri };
+  const day = now.getDay(); // 0=Dom, 1=Lun, 2=Mar...
+  const mon = new Date(now);
+  // Retroceder al lunes de esta semana
+  if (day === 0) mon.setDate(now.getDate() - 6); // Domingo → lunes anterior
+  else mon.setDate(now.getDate() - (day - 1));    // Lun=0, Mar=1, Mié=2...
+  const fri = new Date(mon);
+  fri.setDate(mon.getDate() + 4);
+  return { start: mon, end: fri };
 }
 const WEEK = getWeekBounds();
 
