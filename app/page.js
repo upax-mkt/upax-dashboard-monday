@@ -1436,8 +1436,9 @@ function TabMinutas() {
   const [loading, setLoading] = useState(true);
   const [editing, setEditing] = useState(null);
   const [confirmDel, setConfirmDel] = useState(null);
-  const [editingLabel, setEditingLabel] = useState(null); // key de la minuta cuyo nombre se edita
+  const [editingLabel, setEditingLabel] = useState(null);
   const [labelDraft, setLabelDraft] = useState("");
+  const [labelsMap, setLabelsMap] = useState({}); // { [key]: customLabel } para todos los tabs
 
   useEffect(() => {
     (async () => {
@@ -1447,6 +1448,15 @@ function TabMinutas() {
       const mar23Key = "weekly:2026-03-23";
       const fullList = sorted.includes(mar23Key) ? sorted : [...sorted.filter((k) => k > mar23Key), mar23Key, ...sorted.filter((k) => k <= mar23Key && k !== mar23Key)];
       setKeys(fullList);
+
+      // Cargar labels de todas las minutas para mostrarlos en los tabs
+      const lmap = {};
+      for (const k of fullList) {
+        const d = await storeGet(k);
+        if (d?.label) lmap[k] = d.label;
+      }
+      setLabelsMap(lmap);
+
       const firstKey = fullList[0] || null;
       if (firstKey) {
         setSelKey(firstKey);
@@ -1465,9 +1475,11 @@ function TabMinutas() {
   }
   async function remove(k) { await storeDel(k); setKeys((prev) => prev.filter((x) => x !== k)); if (selKey === k) { setSelKey(null); setData(null); } setConfirmDel(null); }
   async function saveLabel(k, label) {
+    const trimmed = label.trim();
     const d = await storeGet(k) || {};
-    await storeSet(k, { ...d, label: label.trim() });
-    if (selKey === k) setData((prev) => ({ ...(prev || {}), label: label.trim() }));
+    await storeSet(k, { ...d, label: trimmed });
+    if (selKey === k) setData((prev) => ({ ...(prev || {}), label: trimmed }));
+    setLabelsMap((prev) => ({ ...prev, [k]: trimmed }));
     setEditingLabel(null); setLabelDraft("");
   }
   async function saveText(text) { const upd = { ...data, minutaText: text }; await storeSet(selKey, upd); setData(upd); setEditing(null); }
@@ -1518,22 +1530,60 @@ function TabMinutas() {
         {keys.map((k) => {
           const isCur = k === STORE_KEY, isSel = k === selKey;
           return (
-            <div key={k} style={{ display: "flex", alignItems: "center" }}>
+            <div key={k} style={{ display: "flex", alignItems: "center", marginBottom: 4 }}>
               {editingLabel === k ? (
-                <div style={{ display: "flex", alignItems: "center" }}>
-                  <input autoFocus value={labelDraft} onChange={e => setLabelDraft(e.target.value)}
-                    onKeyDown={e => { if (e.key === "Enter") saveLabel(k, labelDraft); if (e.key === "Escape") { setEditingLabel(null); } }}
-                    style={{ border: "2px solid var(--blue)", borderRadius: "8px 0 0 8px", padding: "4px 8px", fontSize: 12, fontFamily: "var(--sans)", outline: "none", width: 140 }} />
-                  <button onClick={() => saveLabel(k, labelDraft)} style={{ background: "var(--blue)", color: "#fff", border: "none", padding: "4px 8px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>✓</button>
-                  <button onClick={() => setEditingLabel(null)} style={{ background: "var(--bg3)", color: "var(--tx3)", border: "1px solid var(--bg4)", borderLeft: "none", borderRadius: "0 8px 8px 0", padding: "4px 6px", fontSize: 10, cursor: "pointer" }}>✕</button>
+                // Modo edición de nombre
+                <div style={{ display: "flex", alignItems: "center", boxShadow: "var(--shadow)" }}>
+                  <input autoFocus value={labelDraft}
+                    onChange={e => setLabelDraft(e.target.value)}
+                    onKeyDown={e => { if (e.key === "Enter") saveLabel(k, labelDraft); if (e.key === "Escape") setEditingLabel(null); }}
+                    placeholder={dateFmt(k)}
+                    style={{ border: "2px solid var(--blue)", borderRadius: "8px 0 0 8px", padding: "6px 10px", fontSize: 12, fontFamily: "var(--sans)", outline: "none", width: 160, background: "var(--bg2)", color: "var(--tx)" }} />
+                  <button onClick={() => saveLabel(k, labelDraft)}
+                    style={{ background: "var(--blue)", color: "#fff", border: "none", padding: "6px 10px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>✓</button>
+                  <button onClick={() => setEditingLabel(null)}
+                    style={{ background: "var(--bg3)", color: "var(--tx3)", border: "1px solid var(--bg4)", borderLeft: "none", borderRadius: "0 8px 8px 0", padding: "6px 8px", fontSize: 11, cursor: "pointer" }}>✕</button>
                 </div>
               ) : (
-                <div style={{ display: "flex", alignItems: "center" }}>
-                  <button onClick={() => select(k)} style={{ background: isSel ? "var(--blue)" : "var(--bg2)", color: isSel ? "#fff" : "var(--tx2)", border: isSel ? "none" : "1px solid var(--bg4)", borderRadius: "8px 0 0 8px", padding: "5px 12px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
-                    {data?.label && selKey === k ? data.label : dateFmt(k)}{isCur && " (hoy)"}
+                // Modo lectura — tab + botones visibles
+                <div style={{ display: "flex", alignItems: "center", boxShadow: "var(--shadow)", borderRadius: 8 }}>
+                  {/* Tab principal */}
+                  <button onClick={() => select(k)} style={{
+                    background: isSel ? "var(--blue)" : "var(--bg2)",
+                    color: isSel ? "#fff" : "var(--tx2)",
+                    border: isSel ? "none" : "1px solid var(--bg4)",
+                    borderRadius: !isCur ? "8px 0 0 8px" : "8px",
+                    padding: "6px 14px", fontSize: 12, fontWeight: isSel ? 700 : 500, cursor: "pointer",
+                    maxWidth: 160, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
+                  }}>
+                    {labelsMap[k] || dateFmt(k)}{isCur && " · hoy"}
                   </button>
-                  {!isCur && <button onClick={() => { setEditingLabel(k); setLabelDraft(data?.label || dateFmt(k)); }} title="Renombrar" style={{ background: isSel ? "var(--blue)" : "var(--bg2)", color: isSel ? "rgba(255,255,255,.6)" : "var(--tx3)", border: isSel ? "none" : "1px solid var(--bg4)", borderLeft: "none", padding: "5px 5px", fontSize: 10, cursor: "pointer" }}>✏</button>}
-                  {!isCur && <button onClick={() => setConfirmDel(k)} style={{ background: isSel ? "var(--blue)" : "var(--bg2)", color: isSel ? "#fff" : "var(--tx3)", border: isSel ? "none" : "1px solid var(--bg4)", borderLeft: "none", borderRadius: "0 8px 8px 0", padding: "5px 6px", fontSize: 10, cursor: "pointer" }}>✕</button>}
+                  {/* Botones de acción — solo en minutas históricas (no hoy) */}
+                  {!isCur && (
+                    <>
+                      <button
+                        onClick={() => { setEditingLabel(k); setLabelDraft(labelsMap[k] || dateFmt(k)); }}
+                        title="Renombrar"
+                        style={{
+                          background: isSel ? "rgba(255,255,255,.15)" : "var(--bg3)",
+                          color: isSel ? "#fff" : "var(--tx2)",
+                          border: isSel ? "none" : "1px solid var(--bg4)",
+                          borderLeft: "none", padding: "6px 8px", fontSize: 11, cursor: "pointer",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                        }}>✏️</button>
+                      <button
+                        onClick={() => setConfirmDel(k)}
+                        title="Eliminar minuta"
+                        style={{
+                          background: isSel ? "rgba(255,59,48,.3)" : "var(--bg3)",
+                          color: isSel ? "#fff" : "var(--red)",
+                          border: isSel ? "none" : "1px solid var(--bg4)",
+                          borderLeft: "none", borderRadius: "0 8px 8px 0",
+                          padding: "6px 8px", fontSize: 11, cursor: "pointer",
+                          display: "flex", alignItems: "center", justifyContent: "center",
+                        }}>🗑</button>
+                    </>
+                  )}
                 </div>
               )}
             </div>
