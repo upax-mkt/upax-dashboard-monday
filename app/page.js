@@ -3139,7 +3139,13 @@ export default function App() {
             <textarea value={minutaDraft} onChange={(e) => { setMinutaDraft(e.target.value); setMinutaSaved(false); }} style={{ width: "100%", minHeight: 280, background: "var(--bg2)", color: "var(--tx)", border: "1px solid var(--bg4)", padding: 16, fontSize: 12, fontFamily: "var(--mono)", resize: "vertical", outline: "none", lineHeight: 1.7 }} />
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
               <button onClick={() => setMinutaDraft(generateMinuta(wd, an, appGddData, blockTimes))} style={{ background: "transparent", color: "var(--tx3)", border: "1px solid var(--bg4)", padding: "4px 12px", fontSize: 10, cursor: "pointer", fontFamily: "var(--mono)" }}>↻ Regenerar</button>
-              <span style={{ fontSize: 10, color: "var(--tx3)", fontFamily: "var(--mono)" }}>{minutaDraft.length} chars</span>
+              <span style={{ fontSize: 10, color: "var(--tx3)", fontFamily: "var(--mono)" }}>{minutaDraft.length} chars · Edita antes de guardar</span>
+              {slackStatus && (
+                <span style={{ fontSize: 11, fontWeight: 600, fontFamily: "var(--mono)",
+                  color: slackStatus === "ok" ? "var(--green)" : slackStatus === "error" ? "var(--red)" : "var(--yellow)" }}>
+                  {slackStatus === "sending" ? "⏳ Enviando a Slack..." : slackStatus === "ok" ? "✅ Enviado a #general" : "⚠️ Sin token Slack — copiado al portapapeles"}
+                </span>
+              )}
             </div>
           </Card>
         )}
@@ -3177,8 +3183,16 @@ export default function App() {
         <div style={{ marginTop: 32, padding: "12px 0", borderTop: "1px solid var(--bg4)" }}>
           {confirmReset ? (
             <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "center" }}>
-              <span style={{ fontSize: 12, color: "var(--tx2)" }}>¿Limpiar focos, compromisos y presentadores?</span>
-              <button onClick={async () => { await storeDel(STORE_KEY); setWd(emptyWeekly()); setFinished(false); setMinutaDraft(""); setMinutaSaved(false); setElapsed(0); setCurrentBlockIdx(0); setBlockTimes({}); blockStartRef.current = null; setConfirmReset(false); }} style={{ background: "var(--red)", color: "#fff", border: "none", borderRadius: 8, padding: "5px 16px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Sí, limpiar</button>
+              <div style={{ flex: 1 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--tx)" }}>¿Resetear sesión de hoy?</div>
+                <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Borra focos, compromisos y presentadores. <strong>Las minutas históricas NO se eliminan.</strong></div>
+              </div>
+              <button onClick={async () => {
+                await storeDel(STORE_KEY); // solo borra hoy — weekly:YYYY-MM-DD anteriores se conservan
+                setWd(emptyWeekly()); setFinished(false); setMinutaDraft(""); setMinutaSaved(false);
+                setElapsed(0); elRef.current = 0; setCurrentBlockIdx(0); setBlockTimes({});
+                blockStartRef.current = null; setSlackStatus(null); setConfirmReset(false);
+              }} style={{ background: "var(--red)", color: "#fff", border: "none", borderRadius: 8, padding: "5px 16px", fontSize: 12, fontWeight: 600, cursor: "pointer", flexShrink: 0 }}>Sí, resetear</button>
               <button onClick={() => setConfirmReset(false)} style={{ background: "var(--bg3)", color: "var(--tx2)", border: "none", borderRadius: 8, padding: "5px 16px", fontSize: 12, cursor: "pointer" }}>Cancelar</button>
             </div>
           ) : (
