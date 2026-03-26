@@ -10,3 +10,5 @@ Dashboard semanal de marketing — Next.js + Monday.com API + Vercel.
 <!-- deploy: variables configuradas 26-mar-2026 -->
 
 <!-- deploy: SHEETS_GDD_CSV_URL configurado -->
+
+<!-- deploy: Upstash Redis conectado — storage permanente activado -->
