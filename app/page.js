@@ -881,10 +881,13 @@ function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
   // CargaRow — diseño responsive que funciona bien en mobile y desktop
   const CargaRow = ({ person, d, rank, maxVal, onClick, isExpanded }) => {
     const pct = maxVal > 0 ? d.total / maxVal : 0;
-    const barColor = d.total > 10 ? "var(--red)" : d.total > 6 ? "var(--yellow)" : "var(--green)";
+    // Umbral de carga: considerando que total = proyectos + tareas, ajustado
+    const barColor = d.total > 15 ? "var(--red)" : d.total > 8 ? "var(--yellow)" : "var(--green)";
     const sq = PERSONAS.find((p) => p.name === person);
     const squadData = SQUADS.find((s) => s.name === sq?.squad);
     const squadColor = squadData?.color || "var(--tx3)";
+    const projects = d.projects || 0;
+    const tasks = d.tasks || 0;
     const squadShort = squadData?.name?.split(" ")[0] || "";
     return (
       <div onClick={onClick} style={{ cursor: "pointer", borderBottom: "1px solid var(--bg3)", transition: "background .1s" }}
@@ -905,8 +908,24 @@ function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
           <div style={{ width: 60, height: 4, background: "var(--bg4)", borderRadius: 3, overflow: "hidden", flexShrink: 0 }}>
             <div style={{ width: Math.min(pct * 100, 100) + "%", height: "100%", background: barColor, borderRadius: 3, transition: "width .4s ease" }} />
           </div>
-          {/* Número */}
-          <span style={{ fontFamily: "var(--mono)", fontSize: 14, fontWeight: 800, color: barColor, minWidth: 24, textAlign: "right", flexShrink: 0 }}>{d.total}</span>
+          {/* Total + desglose proyectos/tareas */}
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0, minWidth: 60 }}>
+            <span style={{ fontFamily: "var(--mono)", fontSize: 14, fontWeight: 800, color: barColor, lineHeight: 1 }}>{d.total}</span>
+            {(projects > 0 || tasks > 0) && (
+              <div style={{ display: "flex", gap: 4, marginTop: 2 }}>
+                {projects > 0 && (
+                  <span style={{ fontSize: 9, fontWeight: 700, color: "var(--blue)", background: "rgba(0,122,255,.1)", borderRadius: 3, padding: "1px 4px", whiteSpace: "nowrap" }}>
+                    {projects}P
+                  </span>
+                )}
+                {tasks > 0 && (
+                  <span style={{ fontSize: 9, fontWeight: 700, color: "var(--purple)", background: "rgba(175,82,222,.1)", borderRadius: 3, padding: "1px 4px", whiteSpace: "nowrap" }}>
+                    {tasks}T
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
           {/* Chevron */}
           <span style={{ fontSize: 10, color: "var(--tx3)", transform: isExpanded ? "rotate(180deg)" : "none", transition: "transform .2s", flexShrink: 0 }}>▾</span>
         </div>
@@ -1110,7 +1129,15 @@ function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
       <Card style={{ marginBottom: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <div style={{ fontSize: 14, fontWeight: 700 }}>👥 Carga del Equipo <span style={{ fontSize: 11, fontWeight: 400, color: "var(--tx3)" }}>{WEEK.start.toLocaleDateString("es-MX", { day: "numeric", month: "short" })} – {WEEK.end.toLocaleDateString("es-MX", { day: "numeric", month: "short" })}</span></div>
-          <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
+          <div style={{ display: "flex", gap: 6, fontSize: 10, color: "var(--tx3)" }}>
+            <span style={{ color: "var(--blue)", fontWeight: 700, background: "rgba(0,122,255,.1)", borderRadius: 3, padding: "1px 5px" }}>P</span>
+            <span style={{ marginRight: 2 }}>= Proyectos</span>
+            <span style={{ color: "var(--purple)", fontWeight: 700, background: "rgba(175,82,222,.1)", borderRadius: 3, padding: "1px 5px" }}>T</span>
+            <span>= Tareas</span>
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
             <Chip label="Todos" active={cargaSquad === "all"} color="var(--tx2)" onClick={() => setCargaSquad("all")} />
             {SQUADS.map((sq) => <Chip key={sq.id} label={sq.name.split(" ")[0]} active={cargaSquad === sq.id} color={sq.color} onClick={() => setCargaSquad(sq.id)} />)}
           </div>
@@ -2893,32 +2920,31 @@ export default function App() {
         const projectThisWeek = isThisWeek || (!timeline && deadlineThisWeek);
 
         if (projectThisWeek) {
-          // Recopilar TODAS las personas tocando este proyecto (padre + subitems activos)
-          // pero contar el proyecto UNA SOLA VEZ por persona — no por subitem
-          const touchedBy = new Set();
-
-          // Responsable del item padre
+          // PROYECTOS: responsable del item padre — contar 1 proyecto por persona
+          const projectOwners = new Set();
           if (pr) pr.split(", ").forEach((p) => {
             const n = normalizePersonName(p);
-            if (isTeamMember(n)) touchedBy.add(n);
+            if (isTeamMember(n)) projectOwners.add(n);
+          });
+          projectOwners.forEach((n) => {
+            if (!byPersonWeek[n]) byPersonWeek[n] = { projects: 0, tasks: 0, stopped: 0, total: 0 };
+            byPersonWeek[n].projects++;
+            byPersonWeek[n].total++;
           });
 
-          // Personas en subitems activos (no Done)
+          // TAREAS: subitems activos — contar cada subitem como 1 tarea por persona
+          // Una persona puede aparecer en múltiples subitems del mismo proyecto
           (it.subitems || []).forEach((sub) => {
             const sp = sub.column_values?.person;
             const subPhase = sub.column_values?.color_mkzjvp66;
             if (!sp || subPhase === "✅ Done") return;
             sp.split(", ").forEach((p) => {
               const n = normalizePersonName(p);
-              if (isTeamMember(n)) touchedBy.add(n);
+              if (!isTeamMember(n)) return;
+              if (!byPersonWeek[n]) byPersonWeek[n] = { projects: 0, tasks: 0, stopped: 0, total: 0 };
+              byPersonWeek[n].tasks++;
+              byPersonWeek[n].total++;
             });
-          });
-
-          // Registrar 1 proyecto por persona — sin importar cuántos subitems tenga
-          touchedBy.forEach((n) => {
-            if (!byPersonWeek[n]) byPersonWeek[n] = { items: 0, stopped: 0, total: 0 };
-            byPersonWeek[n].items++;
-            byPersonWeek[n].total++;
           });
         }
       }
