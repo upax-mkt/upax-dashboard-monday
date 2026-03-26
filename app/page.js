@@ -857,7 +857,7 @@ function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
     <div className="fade">
       {elapsed === 0 && (
         <div style={{ textAlign: "center", padding: "32px 0 36px" }}>
-          <button onClick={onStart} style={{ background: "linear-gradient(135deg,#34C759,#30B350)", color: "#fff", border: "none", borderRadius: 50, padding: "18px 56px", fontSize: 17, fontWeight: 700, cursor: "pointer", fontFamily: "var(--sans)", boxShadow: "0 4px 16px rgba(52,199,89,.35)", animation: "glowPulse 2s ease infinite" }}>
+          <button onClick={onStart} style={{ background: "linear-gradient(135deg,#34C759,#30B350)", color: "#fff", border: "none", borderRadius: "var(--r-sm)", padding: "12px 36px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "var(--sans)", boxShadow: "0 2px 8px rgba(52,199,89,.25)" }}>
             ▶  Iniciar Weekly
           </button>
           <div style={{ fontSize: 14, color: "var(--tx3)", marginTop: 14 }}>{TODAY.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</div>
@@ -2893,7 +2893,10 @@ export default function App() {
               <span style={{ fontFamily: "var(--mono)", fontSize: 10 }}>{items.length} items</span>
               {lastUpdate && <span style={{ fontSize: 10, opacity: 0.5 }}>· sync {new Date(lastUpdate).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}</span>}
               {err && <span style={{ fontSize: 10, color: "var(--yellow)" }}>· {err}</span>}
-              <button onClick={refresh} disabled={refreshing} style={{ background: "var(--bg2)", color: refreshing ? "var(--yellow)" : "var(--tx3)", border: "1px solid var(--bg4)", borderRadius: "var(--r-sm)", padding: "3px 10px", fontSize: 10, fontWeight: 500, cursor: refreshing ? "default" : "pointer" }}>{refreshing ? "⏳" : "↻"} Sync</button>
+              <button onClick={refresh} disabled={refreshing} style={{ background: "var(--bg2)", color: refreshing ? "var(--yellow)" : "var(--tx3)", border: "1px solid var(--bg4)", borderRadius: "var(--r-sm)", padding: "3px 10px", fontSize: 10, fontWeight: 500, cursor: refreshing ? "default" : "pointer", display: "flex", alignItems: "center", gap: 4 }}>
+                <span style={{ display: "inline-block", animation: refreshing ? "spin 1s linear infinite" : "none" }}>↻</span>
+                <span>{refreshing ? "Sincronizando..." : "Sync"}</span>
+              </button>
               <button onClick={async () => {
                 setErr("Verificando conexión...");
                 try {
