@@ -728,7 +728,7 @@ function SquadInputSection({ label, icon, field, placeholder, rows, draft, updat
    FIX: currentBlockIdx syncs with elapsed time
    ═══════════════════════════════════════════════════════════════ */
 
-function TimerZone({ elapsed, running, onStart, onPause, onNext, onPrev, onFinish, block, wd, blockTimes, currentIdx }) {
+const TimerZone = React.memo(function TimerZone({ elapsed, running, onStart, onPause, onNext, onPrev, onFinish, block, wd, blockTimes, currentIdx }) {
   const mm = Math.floor(elapsed / 60), ss = elapsed % 60;
   const eMin = elapsed / 60, overtime = eMin >= 60;
   const rem = Math.max(0, block.dur - (eMin - block.start));
@@ -772,8 +772,7 @@ function TimerZone({ elapsed, running, onStart, onPause, onNext, onPrev, onFinis
       </div>
     </div>
   );
-}
-
+});
 /* ═══════════════════════════════════════════════════════════════
    SECTION 9: TAB HOME
    ═══════════════════════════════════════════════════════════════ */
