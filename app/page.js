@@ -547,7 +547,15 @@ select{-webkit-appearance:auto}
 .presenter-mode [style*="fontSize: 13"]{font-size:16px !important}
 .sticky-nav{position:sticky;top:0;z-index:90;background:var(--bg);border-bottom:1px solid var(--bg4);padding:0 20px;margin:0 -20px;}
 
-@media print{body>div>*:not(#print-root){display:none!important}#print-root{display:block!important;position:static!important;background:#fff!important}#print-bar{display:none!important}}`;
+@media print{body>div>*:not(#print-root){display:none!important}#print-root{display:block!important;position:static!important;background:#fff!important}#print-bar{display:none!important}}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media(max-width:640px){
+  .sticky-nav button{padding:8px 10px;font-size:11px}
+  .sticky-nav{overflow-x:auto;-webkit-overflow-scrolling:touch}
+}
+button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+select:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+input:focus-visible{outline:2px solid var(--blue);outline-offset:2px}`;
 
 /* ═══════════════════════════════════════════════════════════════
    SECTION 7: SHARED UI COMPONENTS
@@ -1150,7 +1158,13 @@ function TabAgenda({ wd, setWd, save, currentIdx, blockTimes, onJumpToBlock }) {
    ═══════════════════════════════════════════════════════════════ */
 
 function TabPanorama({ analysis: an, items }) {
-  const [sec, setSec] = useState("kanban");
+  const [sec, setSec] = useState(() => {
+    try { return sessionStorage.getItem("panorama-tab") || "kanban"; } catch { return "kanban"; }
+  });
+  const setSecPersist = (s) => {
+    setSec(s);
+    try { sessionStorage.setItem("panorama-tab", s); } catch {}
+  };
   const [expandedPerson, setExpandedPerson] = useState(null);
 
   const PanoramaPersonRow = ({ p, d, rank }) => {
@@ -1175,7 +1189,7 @@ function TabPanorama({ analysis: an, items }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <h2 style={{ fontSize: 16, fontWeight: 700 }}>Panorama Semanal</h2>
         <div style={{ display: "flex", gap: 3 }}>
-          {["kanban", "squads", "carga", "alertas"].map((s) => <Chip key={s} label={s.charAt(0).toUpperCase() + s.slice(1)} active={sec === s} color="var(--purple)" onClick={() => setSec(s)} />)}
+          {["kanban", "squads", "carga", "alertas"].map((s) => <Chip key={s} label={s.charAt(0).toUpperCase() + s.slice(1)} active={sec === s} color="var(--purple)" onClick={() => setSecPersist(s)} />)}
         </div>
       </div>
 
@@ -2881,7 +2895,7 @@ export default function App() {
               {err && <span style={{ fontSize: 10, color: "var(--yellow)" }}>· {err}</span>}
               <button onClick={refresh} disabled={refreshing} style={{ background: "var(--bg2)", color: refreshing ? "var(--yellow)" : "var(--tx3)", border: "1px solid var(--bg4)", borderRadius: "var(--r-sm)", padding: "3px 10px", fontSize: 10, fontWeight: 500, cursor: refreshing ? "default" : "pointer" }}>{refreshing ? "⏳" : "↻"} Sync</button>
               <button onClick={async () => {
-                setErr("Probando API...");
+                setErr("Verificando conexión...");
                 try {
                   const resp = await fetch("/api/monday", { cache: "no-store" });
                   const data = await resp.json();
@@ -2889,7 +2903,7 @@ export default function App() {
                 } catch(e) {
                   setErr("Error: " + e.message);
                 }
-              }} style={{ background: "var(--bg2)", color: "var(--purple)", border: "1px solid var(--bg4)", borderRadius: "var(--r-sm)", padding: "3px 10px", fontSize: 10, fontWeight: 500, cursor: "pointer" }}>🔍 Test</button>
+              }} title="Verificar conexión con Monday.com" style={{ background: "var(--bg2)", color: "var(--tx3)", border: "1px solid var(--bg4)", borderRadius: "var(--r-sm)", padding: "3px 10px", fontSize: 10, fontWeight: 500, cursor: "pointer" }}>🔍</button>
 
               <button onClick={() => {
                 if (!document.fullscreenElement) {
@@ -2904,13 +2918,13 @@ export default function App() {
           </div>
           <div style={{ display: "flex", gap: 4 }}>
             {[
-              { l: "BKL", v: an.byPhase["⏳Backlog"] || 0, c: "var(--tx3)", ph: "⏳Backlog", its: items.filter(it => it.column_values?.color_mkz09na === "⏳Backlog") },
-              { l: "SPR", v: an.byPhase["🚧 Sprint"] || 0, c: "var(--yellow)", ph: "🚧 Sprint", its: items.filter(it => it.column_values?.color_mkz09na === "🚧 Sprint") },
-              { l: "REV", v: an.byPhase["👀 Review"] || 0, c: "var(--cyan)", ph: "👀 Review", its: items.filter(it => it.column_values?.color_mkz09na === "👀 Review") },
-              { l: "DET", v: an.byPhase["🚫 Detenido"] || 0, c: "var(--red)", ph: "🚫 Detenido", its: items.filter(it => it.column_values?.color_mkz09na === "🚫 Detenido") },
-              { l: "VEN", v: (an.overdue || []).length, c: "var(--red)", ph: "⏰ Vencidos", its: an.overdue || [] },
+              { l: "BKL", tooltip: "Backlog — importantes pero no urgentes, sin trabajo activo", v: an.byPhase["⏳Backlog"] || 0, c: "var(--tx3)", ph: "⏳Backlog", its: items.filter(it => it.column_values?.color_mkz09na === "⏳Backlog") },
+              { l: "SPR", tooltip: "Sprint — en ejecución activa ahora mismo", v: an.byPhase["🚧 Sprint"] || 0, c: "var(--yellow)", ph: "🚧 Sprint", its: items.filter(it => it.column_values?.color_mkz09na === "🚧 Sprint") },
+              { l: "REV", tooltip: "Review — en revisión o aprobación", v: an.byPhase["👀 Review"] || 0, c: "var(--cyan)", ph: "👀 Review", its: items.filter(it => it.column_values?.color_mkz09na === "👀 Review") },
+              { l: "DET", tooltip: "Detenidos — bloqueados, requieren acción", v: an.byPhase["🚫 Detenido"] || 0, c: "var(--red)", ph: "🚫 Detenido", its: items.filter(it => it.column_values?.color_mkz09na === "🚫 Detenido") },
+              { l: "VEN", tooltip: "Vencidos — cronograma expirado sin completar", v: (an.overdue || []).length, c: "var(--red)", ph: "⏰ Vencidos", its: an.overdue || [] },
             ].map((s) => (
-              <div key={s.l} onClick={() => setPhaseModal({ phase: s.ph, items: s.its })} style={{ background: "var(--bg)", border: "1px solid var(--bg4)", borderRadius: "var(--r-sm)", padding: "5px 8px", textAlign: "center", minWidth: 40, cursor: "pointer", transition: "all .15s" }}
+              <div key={s.l} onClick={() => setPhaseModal({ phase: s.ph, items: s.its })} title={s.tooltip} style={{ background: "var(--bg)", border: "1px solid var(--bg4)", borderRadius: "var(--r-sm)", padding: "5px 8px", textAlign: "center", minWidth: 40, cursor: "pointer", transition: "all .15s" }}
                 onMouseEnter={e => e.currentTarget.style.background = "var(--bg3)"}
                 onMouseLeave={e => e.currentTarget.style.background = "var(--bg)"}>
                 <div style={{ fontFamily: "var(--mono)", fontSize: 16, fontWeight: 700, color: s.c, letterSpacing: "-0.04em" }}>{s.v}</div>
@@ -2982,7 +2996,7 @@ export default function App() {
           ) : (
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontSize: 10, color: "var(--tx3)", opacity: 0.4, fontFamily: "var(--mono)" }}>v7.9 · mkt corp upax</span>
-              <button onClick={() => setConfirmReset(true)} style={{ background: "transparent", color: "var(--tx3)", border: "none", fontSize: 11, cursor: "pointer", opacity: 0.4 }}>🗑 Reset</button>
+              <button onClick={() => setConfirmReset(true)} title="Limpiar focos, compromisos y presentadores de la sesión actual" style={{ background: "transparent", color: "var(--red)", border: "1px solid rgba(255,59,48,.2)", borderRadius: "var(--r-sm)", padding: "3px 10px", fontSize: 10, cursor: "pointer", opacity: 0.5 }}>🗑 Reset sesión</button>
             </div>
           )}
         </div>
