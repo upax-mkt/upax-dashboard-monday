@@ -8,3 +8,5 @@ Dashboard semanal de marketing — Next.js + Monday.com API + Vercel.
 - MONDAY_BOARD_ID = 18044324200
 
 <!-- deploy: variables configuradas 26-mar-2026 -->
+
+<!-- deploy: SHEETS_GDD_CSV_URL configurado -->
