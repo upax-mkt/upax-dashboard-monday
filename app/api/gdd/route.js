@@ -2,42 +2,18 @@ import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
-// URL del CSV publicado — se configura en Vercel como variable de entorno
-// SHEETS_GDD_CSV_URL = link del "Publicar en la web" de KPIs_Weekly
 const CSV_URL = process.env.SHEETS_GDD_CSV_URL
-
-// Fallback hardcoded (se muestra cuando la hoja no está disponible)
-// Estos datos son PLACEHOLDER — se reemplazan en cuanto César publique la hoja
-const FALLBACK = {
-  semana: { leads: 0, mqls: 0, sqls: 0, opps: 0, pipeline_mkt: 0, pipeline_com: 0 },
-  anterior: { leads: 0, mqls: 0, sqls: 0, opps: 0 },
-  mes: { leads: 0, mqls: 0, sqls: 0, opps: 0 },
-  ytd: { leads: 0, mqls: 0, sqls: 0, opps: 0 },
-  fechas: { semana_desde: null, semana_hasta: null, mes_label: null },
-  lastUpdate: null,
-  source: 'fallback',
-}
 
 function parseCSV(text) {
   const lines = text.trim().split('\n').filter(Boolean)
   if (lines.length < 2) return null
-
-  // Detectar separador: coma o punto y coma
   const sep = lines[0].includes(';') ? ';' : ','
-
-  // Limpiar comillas y espacios de cada celda
   const clean = (s) => (s || '').replace(/^["\s]+|["\s]+$/g, '').trim()
-
   const headers = lines[0].split(sep).map(clean).map(h => h.toLowerCase())
   const iMetrica = headers.indexOf('metrica')
   const iValor   = headers.indexOf('valor')
   const iPeriodo = headers.indexOf('periodo')
-
-  if (iMetrica === -1 || iValor === -1 || iPeriodo === -1) {
-    console.error('GDD CSV: columnas no encontradas. Headers:', headers)
-    return null
-  }
-
+  if (iMetrica === -1 || iValor === -1 || iPeriodo === -1) return null
   const rows = []
   for (let i = 1; i < lines.length; i++) {
     const cols = lines[i].split(sep).map(clean)
@@ -45,7 +21,7 @@ function parseCSV(text) {
     const valor   = cols[iValor]
     const periodo = cols[iPeriodo]?.toLowerCase()
     if (!metrica || !periodo) continue
-    rows.push({ metrica, valor: valor?.replace(/,/g, ''), periodo })
+    rows.push({ metrica, valor, periodo })
   }
   return rows
 }
@@ -61,91 +37,125 @@ function buildGdd(rows) {
     source: 'sheets',
   }
 
-  const num = (v) => parseFloat(String(v).replace(/[^0-9.-]/g, '')) || 0
+  // Parsear número — maneja "$102,938,206" o "1186" o "102938206"
+  const num = (v) => {
+    if (!v) return 0
+    const clean = String(v).replace(/[$,\s]/g, '')
+    return parseFloat(clean) || 0
+  }
+
+  // Normalizar periodo
+  const normPeriodo = (p) => p?.toLowerCase().replace(/\s+/g, '_') || ''
 
   for (const { metrica, valor, periodo } of rows) {
+    const p = normPeriodo(periodo)
+    const v = num(valor)
+
     // Semana actual
-    if (['semana_actual', 'semana_current', 'current_week', 'this_week'].includes(periodo)) {
-      if (['leads','mqls','sqls','opps'].includes(metrica)) gdd.semana[metrica] = num(valor)
-      if (metrica === 'pipeline_mkt')   gdd.semana.pipeline_mkt = num(valor)
-      if (metrica === 'pipeline_com')   gdd.semana.pipeline_com = num(valor)
-      if (metrica === 'pipeline_total') gdd.semana.pipeline_mkt = num(valor) // fallback si no están separados
+    if (p === 'semana_actual') {
+      if (metrica === 'leads_total')   gdd.semana.leads = v
+      if (metrica === 'mqls_total')    gdd.semana.mqls  = v
+      if (metrica === 'sqls_total')    gdd.semana.sqls  = v
+      if (metrica === 'opps_total')    gdd.semana.opps  = v
+      // Fallback si no hay _total
+      if (metrica === 'leads' && !gdd.semana.leads) gdd.semana.leads = v
+      if (metrica === 'mqls'  && !gdd.semana.mqls)  gdd.semana.mqls  = v
+      if (metrica === 'sqls'  && !gdd.semana.sqls)  gdd.semana.sqls  = v
+      if (metrica === 'opps'  && !gdd.semana.opps)  gdd.semana.opps  = v
+      // Fechas
+      if (metrica === 'fecha_desde') gdd.fechas.semana_desde = valor
+      if (metrica === 'fecha_hasta') gdd.fechas.semana_hasta = valor
     }
+
     // Semana anterior
-    if (['semana_anterior', 'previous_week', 'last_week', 'semana_prev'].includes(periodo)) {
-      if (['leads','mqls','sqls','opps'].includes(metrica)) gdd.anterior[metrica] = num(valor)
+    if (p === 'semana_anterior') {
+      if (metrica === 'leads_total')   gdd.anterior.leads = v
+      if (metrica === 'mqls_total')    gdd.anterior.mqls  = v
+      if (metrica === 'sqls_total')    gdd.anterior.sqls  = v
+      if (metrica === 'opps_total')    gdd.anterior.opps  = v
+      if (metrica === 'leads' && !gdd.anterior.leads) gdd.anterior.leads = v
+      if (metrica === 'mqls'  && !gdd.anterior.mqls)  gdd.anterior.mqls  = v
+      if (metrica === 'sqls'  && !gdd.anterior.sqls)  gdd.anterior.sqls  = v
+      if (metrica === 'opps'  && !gdd.anterior.opps)  gdd.anterior.opps  = v
     }
-    // Mes actual / acumulado mes
-    if (['mes_actual', 'mes', 'month', 'acumulado_mes', 'mtd', 'mes_corriente'].includes(periodo)) {
-      if (['leads','mqls','sqls','opps'].includes(metrica)) gdd.mes[metrica] = num(valor)
+
+    // YTD — maneja "YTD" y "ytd"
+    if (p === 'ytd') {
+      if (metrica === 'leads_total')   gdd.ytd.leads = v
+      if (metrica === 'mqls_total')    gdd.ytd.mqls  = v
+      if (metrica === 'sqls_total')    gdd.ytd.sqls  = v
+      if (metrica === 'opps_total')    gdd.ytd.opps  = v
+      if (metrica === 'leads' && !gdd.ytd.leads) gdd.ytd.leads = v
+      if (metrica === 'mqls'  && !gdd.ytd.mqls)  gdd.ytd.mqls  = v
+      if (metrica === 'sqls'  && !gdd.ytd.sqls)  gdd.ytd.sqls  = v
+      if (metrica === 'opps'  && !gdd.ytd.opps)  gdd.ytd.opps  = v
     }
-    // YTD
-    if (['ytd', 'year_to_date', 'acumulado_anio', 'acumulado'].includes(periodo)) {
-      if (['leads','mqls','sqls','opps'].includes(metrica)) gdd.ytd[metrica] = num(valor)
+
+    // Mes actual (cuando César lo agregue)
+    if (['mes_actual', 'mes', 'mtd', 'acumulado_mes'].includes(p)) {
+      if (metrica === 'leads_total' || metrica === 'leads') gdd.mes.leads = v
+      if (metrica === 'mqls_total'  || metrica === 'mqls')  gdd.mes.mqls  = v
+      if (metrica === 'sqls_total'  || metrica === 'sqls')  gdd.mes.sqls  = v
+      if (metrica === 'opps_total'  || metrica === 'opps')  gdd.mes.opps  = v
     }
-    // Pipeline activo (puede tener periodo propio)
-    if (['actual', 'pipeline_actual', 'active', 'pipeline'].includes(periodo)) {
-      if (metrica === 'pipeline_mkt')   gdd.semana.pipeline_mkt = num(valor)
-      if (metrica === 'pipeline_com')   gdd.semana.pipeline_com = num(valor)
-      if (metrica === 'pipeline_total') {
-        // Si solo hay total, dividir en mkt=60% y com=40% como estimado
-        // o dejar todo en pipeline_mkt hasta que César los separe
-        gdd.semana.pipeline_mkt = num(valor)
-        gdd.semana.pipeline_com = 0
+
+    // Pipeline activo — usa _valor para pesos
+    if (p === 'actual') {
+      if (metrica === 'pipeline_mkt_valor')   gdd.semana.pipeline_mkt = v
+      if (metrica === 'pipeline_com_valor')   gdd.semana.pipeline_com = v
+      if (metrica === 'pipeline_total_valor') {
+        // Si no hay mkt/com separados, usar total
+        if (!gdd.semana.pipeline_mkt && !gdd.semana.pipeline_com) {
+          gdd.semana.pipeline_mkt = v
+        }
       }
+      // Fallback sin _valor
+      if (metrica === 'pipeline_mkt' && !gdd.semana.pipeline_mkt)   gdd.semana.pipeline_mkt = v
+      if (metrica === 'pipeline_com' && !gdd.semana.pipeline_com)   gdd.semana.pipeline_com = v
     }
-    // Fechas
-    if (metrica === 'fecha_desde' && ['semana_actual', 'semana_current'].includes(periodo))
-      gdd.fechas.semana_desde = valor
-    if (metrica === 'fecha_hasta' && ['semana_actual', 'semana_current'].includes(periodo))
-      gdd.fechas.semana_hasta = valor
-    if (metrica === 'mes_label' || (metrica === 'fecha_mes' && periodo === 'mes_actual'))
-      gdd.fechas.mes_label = valor
   }
 
   return gdd
 }
 
 export async function GET() {
-  // Si no hay URL configurada, devolver fallback con mensaje claro
   if (!CSV_URL) {
     return NextResponse.json({
-      ...FALLBACK,
-      error: 'SHEETS_GDD_CSV_URL no configurada en Vercel',
-    }, {
-      headers: { 'Cache-Control': 'no-store' }
+      semana: { leads: 0, mqls: 0, sqls: 0, opps: 0, pipeline_mkt: 0, pipeline_com: 0 },
+      anterior: { leads: 0, mqls: 0, sqls: 0, opps: 0 },
+      mes: { leads: 0, mqls: 0, sqls: 0, opps: 0 },
+      ytd: { leads: 0, mqls: 0, sqls: 0, opps: 0 },
+      fechas: {},
+      source: 'fallback',
+      error: 'SHEETS_GDD_CSV_URL no configurada',
     })
   }
 
   try {
     const res = await fetch(CSV_URL, {
-      headers: { 'Accept': 'text/csv,text/plain' },
-      next: { revalidate: 3600 }, // cache 1 hora
+      headers: { 'Accept': 'text/csv,text/plain,*/*' },
+      next: { revalidate: 3600 },
     })
-
     if (!res.ok) throw new Error(`Sheets HTTP ${res.status}`)
 
     const text = await res.text()
     const rows = parseCSV(text)
-
-    if (!rows || rows.length === 0) {
-      throw new Error('CSV vacío o estructura no reconocida')
-    }
+    if (!rows?.length) throw new Error('CSV vacío o estructura no reconocida')
 
     const gdd = buildGdd(rows)
-
     return NextResponse.json(gdd, {
-      headers: {
-        'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200',
-      }
+      headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' }
     })
   } catch (error) {
     console.error('GDD fetch error:', error.message)
     return NextResponse.json({
-      ...FALLBACK,
+      semana: { leads: 0, mqls: 0, sqls: 0, opps: 0, pipeline_mkt: 0, pipeline_com: 0 },
+      anterior: { leads: 0, mqls: 0, sqls: 0, opps: 0 },
+      mes: { leads: 0, mqls: 0, sqls: 0, opps: 0 },
+      ytd: { leads: 0, mqls: 0, sqls: 0, opps: 0 },
+      fechas: {},
+      source: 'fallback',
       error: error.message,
-    }, {
-      headers: { 'Cache-Control': 'no-store' }
     })
   }
 }
