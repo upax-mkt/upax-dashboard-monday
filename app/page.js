@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 
 /* ═══════════════════════════════════════════════════════════════
    SECTION 1: CONSTANTS
@@ -776,8 +776,38 @@ function TimerZone({ elapsed, running, onStart, onPause, onNext, onPrev, onFinis
    SECTION 9: TAB HOME
    ═══════════════════════════════════════════════════════════════ */
 
+function OverdueSection({ overdue }) {
+  const [showAll, setShowAll] = useState(false);
+  const visible = showAll ? overdue : overdue.slice(0, 5);
+  return (
+    <div style={{ marginBottom: 10 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+        <div style={{ fontSize: 11, fontWeight: 700, color: "var(--red)", textTransform: "uppercase", letterSpacing: 1 }}>Vencidos · {overdue.length}</div>
+        {overdue.length > 5 && (
+          <button onClick={() => setShowAll(!showAll)} style={{ fontSize: 10, color: "var(--blue)", background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>
+            {showAll ? "Ver menos ↑" : `+${overdue.length - 5} más ↓`}
+          </button>
+        )}
+      </div>
+      {visible.map((it) => {
+        const tl = parseTL(it.column_values?.timerange_mkzcqv0j);
+        const d = tl.end ? daysDiff(TODAY, tl.end) : 0;
+        const sq = SQUADS.find(s => s.name === normalizeSquad(it.column_values?.color_mkz0s203));
+        return (
+          <div key={it.id} style={{ display: "flex", gap: 6, alignItems: "center", padding: "3px 0", fontSize: 11 }}>
+            <span style={{ fontFamily: "var(--mono)", color: "var(--red)", fontWeight: 700, minWidth: 30 }}>-{d}d</span>
+            {sq && <span style={{ width: 6, height: 6, borderRadius: "50%", background: sq.color, flexShrink: 0 }} />}
+            <span style={{ flex: 1, color: "var(--tx2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.name}</span>
+            <span style={{ color: "var(--tx3)", fontSize: 10 }}>{shortName(it.column_values?.person)}</span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
-  const [alertGroupsExpanded, setAlertGroupsExpanded] = React.useState({});
+  const [alertGroupsExpanded, setAlertGroupsExpanded] = useState({});
   const [expandedPerson, setExpandedPerson] = useState(null);
   const [cargaSquad, setCargaSquad] = useState("all");
   const [gddData, setGddData] = useState(null);
@@ -2926,7 +2956,7 @@ export default function App() {
   ];
 
   return (
-    <div className={presenterMode ? "presenter-mode" : ""} style={{ fontFamily: "var(--sans)", background: "var(--bg)", minHeight: "100vh", color: "var(--tx)" }}>
+    <div suppressHydrationWarning className={presenterMode ? "presenter-mode" : ""} style={{ fontFamily: "var(--sans)", background: "var(--bg)", minHeight: "100vh", color: "var(--tx)" }}>
       <style>{CSS}</style>
 
       {(running || elapsed > 0) && !finished && (
