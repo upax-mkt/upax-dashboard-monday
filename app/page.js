@@ -524,7 +524,7 @@ const CSS = `
 *{box-sizing:border-box;margin:0}
 :root{
   --bg:#FAFAFA;--bg2:#FFFFFF;--bg3:#F2F2F7;--bg4:#E5E5EA;
-  --tx:#1D1D1F;--tx2:#3A3A3C;--tx3:#8E8E93;--border:#D1D1D6;
+  --tx:#1D1D1F;--tx2:#3A3A3C;--tx3:#6E6E73;--border:#D1D1D6;
   --red:#FF3B30;--green:#34C759;--yellow:#FF9F0A;--blue:#007AFF;--purple:#AF52DE;--cyan:#5AC8FA;
   --shadow:0 1px 3px rgba(0,0,0,.06),0 2px 8px rgba(0,0,0,.04);
   --mono:'JetBrains Mono',monospace;--sans:'Inter',-apple-system,sans-serif;
@@ -552,10 +552,18 @@ select{-webkit-appearance:auto}
 @media(max-width:640px){
   .sticky-nav button{padding:8px 10px;font-size:11px}
   .sticky-nav{overflow-x:auto;-webkit-overflow-scrolling:touch}
+  .mobile-stack{flex-direction:column!important}
+  .mobile-hide{display:none!important}
+  .mobile-full{width:100%!important;min-width:0!important}
+  .kpi-grid-mobile{grid-template-columns:repeat(2,1fr)!important}
+}
+@media(max-width:480px){
+  .mobile-xs-hide{display:none!important}
 }
 button:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 select:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
-input:focus-visible{outline:2px solid var(--blue);outline-offset:2px}`;
+input:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+textarea:focus-visible{outline:2px solid var(--blue);outline-offset:2px}`;
 
 /* ═══════════════════════════════════════════════════════════════
    SECTION 7: SHARED UI COMPONENTS
@@ -769,6 +777,7 @@ function TimerZone({ elapsed, running, onStart, onPause, onNext, onPrev, onFinis
    ═══════════════════════════════════════════════════════════════ */
 
 function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
+  const [alertGroupsExpanded, setAlertGroupsExpanded] = React.useState({});
   const [expandedPerson, setExpandedPerson] = useState(null);
   const [cargaSquad, setCargaSquad] = useState("all");
   const [gddData, setGddData] = useState(null);
@@ -805,8 +814,13 @@ function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
         // 3. Si hay datos manuales en storage, usar esos
         if (manual) { setGddData(manual); return; }
 
-        // 4. Sin datos — no inventar nada
-        setGddData(GDD_EMPTY);
+        // 4. Sin datos de API — usar datos de la última minuta guardada como referencia
+        const lastMinuta = await storeGet(`weekly:${TODAY_STR}`) || WEEKLY_MAR23;
+        if (lastMinuta?.gdd) {
+          setGddData({ ...lastMinuta.gdd, source: "minuta" });
+        } else {
+          setGddData(GDD_EMPTY);
+        }
       } catch {
         setGddData(GDD_EMPTY);
       }
@@ -1071,7 +1085,8 @@ function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
 
       {/* Alertas compactas */}
       {(() => {
-        const alertGroups = [
+        const setAlertGroupsState = () => {}; // handled via alertGroupsExpanded
+    const alertGroups = [
           { items: [...(an.overdue || [])].sort((a, b) => (parseTL(a.column_values?.timerange_mkzcqv0j).end || TODAY) - (parseTL(b.column_values?.timerange_mkzcqv0j).end || TODAY)), icon: "🔴", label: "Vencidos", color: "var(--red)", extra: (it) => { const d = parseTL(it.column_values?.timerange_mkzcqv0j).end ? daysDiff(TODAY, parseTL(it.column_values?.timerange_mkzcqv0j).end) : 0; return <span style={{ fontFamily: "var(--mono)", color: "var(--red)", fontWeight: 700, fontSize: 10, minWidth: 28 }}>-{d}d</span>; } },
           { items: an.stoppedWeek || [], icon: "🚫", label: "Detenidos", color: "var(--red)" },
           { items: an.noCrono || [], icon: "📅", label: "Sin Fecha", color: "var(--yellow)" },
@@ -1091,7 +1106,7 @@ function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
                   <span style={{ fontSize: 12, fontWeight: 700, color: g.color }}>{g.label}</span>
                   <span style={{ fontFamily: "var(--mono)", fontSize: 14, fontWeight: 700, color: g.color }}>{g.items.length}</span>
                 </div>
-                {g.items.slice(0, 4).map((it) => {
+                {(alertGroupsExpanded[(["overdue","stopped","noCrono","backlog","noResp"][gi] || gi)] ? g.items : g.items.slice(0, 4)).map((it) => {
                   const sq = SQUADS.find((s) => s.name === normalizeSquad(it.column_values?.color_mkz0s203));
                   return (
                     <div key={it.id} style={{ display: "flex", gap: 5, alignItems: "center", padding: "3px 0 3px 20px", fontSize: 12 }}>
@@ -1126,15 +1141,28 @@ function TabAgenda({ wd, setWd, save, currentIdx, blockTimes, onJumpToBlock }) {
     <div className="fade">
       {missing.length > 0 && !edit && <Alerta icon="⚠️" text={`Faltan presentadores: ${missing.map((b) => b.label).join(", ")}`} />}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-        <h2 style={{ fontSize: 16, fontWeight: 700 }}>Agenda</h2>
-        <button onClick={() => setEdit(!edit)} style={{ background: edit ? "var(--purple)" : "var(--bg3)", color: edit ? "#fff" : "var(--tx2)", border: edit ? "none" : "1px solid var(--border)", borderRadius: "var(--r-sm)", padding: "5px 14px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>✏ {edit ? "Listo" : "Presentadores"}</button>
+        <div>
+          <h2 style={{ fontSize: 16, fontWeight: 700 }}>Agenda</h2>
+          <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>
+            Bloque {currentIdx + 1} de {AGENDA.length} · {AGENDA[currentIdx]?.label}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {currentIdx < AGENDA.length - 1 && (
+            <button onClick={() => onJumpToBlock(currentIdx + 1)} style={{ background: "var(--green)", color: "#fff", border: "none", borderRadius: "var(--r-sm)", padding: "5px 14px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+              ✓ Siguiente →
+            </button>
+          )}
+          <button onClick={() => setEdit(!edit)} style={{ background: edit ? "var(--purple)" : "var(--bg3)", color: edit ? "#fff" : "var(--tx2)", border: edit ? "none" : "1px solid var(--border)", borderRadius: "var(--r-sm)", padding: "5px 14px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>✏ {edit ? "Listo" : "Presentadores"}</button>
+        </div>
       </div>
       {AGENDA.map((b, idx) => {
         const isCur = idx === currentIdx;
         const isPast = idx < currentIdx;
         const sq = SQUADS.find((s) => s.id === b.id);
         return (
-          <div key={b.id} onClick={() => !edit && onJumpToBlock(idx)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: "var(--r-sm)", marginBottom: 3, background: isCur ? `${b.color}0D` : (b.squad && !pr[b.id]?.trim()) ? "rgba(255,59,48,.04)" : "transparent", border: isCur ? `1px solid ${b.color}25` : "1px solid transparent", cursor: edit ? "default" : "pointer", opacity: isPast && !edit ? 0.4 : 1 }}>
+          <div key={b.id} onClick={() => !edit && onJumpToBlock(idx)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: "var(--r-sm)", marginBottom: 3, background: isCur ? `${b.color}0D` : (b.squad && !pr[b.id]?.trim()) ? "rgba(255,59,48,.04)" : "transparent", border: isCur ? `1px solid ${b.color}25` : "1px solid transparent", cursor: edit ? "default" : "pointer", opacity: isPast && !edit ? 0.35 : 1,
+              transition: "all .2s" }}>
             <span style={{ fontFamily: "var(--mono)", fontWeight: 700, color: isCur ? b.color : `${b.color}80`, minWidth: 38, fontSize: 11 }}>{String(b.start).padStart(2, "0")}:00</span>
             <div style={{ width: 3, height: 22, borderRadius: "var(--r-sm)", background: isCur ? b.color : isPast ? `${b.color}40` : "var(--bg4)" }} />
             <span style={{ minWidth: 120, fontWeight: isCur ? 700 : 500, fontSize: 13, color: isCur ? "var(--tx)" : "var(--tx2)" }}>{b.label}</span>
@@ -1144,7 +1172,8 @@ function TabAgenda({ wd, setWd, save, currentIdx, blockTimes, onJumpToBlock }) {
             <span style={{ fontFamily: "var(--mono)", color: "var(--tx3)", fontSize: 11 }}>
               {blockTimes?.[b.id] ? <span style={{ color: blockTimes[b.id] > b.dur * 60 ? "var(--red)" : "var(--green)" }}>{Math.floor(blockTimes[b.id] / 60)}:{String(blockTimes[b.id] % 60).padStart(2, "0")}</span> : `${b.dur}'`}
             </span>
-            {isPast && !edit && <span style={{ color: "var(--green)", fontSize: 12 }}>✓</span>}
+            {isPast && !edit && <span style={{ background: "var(--green)", color: "#fff", borderRadius: "50%", width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>✓</span>}
+            {isCur && !edit && <span style={{ background: b.color, color: "#fff", borderRadius: 4, padding: "1px 6px", fontSize: 9, fontWeight: 700, flexShrink: 0 }}>EN CURSO</span>}
           </div>
         );
       })}
@@ -1461,6 +1490,7 @@ function TabFocos({ items, wd, setWd, save, activeSquad, setActiveSquad }) {
 
   const sqItems = sq ? items.filter((i) => normalizeSquad(i.column_values?.color_mkz0s203) === sq.name && isActive(i.column_values?.color_mkz09na)) : [];
   const entries = Array.isArray(focos[activeSquad]) ? focos[activeSquad] : (focos[activeSquad]?.focos || focos[activeSquad]?.blocker || focos[activeSquad]?.necesito ? [focos[activeSquad]] : []);
+  const [showForm, setShowForm] = useState(!entries.length); // mostrar form si no hay entries
 
   const [draft, setDraft] = useState({});
   const [saved, setSaved] = useState(false);
@@ -2973,9 +3003,9 @@ export default function App() {
           {tabs.map((t) => {
             const isAct = tab === t.id, isLive = running && block.tab === t.id;
             return (
-              <button key={t.id} onClick={() => setTab(t.id)} style={{ background: "transparent", color: isAct ? "var(--tx)" : "var(--tx3)", border: "none", borderBottom: isAct ? `2px solid ${t.color}` : "2px solid transparent", padding: "8px 16px", fontSize: 12, fontWeight: isAct ? 700 : 400, cursor: "pointer", fontFamily: "var(--sans)", marginBottom: -1, letterSpacing: "-0.01em", transition: "all .2s" }}>
-                {isLive && <span style={{ display: "inline-block", width: 5, height: 5, borderRadius: "50%", background: block.color, animation: "liveDot 1s ease infinite", marginRight: 5, verticalAlign: "middle" }} />}
-                {t.icon} {t.label}
+              <button key={t.id} onClick={() => setTab(t.id)} aria-label={t.label} aria-current={isAct ? "page" : undefined} style={{ background: "transparent", color: isAct ? "var(--tx)" : "var(--tx3)", border: "none", borderBottom: isAct ? `2px solid ${t.color}` : "2px solid transparent", padding: "8px 16px", fontSize: 12, fontWeight: isAct ? 700 : 400, cursor: "pointer", fontFamily: "var(--sans)", marginBottom: -1, letterSpacing: "-0.01em", transition: "all .2s" }}>
+                {isLive && <span aria-hidden="true" style={{ display: "inline-block", width: 5, height: 5, borderRadius: "50%", background: block.color, animation: "liveDot 1s ease infinite", marginRight: 5, verticalAlign: "middle" }} />}
+                <span aria-hidden="true">{t.icon}</span> {t.label}
               </button>
             );
           })}
