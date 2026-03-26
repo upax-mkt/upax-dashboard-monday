@@ -831,30 +831,42 @@ function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
   useEffect(() => {
     (async () => {
       try {
-        // 1. Override manual del usuario (guardado desde el editor del dashboard)
-        const manual = await storeGet(GDD_KEY);
-        if (manual?._manual) { setGddData(manual); return; }
-
-        // 2. Fetch automático desde Google Sheets vía /api/gdd
-        const res = await fetch("/api/gdd", { cache: "no-store" });
-        if (res.ok) {
-          const data = await res.json();
-          if (!data.error && (data.semana?.leads > 0 || data.semana?.mqls > 0 || data.semana?.pipeline_mkt > 0)) {
-            setGddData(data);
-            return;
+        // 1. Fetch a /api/gdd PRIMERO — fuente de verdad (Google Sheets de César)
+        //    Con timeout de 10s para no bloquear si Sheets tarda
+        const controller = new AbortController();
+        const timeout = setTimeout(() => controller.abort(), 10000);
+        try {
+          const res = await fetch("/api/gdd", { cache: "no-store", signal: controller.signal });
+          clearTimeout(timeout);
+          if (res.ok) {
+            const data = await res.json();
+            const hasData = !data.error && (
+              (data.semana?.leads > 0) ||
+              (data.semana?.mqls > 0) ||
+              (data.semana?.sqls > 0) ||
+              (data.semana?.opps > 0) ||
+              (data.semana?.pipeline_mkt > 0)
+            );
+            if (hasData) {
+              setGddData(data);
+              return;
+            }
           }
+        } catch (fetchErr) {
+          clearTimeout(timeout);
+          // Timeout o error de red — continuar al fallback
+          console.warn("GdD fetch timeout/error:", fetchErr.message);
         }
 
-        // 3. Si hay datos manuales en storage, usar esos
-        if (manual) { setGddData(manual); return; }
-
-        // 4. Sin datos de API — usar datos de la última minuta guardada como referencia
-        const lastMinuta = await storeGet(`weekly:${TODAY_STR}`) || WEEKLY_MAR23;
-        if (lastMinuta?.gdd) {
-          setGddData({ ...lastMinuta.gdd, source: "minuta" });
-        } else {
-          setGddData(GDD_EMPTY);
+        // 2. Override manual del usuario (solo si existe en storage)
+        const manual = await storeGet(GDD_KEY);
+        if (manual && Object.keys(manual).length > 0) {
+          setGddData({ ...manual, source: "manual" });
+          return;
         }
+
+        // 3. Sin datos — mostrar vacío (no inventar números)
+        setGddData(GDD_EMPTY);
       } catch {
         setGddData(GDD_EMPTY);
       }
