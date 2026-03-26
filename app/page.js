@@ -881,8 +881,9 @@ function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
   // CargaRow — diseño responsive que funciona bien en mobile y desktop
   const CargaRow = ({ person, d, rank, maxVal, onClick, isExpanded }) => {
     const pct = maxVal > 0 ? d.total / maxVal : 0;
-    // Umbral de carga: considerando que total = proyectos + tareas, ajustado
-    const barColor = d.total > 15 ? "var(--red)" : d.total > 8 ? "var(--yellow)" : "var(--green)";
+    // Umbral de carga: proyectos + tareas combinados
+    // >20 = rojo (sobrecargado), >10 = amarillo (carga alta), <=10 = verde (normal)
+    const barColor = d.total > 20 ? "var(--red)" : d.total > 10 ? "var(--yellow)" : "var(--green)";
     const sq = PERSONAS.find((p) => p.name === person);
     const squadData = SQUADS.find((s) => s.name === sq?.squad);
     const squadColor = squadData?.color || "var(--tx3)";
@@ -2920,7 +2921,8 @@ export default function App() {
         const projectThisWeek = isThisWeek || (!timeline && deadlineThisWeek);
 
         if (projectThisWeek) {
-          // PROYECTOS: responsable del item padre — contar 1 proyecto por persona
+          // PROYECTOS: item padre donde la persona ES responsable directa
+          // 1 proyecto por persona, sin importar cuántos subitems tenga
           const projectOwners = new Set();
           if (pr) pr.split(", ").forEach((p) => {
             const n = normalizePersonName(p);
@@ -2932,12 +2934,14 @@ export default function App() {
             byPersonWeek[n].total++;
           });
 
-          // TAREAS: subitems activos — contar cada subitem como 1 tarea por persona
-          // Una persona puede aparecer en múltiples subitems del mismo proyecto
+          // TAREAS: subitems activos asignados a la persona
+          // Solo dentro de proyectos que ya clasifican como "esta semana"
+          // Contar cada subitem individualmente — una persona puede tener múltiples tareas en un proyecto
           (it.subitems || []).forEach((sub) => {
             const sp = sub.column_values?.person;
             const subPhase = sub.column_values?.color_mkzjvp66;
-            if (!sp || subPhase === "✅ Done") return;
+            // Solo subitems activos (Sprint/Review/Modificación) — ignorar Done y Backlog
+            if (!sp || !["🚧 Sprint", "👀 Review", "⚙️ Modificación"].includes(subPhase)) return;
             sp.split(", ").forEach((p) => {
               const n = normalizePersonName(p);
               if (!isTeamMember(n)) return;
