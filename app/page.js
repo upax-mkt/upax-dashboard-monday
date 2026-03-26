@@ -1695,7 +1695,11 @@ function TabCompromisos({ wd, setWd, save, analysis, onCopy, gddData }) {
       <div style={{ fontSize: 11, color: "var(--tx3)", marginBottom: 12, fontFamily: "var(--mono)" }}>→ Monday: grupo "Acuerdos Weeklys" · Qué + Quién + Cuándo</div>
 
       {!comps.length
-        ? <Card style={{ textAlign: "center", padding: 36, border: "2px dashed var(--border)" }}><div style={{ fontSize: 22, marginBottom: 4 }}>📝</div><div style={{ fontSize: 12, color: "var(--tx3)" }}>Click "+ Agregar"</div></Card>
+        ? <Card style={{ textAlign: "center", padding: 36, border: "2px dashed var(--border)" }}><div style={{ fontSize: 32, marginBottom: 8 }}>📝</div>
+          <div style={{ fontSize: 14, fontWeight: 600, color: "var(--tx2)", marginBottom: 6 }}>Sin compromisos aún</div>
+          <div style={{ fontSize: 12, color: "var(--tx3)", marginBottom: 16 }}>Cada compromiso: Qué + Quién + Cuándo</div>
+          <button onClick={() => setComps([...comps, { id: Date.now(), que: "", quien: "", cuando: "", status: "pending" }])} style={{ background: "var(--tx)", color: "var(--bg)", border: "none", borderRadius: "var(--r-sm)", padding: "8px 20px", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>+ Agregar compromiso</button>
+        </Card>
         : <Card>
           <div style={{ display: "grid", gridTemplateColumns: "26px 1fr 130px 110px 50px 50px", gap: 4, padding: "4px 0 6px", fontSize: 10, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: 1, borderBottom: "1px solid var(--border)" }}><span /><span>Qué</span><span>Quién</span><span>Cuándo</span><span>%</span><span>Mon</span></div>
           {comps.map((c, i) => (
