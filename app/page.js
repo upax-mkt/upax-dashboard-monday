@@ -111,11 +111,23 @@ function normalizeSquad(raw) { return SQUAD_ALIASES[raw] || raw; }
 const PERSON_NAMES = PERSONAS.map((p) => p.name);
 function normalizePersonName(mondayName) {
   if (!mondayName) return mondayName;
+  // Exact match
   if (PERSON_NAMES.includes(mondayName)) return mondayName;
+  const lower = mondayName.toLowerCase();
+  // Intento 1: todas las palabras del nombre de PERSONAS están en el nombre de Monday
   for (const pn of PERSON_NAMES) {
-    const parts = pn.split(" ");
-    if (parts.length >= 2 && mondayName.includes(parts[0]) && parts.slice(1).some((p) => mondayName.includes(p))) return pn;
-    if (parts.length === 1 && mondayName.startsWith(pn)) return pn;
+    const parts = pn.toLowerCase().split(" ");
+    if (parts.every(p => lower.includes(p))) return pn;
+  }
+  // Intento 2: primer nombre + al menos un apellido coincide
+  for (const pn of PERSON_NAMES) {
+    const parts = pn.toLowerCase().split(" ");
+    if (parts.length >= 2 && lower.includes(parts[0]) && parts.slice(1).some(p => lower.includes(p))) return pn;
+  }
+  // Intento 3: solo primer nombre (para nombres únicos como "Diego", "Arath")
+  for (const pn of PERSON_NAMES) {
+    const firstName = pn.toLowerCase().split(" ")[0];
+    if (firstName.length > 4 && lower.startsWith(firstName)) return pn;
   }
   return mondayName;
 }
