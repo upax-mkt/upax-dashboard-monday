@@ -1093,32 +1093,15 @@ function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
           });
           const maxVal = filtered.length > 0 ? filtered[0][1].total : 1;
           if (!filtered.length) return <div style={{ textAlign: "center", padding: "16px 0", color: "var(--tx3)", fontSize: 12 }}>Sin tareas esta semana</div>;
-          // Dividir en 2 columnas para mostrar todo el equipo compacto
-          const half = Math.ceil(filtered.length / 2);
-          const col1 = filtered.slice(0, half);
-          const col2 = filtered.slice(half);
-          const Row = ([p, d], i, offset) => {
-            const pct = maxVal > 0 ? d.total / maxVal : 0;
-            const barColor = d.total > 10 ? "var(--red)" : d.total > 6 ? "var(--yellow)" : "var(--green)";
-            const sq = PERSONAS.find((x) => x.name === p);
-            const sqColor = SQUADS.find((s) => s.name === sq?.squad)?.color || "var(--bg4)";
-            return (
-              <div key={p} style={{ display: "flex", alignItems: "center", gap: 6, padding: "4px 0", borderBottom: i < (offset === 0 ? col1.length : col2.length) - 1 ? "1px solid var(--bg3)" : "none" }}>
-                <span style={{ fontFamily: "var(--mono)", fontSize: 9, color: "var(--tx3)", minWidth: 14, textAlign: "right" }}>{i + 1 + (offset === 1 ? half : 0)}</span>
-                <span style={{ width: 5, height: 5, borderRadius: "50%", background: sqColor, flexShrink: 0 }} />
-                <span style={{ fontSize: 11, fontWeight: 500, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: d.total > 10 ? "var(--red)" : "var(--tx)" }}>{shortName(p)}</span>
-                {d.stopped > 0 && <span style={{ fontSize: 9, color: "var(--red)", fontWeight: 700 }}>{d.stopped}🚫</span>}
-                <div style={{ width: 48, height: 4, background: "var(--bg4)", borderRadius: 2, overflow: "hidden", flexShrink: 0 }}>
-                  <div style={{ width: (pct * 100) + "%", height: "100%", background: barColor, borderRadius: 2 }} />
-                </div>
-                <span style={{ fontFamily: "var(--mono)", fontSize: 11, fontWeight: 700, color: barColor, minWidth: 18, textAlign: "right" }}>{d.total}</span>
-              </div>
-            );
-          };
           return (
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0 20px" }}>
-              <div>{col1.map((item, i) => Row(item, i, 0))}</div>
-              <div>{col2.map((item, i) => Row(item, i, 1))}</div>
+            <div>
+              {filtered.map(([p, d], i) => (
+                <CargaRow
+                  key={p} person={p} d={d} rank={i + 1} maxVal={maxVal}
+                  isExpanded={expandedPerson === p}
+                  onClick={() => setExpandedPerson(expandedPerson === p ? null : p)}
+                />
+              ))}
             </div>
           );
         })()}
