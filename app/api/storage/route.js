@@ -1,23 +1,27 @@
 import { NextResponse } from 'next/server'
 
-// In-memory fallback cuando no hay Upstash configurado
+// In-memory fallback cuando no hay KV configurado
 const memStore = new Map()
 
-// Cliente Upstash REST — sin SDK, fetch directo a la REST API
-// Compatible con UPSTASH_REDIS_REST_URL + UPSTASH_REDIS_REST_TOKEN
-// que Vercel inyecta automáticamente al conectar Upstash desde el Marketplace
+// Upstash REST API — usa las variables que Vercel inyecta automáticamente
+// al conectar Upstash desde el Marketplace:
+// KV_REST_API_URL + KV_REST_API_TOKEN
 async function upstash(command, ...args) {
-  const url = process.env.UPSTASH_REDIS_REST_URL
-  const token = process.env.UPSTASH_REDIS_REST_TOKEN
+  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL
+  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN
   if (!url || !token) return null // sin config → fallback a memoria
 
-  const res = await fetch(`${url}/${[command, ...args.map(a => encodeURIComponent(a))].join('/')}`, {
+  const encoded = args.map(a => encodeURIComponent(String(a)))
+  const res = await fetch(`${url}/${[command, ...encoded].join('/')}`, {
     headers: { Authorization: `Bearer ${token}` },
     cache: 'no-store',
   })
-  if (!res.ok) throw new Error(`Upstash ${res.status}: ${await res.text()}`)
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`Upstash ${res.status}: ${text}`)
+  }
   const data = await res.json()
-  return data.result
+  return data.result ?? null
 }
 
 export async function GET(request) {
@@ -30,24 +34,23 @@ export async function GET(request) {
     if (action === 'get' && key) {
       const result = await upstash('GET', key)
       if (result === null) {
-        // Fallback a memoria
-        const memVal = memStore.get(key) ?? null
-        return NextResponse.json({ value: memVal })
+        return NextResponse.json({ value: memStore.get(key) ?? null })
       }
-      // Upstash devuelve el valor como string JSON — parsear
+      // Upstash devuelve strings — parsear JSON si es posible
       let val = result
-      try { val = JSON.parse(result) } catch {}
+      if (typeof val === 'string') {
+        try { val = JSON.parse(val) } catch {}
+      }
       return NextResponse.json({ value: val })
     }
 
     if (action === 'list' && prefix !== null) {
       const result = await upstash('KEYS', `${prefix}*`)
       if (result === null) {
-        // Fallback a memoria
         const keys = [...memStore.keys()].filter(k => k.startsWith(prefix))
         return NextResponse.json({ keys })
       }
-      return NextResponse.json({ keys: result || [] })
+      return NextResponse.json({ keys: Array.isArray(result) ? result : [] })
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
@@ -62,22 +65,16 @@ export async function POST(request) {
     const { action, key, value } = await request.json()
 
     if (action === 'set' && key) {
-      // Serializar value a string para Upstash
       const serialized = typeof value === 'string' ? value : JSON.stringify(value)
-      // TTL: 365 días (minutas persisten 1 año)
+      // TTL: 365 días — minutas persisten 1 año
       const result = await upstash('SET', key, serialized, 'EX', String(60 * 60 * 24 * 365))
-      if (result === null) {
-        // Fallback a memoria
-        memStore.set(key, value)
-      }
+      if (result === null) memStore.set(key, value)
       return NextResponse.json({ success: true })
     }
 
     if (action === 'delete' && key) {
       const result = await upstash('DEL', key)
-      if (result === null) {
-        memStore.delete(key)
-      }
+      if (result === null) memStore.delete(key)
       return NextResponse.json({ success: true })
     }
 
