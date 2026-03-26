@@ -2921,26 +2921,28 @@ export default function App() {
         const projectThisWeek = isThisWeek || (!timeline && deadlineThisWeek);
 
         if (projectThisWeek) {
-          // PROYECTOS: item padre donde la persona ES responsable directa
-          // 1 proyecto por persona, sin importar cuántos subitems tenga
-          const projectOwners = new Set();
-          if (pr) pr.split(", ").forEach((p) => {
-            const n = normalizePersonName(p);
-            if (isTeamMember(n)) projectOwners.add(n);
-          });
-          projectOwners.forEach((n) => {
-            if (!byPersonWeek[n]) byPersonWeek[n] = { projects: 0, tasks: 0, stopped: 0, total: 0 };
-            byPersonWeek[n].projects++;
-            byPersonWeek[n].total++;
-          });
+          // ── PROYECTOS ──────────────────────────────────────────────────
+          // Responsable(s) del item PADRE = columna "Responsable" del item
+          // 1 proyecto por persona aunque tenga múltiples subitems
+          // Solo personas del equipo (isTeamMember)
+          if (pr) {
+            pr.split(", ").forEach((p) => {
+              const n = normalizePersonName(p);
+              if (!isTeamMember(n)) return;
+              if (!byPersonWeek[n]) byPersonWeek[n] = { projects: 0, tasks: 0, stopped: 0, total: 0 };
+              byPersonWeek[n].projects++;
+              byPersonWeek[n].total++;
+            });
+          }
 
-          // TAREAS: subitems activos asignados a la persona
-          // Solo dentro de proyectos que ya clasifican como "esta semana"
-          // Contar cada subitem individualmente — una persona puede tener múltiples tareas en un proyecto
+          // ── TAREAS ─────────────────────────────────────────────────────
+          // Cada subitem activo (Sprint/Review/Mod) = 1 tarea por persona asignada
+          // El proyecto padre ya califica para esta semana (projectThisWeek)
+          // Una persona puede tener N tareas en un mismo proyecto
           (it.subitems || []).forEach((sub) => {
             const sp = sub.column_values?.person;
             const subPhase = sub.column_values?.color_mkzjvp66;
-            // Solo subitems activos (Sprint/Review/Modificación) — ignorar Done y Backlog
+            // Solo subitems activos — excluir Done, Backlog y sin fase
             if (!sp || !["🚧 Sprint", "👀 Review", "⚙️ Modificación"].includes(subPhase)) return;
             sp.split(", ").forEach((p) => {
               const n = normalizePersonName(p);
