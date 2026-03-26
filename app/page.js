@@ -767,15 +767,43 @@ function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
   const [gddEditing, setGddEditing] = useState(false);
   const GDD_KEY = "config:gdd-metrics";
 
-  const GDD_DEFAULT = {
-    semana: { leads: 1186, mqls: 30, sqls: 10, opps: 22, pipeline_mkt: 58938625, pipeline_com: 100372995 },
-    anterior: { leads: 1554, mqls: 53, sqls: 12, opps: 20 },
-    ytd: { leads: 14636, mqls: 957, sqls: 225, opps: 330, pipeline_total: 159311619 },
-    fechas: { semana_desde: "2026-03-16", semana_hasta: "2026-03-22" },
-    lastUpdate: "23 mar 2026, vía HubSpot",
+  // GdD vacío — se muestra cuando no hay datos reales aún
+  const GDD_EMPTY = {
+    semana: { leads: 0, mqls: 0, sqls: 0, opps: 0, pipeline_mkt: 0, pipeline_com: 0 },
+    anterior: { leads: 0, mqls: 0, sqls: 0, opps: 0 },
+    mes: { leads: 0, mqls: 0, sqls: 0, opps: 0 },
+    ytd: { leads: 0, mqls: 0, sqls: 0, opps: 0 },
+    fechas: {},
+    source: "empty",
   };
 
-  useEffect(() => { storeGet(GDD_KEY).then((v) => setGddData(v || GDD_DEFAULT)).catch(() => setGddData(GDD_DEFAULT)); }, []);
+  useEffect(() => {
+    (async () => {
+      try {
+        // 1. Override manual del usuario (guardado desde el editor del dashboard)
+        const manual = await storeGet(GDD_KEY);
+        if (manual?._manual) { setGddData(manual); return; }
+
+        // 2. Fetch automático desde Google Sheets vía /api/gdd
+        const res = await fetch("/api/gdd", { cache: "no-store" });
+        if (res.ok) {
+          const data = await res.json();
+          if (!data.error && (data.semana?.leads > 0 || data.semana?.mqls > 0 || data.semana?.pipeline_mkt > 0)) {
+            setGddData(data);
+            return;
+          }
+        }
+
+        // 3. Si hay datos manuales en storage, usar esos
+        if (manual) { setGddData(manual); return; }
+
+        // 4. Sin datos — no inventar nada
+        setGddData(GDD_EMPTY);
+      } catch {
+        setGddData(GDD_EMPTY);
+      }
+    })();
+  }, []);
 
   if (!an) return null;
   const activeCount = (an.byPhase["🚧 Sprint"] || 0) + (an.byPhase["👀 Review"] || 0) + (an.byPhase["⚙️ Modificación"] || 0);
