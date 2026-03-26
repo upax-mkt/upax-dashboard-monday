@@ -1225,7 +1225,7 @@ function TabPanorama({ analysis: an, items }) {
             { items: an.stoppedWeek || [], label: "🚫 Detenidos esta semana", color: "var(--red)" },
             { items: an.noCrono || [], label: "📅 Sprint sin Fecha", color: "var(--yellow)" },
             { items: an.backlogWithDates || [], label: "📅 Backlog con Fecha", color: "var(--yellow)" },
-            { items: an.noResp || [], label: "👤 Sin responsable", color: "var(--tx3)" },
+            { items: an.noResp || [], label: "👤 Sin responsable", color: "var(--tx3)", showSquad: true },
           ].filter((g) => g.items.length > 0).map((g, gi) => (
             <Card key={gi} style={{ marginBottom: 8, borderLeft: `4px solid ${g.color}` }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
@@ -1240,7 +1240,8 @@ function TabPanorama({ analysis: an, items }) {
                       <span style={{ width: 8, height: 8, borderRadius: "50%", background: sq?.color || "var(--tx3)", flexShrink: 0 }} />
                       {g.extra && g.extra(it)}
                       <span style={{ flex: 1, color: "var(--tx)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.name}</span>
-                      <span style={{ color: "var(--tx3)", fontSize: 11 }}>{shortName(it.column_values?.person)}</span>
+                      {g.showSquad && sq && <span style={{ fontSize: 10, fontWeight: 700, color: sq.color, background: sq.color + "15", borderRadius: 4, padding: "1px 6px", flexShrink: 0 }}>{sq.name.split(" ")[0]}</span>}
+                      {!g.showSquad && <span style={{ color: "var(--tx3)", fontSize: 11 }}>{shortName(it.column_values?.person)}</span>}
                     </div>
                   );
                 })}
@@ -1719,6 +1720,8 @@ function downloadMinutaTxt(text, dateStr) {
 function TabMinutasInline({ wd, analysis, gddData, blockTimes, onOpenMinuta }) {
   const [keys, setKeys] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [confirmDel, setConfirmDel] = useState(null);
+  const [copied, setCopied] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -1737,11 +1740,40 @@ function TabMinutasInline({ wd, analysis, gddData, blockTimes, onOpenMinuta }) {
     onOpenMinuta(k, d);
   }
 
+  async function copyMinuta(k, e) {
+    e.stopPropagation();
+    let d = await storeGet(k);
+    if (!d && k === "weekly:2026-03-23") d = WEEKLY_MAR23;
+    const text = d?.minutaText || generateMinuta(d, null, gddData, blockTimes);
+    copyToClipboard(text);
+    setCopied(k);
+    setTimeout(() => setCopied(null), 2000);
+  }
+
+  async function deleteMinuta(k, e) {
+    e.stopPropagation();
+    setConfirmDel(k);
+  }
+
+  async function confirmDelete(k) {
+    await storeDel(k);
+    setKeys(prev => prev.filter(x => x !== k));
+    setConfirmDel(null);
+  }
+
   const dateFmt = (k) => new Date(k.replace("weekly:", "")).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const isFixed = (k) => k === "weekly:2026-03-23"; // minutas fijas no se pueden eliminar
 
   return (
     <div className="fade">
       <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Minutas</h2>
+      {confirmDel && (
+        <div style={{ background: "rgba(255,59,48,.08)", border: "1px solid rgba(255,59,48,.2)", borderRadius: "var(--r-sm)", padding: "12px 16px", marginBottom: 12, display: "flex", alignItems: "center", gap: 10 }}>
+          <span style={{ flex: 1, fontSize: 13, color: "var(--tx2)" }}>¿Eliminar minuta del {dateFmt(confirmDel)}?</span>
+          <button onClick={() => confirmDelete(confirmDel)} style={{ background: "var(--red)", color: "#fff", border: "none", borderRadius: 8, padding: "5px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>Eliminar</button>
+          <button onClick={() => setConfirmDel(null)} style={{ background: "var(--bg3)", color: "var(--tx2)", border: "none", borderRadius: 8, padding: "5px 14px", fontSize: 12, cursor: "pointer" }}>Cancelar</button>
+        </div>
+      )}
       {loading ? (
         <div style={{ textAlign: "center", padding: 40, color: "var(--tx3)" }}>Cargando...</div>
       ) : keys.length === 0 ? (
@@ -1749,22 +1781,34 @@ function TabMinutasInline({ wd, analysis, gddData, blockTimes, onOpenMinuta }) {
       ) : keys.map((k) => {
         const isToday = k === STORE_KEY;
         return (
-          <div key={k} onClick={() => openMinuta(k)}
-            style={{ display: "flex", alignItems: "center", gap: 14, padding: "14px 16px", borderRadius: "var(--r)", marginBottom: 8, background: "var(--bg2)", border: "1px solid " + (isToday ? "var(--blue)" : "var(--bg4)"), cursor: "pointer", transition: "background .15s", boxShadow: isToday ? "0 0 0 1px var(--blue)" : "var(--shadow)" }}
-            onMouseEnter={e => { e.currentTarget.style.background = "var(--bg3)"; }}
-            onMouseLeave={e => { e.currentTarget.style.background = "var(--bg2)"; }}
-          >
-            <div style={{ width: 42, height: 42, borderRadius: "var(--r-sm)", background: isToday ? "var(--blue)" : "var(--bg3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 20, flexShrink: 0 }}>
-              {isToday ? "📝" : "📋"}
-            </div>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: 13, fontWeight: 600, color: "var(--tx)", display: "flex", alignItems: "center", gap: 8 }}>
-                {dateFmt(k)}
-                {isToday && <span style={{ fontSize: 10, background: "var(--blue)", color: "#fff", borderRadius: 4, padding: "2px 7px", fontWeight: 700 }}>HOY</span>}
+          <div key={k} style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", borderRadius: "var(--r)", marginBottom: 8, background: "var(--bg2)", border: "1px solid " + (isToday ? "var(--blue)" : "var(--bg4)"), boxShadow: isToday ? "0 0 0 1px var(--blue)" : "var(--shadow)" }}>
+            {/* Icono + título — clic abre detalle */}
+            <div onClick={() => openMinuta(k)} style={{ display: "flex", alignItems: "center", gap: 12, flex: 1, cursor: "pointer", minWidth: 0 }}>
+              <div style={{ width: 40, height: 40, borderRadius: "var(--r-sm)", background: isToday ? "var(--blue)" : "var(--bg3)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: 18, flexShrink: 0 }}>
+                {isToday ? "📝" : "📋"}
               </div>
-              <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Weekly Mkt Corp</div>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: "var(--tx)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+                  {dateFmt(k)}
+                  {isToday && <span style={{ fontSize: 10, background: "var(--blue)", color: "#fff", borderRadius: 4, padding: "2px 6px", fontWeight: 700 }}>HOY</span>}
+                </div>
+                <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Weekly Mkt Corp · click para ver</div>
+              </div>
             </div>
-            <span style={{ fontSize: 20, color: "var(--tx3)" }}>›</span>
+            {/* Acciones */}
+            <div style={{ display: "flex", gap: 4, flexShrink: 0 }}>
+              <button onClick={(e) => copyMinuta(k, e)} style={{ background: copied === k ? "var(--green)" : "var(--bg3)", color: copied === k ? "#fff" : "var(--tx2)", border: "1px solid var(--bg4)", borderRadius: "var(--r-sm)", padding: "4px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                {copied === k ? "✓" : "📋"}
+              </button>
+              <button onClick={() => openMinuta(k)} style={{ background: "var(--bg3)", color: "var(--tx2)", border: "1px solid var(--bg4)", borderRadius: "var(--r-sm)", padding: "4px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                ✏️
+              </button>
+              {!isFixed(k) && !isToday && (
+                <button onClick={(e) => deleteMinuta(k, e)} style={{ background: "var(--bg3)", color: "var(--red)", border: "1px solid var(--bg4)", borderRadius: "var(--r-sm)", padding: "4px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                  🗑
+                </button>
+              )}
+            </div>
           </div>
         );
       })}
@@ -1859,14 +1903,22 @@ function renderMinutaVisual(text, wd2, an, gdd2) {
   );
 
   // ── SECCIÓN 1: GdD ───────────────────────────────────────────
+  const mes = gdd.mes || {};
   const gddMetrics = [
-    { label: "Leads", cur: s.leads||0, prev: a.leads||0, ytd: y.leads||0, color: "var(--blue)" },
-    { label: "MQLs",  cur: s.mqls||0,  prev: a.mqls||0,  ytd: y.mqls||0,  color: "var(--purple)" },
-    { label: "SQLs",  cur: s.sqls||0,  prev: a.sqls||0,  ytd: y.sqls||0,  color: "var(--green)" },
-    { label: "Opps",  cur: s.opps||0,  prev: a.opps||0,  ytd: y.opps||0,  color: "var(--yellow)" },
+    { label: "Leads", cur: s.leads||0, prev: a.leads||0, mes: mes.leads||0, ytd: y.leads||0, color: "var(--blue)" },
+    { label: "MQLs",  cur: s.mqls||0,  prev: a.mqls||0,  mes: mes.mqls||0,  ytd: y.mqls||0,  color: "var(--purple)" },
+    { label: "SQLs",  cur: s.sqls||0,  prev: a.sqls||0,  mes: mes.sqls||0,  ytd: y.sqls||0,  color: "var(--green)" },
+    { label: "Opps",  cur: s.opps||0,  prev: a.opps||0,  mes: mes.opps||0,  ytd: y.opps||0,  color: "var(--yellow)" },
   ];
   const pTotal = (s.pipeline_mkt||0)+(s.pipeline_com||0);
-  const gddSub = f.semana_desde ? "Semana del " + f.semana_desde + (f.semana_hasta ? " al " + f.semana_hasta : "") : "";
+  const fmtDateDMY = (dateStr) => {
+    if (!dateStr) return "";
+    // Intentar parsear "16 mar" o "2026-03-16" → DD - MM - AAAA
+    const d = new Date(dateStr + (dateStr.includes("-") ? "T12:00:00" : ", 2026"));
+    if (isNaN(d)) return dateStr;
+    return d.toLocaleDateString("es-MX", { day: "2-digit", month: "2-digit", year: "numeric" }).replace(/\//g, " - ");
+  };
+  const gddSub = f.semana_desde ? `${fmtDateDMY(f.semana_desde)}${f.semana_hasta ? " al " + fmtDateDMY(f.semana_hasta) : ""}` : "";
   const sec1 = (
     <SectionWrap num="1" title="GENERACIÓN DE DEMANDA" sub={gddSub} color="var(--blue)">
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 1, background: "var(--bg4)" }}>
@@ -1878,8 +1930,11 @@ function renderMinutaVisual(text, wd2, an, gdd2) {
               <div style={{ fontFamily: "var(--mono)", fontSize: 28, fontWeight: 800, color: m.color, lineHeight: 1, letterSpacing: "-0.04em" }}>{m.cur.toLocaleString()}</div>
               <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6 }}>
                 {pct !== null && <span style={{ fontSize: 11, fontWeight: 700, color: pct >= 0 ? "var(--green)" : "var(--red)" }}>{pct >= 0 ? "▲" : "▼"}{Math.abs(pct)}%</span>}
-                <span style={{ fontSize: 10, color: "var(--tx3)" }}>YTD {m.ytd.toLocaleString()}</span>
+                <span style={{ fontSize: 10, color: "var(--tx3)" }}>vs sem. ant.</span>
               </div>
+              {m.mes > 0 && <div style={{ marginTop: 5, fontSize: 10, color: "var(--tx3)", borderTop: "1px solid var(--bg4)", paddingTop: 4 }}>
+                <span style={{ color: "var(--tx2)", fontWeight: 600 }}>{m.mes.toLocaleString()}</span> <span>acum. mes</span>
+              </div>}
             </div>
           );
         })}
@@ -2165,65 +2220,153 @@ function renderMinutaVisual(text, wd2, an, gdd2) {
 }
 
 
-function PrintModal({ text, dateStr, wd, analysis, gddData, onClose }) {
-  useEffect(() => {
-    document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = ""; };
-  }, []);
+function PdfButton({ text, dateStr, wd, analysis, gddData }) {
+  // Genera un HTML completo auto-contenido y abre en nueva ventana para imprimir como PDF
+  function handlePdf() {
+    const gdd = gddData || {};
+    const s = gdd.semana || {}, a = gdd.anterior || {}, mes = gdd.mes || {}, y = gdd.ytd || {}, f = gdd.fechas || {};
+    const pTotal = (s.pipeline_mkt||0)+(s.pipeline_com||0);
+    const fmtN = (v) => (v||0).toLocaleString("es-MX");
+    const fmtM = (v) => v >= 1000000 ? "$"+(v/1000000).toFixed(1)+"M" : v >= 1000 ? "$"+(v/1000).toFixed(0)+"K" : "$"+(v||0);
+    const pct = (cur, prev) => { if (!prev) return ""; const p = Math.round(((cur-prev)/prev)*100); return `<span style="color:${p>=0?"#16a34a":"#dc2626"};font-weight:700">${p>=0?"▲":"▼"}${Math.abs(p)}%</span>`; };
+    const dateLabel = new Date(dateStr).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
+    // Construir secciones de focos
+    let focosHtml = "";
+    if (wd) {
+      SQUADS.forEach(sq => {
+        const raw = wd.focos?.[sq.id];
+        const arr = Array.isArray(raw) ? raw : (raw?.focos||raw?.blocker||raw?.necesito ? [raw] : []);
+        const filled = arr.filter(f2 => f2.focos?.trim()||f2.blocker?.trim()||f2.necesito?.trim());
+        if (!filled.length) return;
+        const presenter = wd.presenters?.[sq.id] || sq.lead;
+        focosHtml += `<div style="margin-bottom:16px;padding:12px 16px;border-radius:8px;border-left:4px solid ${sq.color};background:#fafafa">
+          <div style="font-weight:700;color:${sq.color};font-size:13px;margin-bottom:8px">${sq.name} <span style="font-weight:400;color:#666">· ${presenter}</span></div>`;
+        filled.forEach(f2 => {
+          if (f2.focos?.trim()) focosHtml += `<div style="font-size:12px;color:#333;margin-bottom:4px">🎯 ${f2.focos.trim().replace(/</g,"&lt;")}</div>`;
+          if (f2.blocker?.trim()) focosHtml += `<div style="font-size:12px;color:#dc2626;margin-bottom:4px">🚫 <strong>Blocker:</strong> ${f2.blocker.trim().replace(/</g,"&lt;")}</div>`;
+          if (f2.necesito?.trim()) focosHtml += `<div style="font-size:12px;color:#d97706;margin-bottom:4px">🤝 <strong>Necesito:</strong> ${f2.necesito.trim().replace(/</g,"&lt;")}</div>`;
+        });
+        focosHtml += `</div>`;
+      });
+    }
+
+    // Compromisos
+    let compsHtml = "";
+    const comps = (wd?.compromisos||[]).filter(c => c.que?.trim());
+    if (comps.length) {
+      compsHtml = comps.map((c,i) => {
+        const fecha = c.cuando ? new Date(c.cuando+"T12:00:00").toLocaleDateString("es-MX",{day:"numeric",month:"short"}) : "sin fecha";
+        return `<div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid #eee;font-size:12px">
+          <span style="color:${c.status==="done"?"#16a34a":"#999"}">${c.status==="done"?"✅":"⬜"}</span>
+          <span style="flex:1;${c.status==="done"?"text-decoration:line-through;color:#999":""}">${(c.que||"").replace(/</g,"&lt;")}</span>
+          <span style="color:#666">${shortName(c.quien)||""}</span>
+          <span style="color:#999">${fecha}</span>
+        </div>`;
+      }).join("");
+    }
+
+    const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Minuta Weekly ${dateStr}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; color: #1a1a1a; background: #fff; padding: 32px 40px; max-width: 760px; margin: 0 auto; font-size: 13px; line-height: 1.6; }
+  h1 { font-size: 22px; font-weight: 800; letter-spacing: -0.03em; margin-bottom: 4px; }
+  h2 { font-size: 14px; font-weight: 700; color: #333; margin: 20px 0 10px; padding-bottom: 6px; border-bottom: 2px solid #eee; }
+  .meta { font-size: 12px; color: #666; margin-bottom: 24px; }
+  .kpi-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 1px; background: #e5e5e5; border-radius: 8px; overflow: hidden; margin-bottom: 16px; }
+  .kpi { background: #fff; padding: 14px; }
+  .kpi-label { font-size: 10px; font-weight: 700; color: #888; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 6px; }
+  .kpi-val { font-family: "Courier New", monospace; font-size: 26px; font-weight: 800; line-height: 1; }
+  .kpi-sub { font-size: 10px; color: #888; margin-top: 4px; }
+  .kpi-mes { font-size: 10px; color: #444; margin-top: 4px; border-top: 1px solid #f0f0f0; padding-top: 4px; }
+  .pipeline { background: #f8f8f8; border-radius: 6px; padding: 10px 14px; font-size: 12px; color: #444; display: flex; gap: 16px; margin-bottom: 20px; flex-wrap: wrap; }
+  @media print {
+    body { padding: 20px; }
+    @page { margin: 1.5cm; size: A4; }
+    h2 { break-after: avoid; }
+    .no-print { display: none !important; }
+  }
+</style>
+</head>
+<body>
+  <div class="no-print" style="background:#1d1d1f;color:#fff;padding:12px 20px;margin:-32px -40px 24px;display:flex;align-items:center;justify-content:space-between;gap:16px">
+    <span style="font-size:13px">📄 Para guardar como PDF: <strong>Ctrl+P</strong> (Windows) · <strong>⌘+P</strong> (Mac) → Guardar como PDF</span>
+    <button onclick="window.close()" style="background:transparent;border:1px solid #555;color:#ccc;padding:5px 14px;border-radius:6px;cursor:pointer;font-size:12px">✕ Cerrar</button>
+  </div>
+
+  <h1>⚡ Minuta Weekly · Mkt Corp</h1>
+  <div class="meta">📅 ${dateLabel} · Grupo UPAX</div>
+
+  <h2>📊 Generación de Demanda${f.semana_desde ? ` · ${f.semana_desde}${f.semana_hasta?" al "+f.semana_hasta:""}` : ""}</h2>
+  <div class="kpi-grid">
+    ${[
+      {l:"Leads",cur:s.leads||0,prev:a.leads||0,mes:mes.leads||0,ytd:y.leads||0,c:"#0a84ff"},
+      {l:"MQLs",cur:s.mqls||0,prev:a.mqls||0,mes:mes.mqls||0,ytd:y.mqls||0,c:"#af52de"},
+      {l:"SQLs",cur:s.sqls||0,prev:a.sqls||0,mes:mes.sqls||0,ytd:y.sqls||0,c:"#34c759"},
+      {l:"Opps",cur:s.opps||0,prev:a.opps||0,mes:mes.opps||0,ytd:y.opps||0,c:"#ff9f0a"},
+    ].map(m => `<div class="kpi">
+      <div class="kpi-label">${m.l}</div>
+      <div class="kpi-val" style="color:${m.c}">${fmtN(m.cur)}</div>
+      <div class="kpi-sub">${pct(m.cur,m.prev)} vs sem. ant.</div>
+      ${m.mes ? `<div class="kpi-mes">${fmtN(m.mes)} acum. mes</div>` : ""}
+    </div>`).join("")}
+  </div>
+  ${pTotal > 0 ? `<div class="pipeline">🏦 Pipeline: <strong>${fmtM(pTotal)}</strong> · Mkt ${fmtM(s.pipeline_mkt||0)} · Com ${fmtM(s.pipeline_com||0)}</div>` : ""}
+
+  ${focosHtml ? `<h2>🎯 Focos por Squad</h2>${focosHtml}` : ""}
+
+  ${compsHtml ? `<h2>📝 Compromisos</h2>${compsHtml}` : ""}
+
+  <div style="margin-top:28px;font-size:10px;color:#aaa;border-top:1px solid #eee;padding-top:8px;font-family:monospace">
+    Weekly Mkt Corp Upax · generado ${new Date().toLocaleString("es-MX")}
+  </div>
+</body>
+</html>`;
+
+    const win = window.open("", "_blank", "width=820,height=900");
+    if (win) { win.document.write(html); win.document.close(); }
+    else { alert("Habilita popups para este sitio para generar el PDF"); }
+  }
 
   return (
-    <div id="print-root" style={{ position: "fixed", inset: 0, background: "#fff", zIndex: 99999, overflowY: "auto" }}>
-      {/* Barra de instrucciones — oculta al imprimir via @media print */}
-      <div id="print-bar" style={{ position: "sticky", top: 0, background: "#1D1D1F", padding: "14px 32px", display: "flex", alignItems: "center", gap: 16, zIndex: 10, flexWrap: "wrap" }}>
-        {/* Instrucción principal */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, flex: 1 }}>
-          <span style={{ fontSize: 22 }}>🖨</span>
-          <div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: "#fff" }}>Para guardar como PDF:</div>
-            <div style={{ fontSize: 12, color: "#A1A1AA", marginTop: 2 }}>
-              Presiona{" "}
-              <span style={{ background: "#3F3F46", color: "#fff", borderRadius: 5, padding: "2px 8px", fontFamily: "monospace", fontSize: 13, fontWeight: 700, border: "1px solid #52525B" }}>Ctrl</span>
-              {" + "}
-              <span style={{ background: "#3F3F46", color: "#fff", borderRadius: 5, padding: "2px 8px", fontFamily: "monospace", fontSize: 13, fontWeight: 700, border: "1px solid #52525B" }}>P</span>
-              <span style={{ color: "#71717A", marginLeft: 8 }}>en Windows</span>
-              {"  ·  "}
-              <span style={{ background: "#3F3F46", color: "#fff", borderRadius: 5, padding: "2px 8px", fontFamily: "monospace", fontSize: 13, fontWeight: 700, border: "1px solid #52525B" }}>⌘</span>
-              {" + "}
-              <span style={{ background: "#3F3F46", color: "#fff", borderRadius: 5, padding: "2px 8px", fontFamily: "monospace", fontSize: 13, fontWeight: 700, border: "1px solid #52525B" }}>P</span>
-              <span style={{ color: "#71717A", marginLeft: 8 }}>en Mac</span>
-            </div>
-            <div style={{ fontSize: 11, color: "#71717A", marginTop: 4 }}>
-              En el diálogo elige <strong style={{ color: "#A1A1AA" }}>"Guardar como PDF"</strong> como destino de impresión
-            </div>
-          </div>
-        </div>
-        <button onClick={onClose} style={{ background: "transparent", border: "1px solid #3F3F46", borderRadius: 6, padding: "7px 16px", fontSize: 12, cursor: "pointer", color: "#A1A1AA", flexShrink: 0 }}>
-          ✕ Cerrar
-        </button>
-      </div>
-      {/* Contenido visual — mismo renderer que el lightbox */}
-      <div style={{ maxWidth: 740, margin: "0 auto", padding: "32px 40px", fontFamily: "var(--sans)", background: "#fff" }}>
-        {renderMinutaVisual(text, wd, analysis, gddData)}
-        <div style={{ marginTop: 28, fontSize: 9, color: "#aaa", borderTop: "1px solid #eee", paddingTop: 8, fontFamily: "monospace" }}>
-          Weekly Mkt Corp Upax · {dateStr}
-        </div>
-      </div>
-    </div>
+    <button onClick={handlePdf} style={{ background: "var(--tx)", color: "var(--bg)", border: "none", borderRadius: "var(--r-sm)", padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>
+      📄 PDF
+    </button>
   );
 }
 
-function PdfButton({ text, dateStr, wd, analysis, gddData }) {
-  const [showPrint, setShowPrint] = useState(false);
+function SlackButton({ text }) {
+  const [sending, setSending] = useState(false);
+  const [sent, setSent] = useState(false);
+  const [err, setErr] = useState(false);
+
+  async function handleSend() {
+    setSending(true); setErr(false);
+    try {
+      const res = await fetch("/api/slack", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text }),
+      });
+      const d = await res.json();
+      if (d.success) { setSent(true); setTimeout(() => setSent(false), 3000); }
+      else { setErr(true); setTimeout(() => setErr(false), 3000); copyToClipboard(text); }
+    } catch { setErr(true); setTimeout(() => setErr(false), 3000); copyToClipboard(text); }
+    setSending(false);
+  }
+
   return (
-    <>
-      <button
-        onClick={() => setShowPrint(true)}
-        style={{ background: "var(--tx)", color: "var(--bg)", border: "none", borderRadius: "var(--r-sm)", padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}
-      >
-        📄 PDF
-      </button>
-      {showPrint && <PrintModal text={text} dateStr={dateStr} wd={wd} analysis={analysis} gddData={gddData} onClose={() => setShowPrint(false)} />}
-    </>
+    <button onClick={handleSend} disabled={sending} style={{
+      background: sent ? "var(--green)" : err ? "var(--red)" : "linear-gradient(135deg,#4A154B,#611f69)",
+      color: "#fff", border: "none", borderRadius: "var(--r-sm)", padding: "6px 14px",
+      fontSize: 12, fontWeight: 600, cursor: sending ? "default" : "pointer", opacity: sending ? 0.7 : 1,
+    }}>
+      {sent ? "✓ Enviado" : err ? "⚠️ Copiado" : sending ? "⏳" : "📨 Slack"}
+    </button>
   );
 }
 
@@ -2271,6 +2414,7 @@ function MinutaDetailView({ weekKey, data, todayWd, todayAnalysis, gddData, bloc
             ? <button onClick={handleSave} style={{ background: "var(--green)", color: "#fff", border: "none", borderRadius: "var(--r-sm)", padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>{saved ? "✓ Guardado" : "💾 Guardar"}</button>
             : <button onClick={() => { setEditMode(true); setEditText(rawText); }} style={{ background: "var(--bg3)", color: "var(--tx2)", border: "1px solid var(--bg4)", borderRadius: "var(--r-sm)", padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>✏️ Editar</button>}
           <button onClick={handleCopy} style={{ background: copied ? "var(--green)" : "var(--blue)", color: "#fff", border: "none", borderRadius: "var(--r-sm)", padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>{copied ? "✓ Copiado" : "📋 Copiar"}</button>
+          <SlackButton text={displayText} />
           <PdfButton text={displayText} dateStr={dateStr} wd={visualWd} analysis={visualAn} gddData={visualGdd} />
           <button onClick={onClose} style={{ background: "var(--bg3)", border: "none", width: 32, height: 32, borderRadius: 16, fontSize: 16, cursor: "pointer", color: "var(--tx3)", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
         </div>
@@ -2391,6 +2535,7 @@ export default function App() {
   const [confirmReset, setConfirmReset] = useState(false);
   const [minutaLightbox, setMinutaLightbox] = useState(null); // { key, data }
   const [copyModal, setCopyModal] = useState(null);
+  const [phaseModal, setPhaseModal] = useState(null); // { phase, items }
   const [refreshing, setRefreshing] = useState(false);
   const [lastUpdate, setLastUpdate] = useState(null);
   const [appGddData, setAppGddData] = useState(null);
@@ -2401,8 +2546,9 @@ export default function App() {
   const GDD_DEFAULT_APP = {
     semana: { leads: 1186, mqls: 30, sqls: 10, opps: 22, pipeline_mkt: 58938625, pipeline_com: 100372995 },
     anterior: { leads: 1554, mqls: 53, sqls: 12, opps: 20 },
+    mes: { leads: 4820, mqls: 112, sqls: 38, opps: 78 },
     ytd: { leads: 14636, mqls: 957, sqls: 225, opps: 330 },
-    fechas: { semana_desde: "16 mar", semana_hasta: "22 mar" },
+    fechas: { semana_desde: "16 mar", semana_hasta: "22 mar", mes_label: "mar 2026" },
     lastUpdate: "23 mar 2026",
   };
   useEffect(() => {
@@ -2707,12 +2853,28 @@ export default function App() {
                 }
               }} style={{ background: "var(--bg2)", color: "var(--purple)", border: "1px solid var(--bg4)", borderRadius: "var(--r-sm)", padding: "3px 10px", fontSize: 10, fontWeight: 500, cursor: "pointer" }}>🔍 Test</button>
 
-              <button onClick={() => setPresenterMode(!presenterMode)} style={{ background: presenterMode ? "var(--tx)" : "var(--bg2)", color: presenterMode ? "#fff" : "var(--tx3)", border: presenterMode ? "none" : "1px solid var(--bg4)", borderRadius: "var(--r-sm)", padding: "3px 10px", fontSize: 10, fontWeight: 500, cursor: "pointer" }}>{presenterMode ? "📺 ON" : "📺"}</button>
+              <button onClick={() => {
+                if (!document.fullscreenElement) {
+                  document.documentElement.requestFullscreen().catch(() => {});
+                  setPresenterMode(true);
+                } else {
+                  document.exitFullscreen().catch(() => {});
+                  setPresenterMode(false);
+                }
+              }} style={{ background: presenterMode ? "var(--tx)" : "var(--bg2)", color: presenterMode ? "#fff" : "var(--tx3)", border: presenterMode ? "none" : "1px solid var(--bg4)", borderRadius: "var(--r-sm)", padding: "3px 10px", fontSize: 10, fontWeight: 500, cursor: "pointer" }} title="Pantalla completa">{presenterMode ? "📺 ON" : "📺"}</button>
             </div>
           </div>
           <div style={{ display: "flex", gap: 4 }}>
-            {[{ l: "BKL", v: an.byPhase["⏳Backlog"] || 0, c: "var(--tx3)" }, { l: "SPR", v: an.byPhase["🚧 Sprint"] || 0, c: "var(--yellow)" }, { l: "REV", v: an.byPhase["👀 Review"] || 0, c: "var(--cyan)" }, { l: "DET", v: an.byPhase["🚫 Detenido"] || 0, c: "var(--red)" }, { l: "VEN", v: (an.overdue || []).length, c: "var(--red)" }].map((s) => (
-              <div key={s.l} style={{ background: "var(--bg)", border: "1px solid var(--bg4)", borderRadius: "var(--r-sm)", padding: "5px 8px", textAlign: "center", minWidth: 40 }}>
+            {[
+              { l: "BKL", v: an.byPhase["⏳Backlog"] || 0, c: "var(--tx3)", ph: "⏳Backlog", its: items.filter(it => it.column_values?.color_mkz09na === "⏳Backlog") },
+              { l: "SPR", v: an.byPhase["🚧 Sprint"] || 0, c: "var(--yellow)", ph: "🚧 Sprint", its: items.filter(it => it.column_values?.color_mkz09na === "🚧 Sprint") },
+              { l: "REV", v: an.byPhase["👀 Review"] || 0, c: "var(--cyan)", ph: "👀 Review", its: items.filter(it => it.column_values?.color_mkz09na === "👀 Review") },
+              { l: "DET", v: an.byPhase["🚫 Detenido"] || 0, c: "var(--red)", ph: "🚫 Detenido", its: items.filter(it => it.column_values?.color_mkz09na === "🚫 Detenido") },
+              { l: "VEN", v: (an.overdue || []).length, c: "var(--red)", ph: "⏰ Vencidos", its: an.overdue || [] },
+            ].map((s) => (
+              <div key={s.l} onClick={() => setPhaseModal({ phase: s.ph, items: s.its })} style={{ background: "var(--bg)", border: "1px solid var(--bg4)", borderRadius: "var(--r-sm)", padding: "5px 8px", textAlign: "center", minWidth: 40, cursor: "pointer", transition: "all .15s" }}
+                onMouseEnter={e => e.currentTarget.style.background = "var(--bg3)"}
+                onMouseLeave={e => e.currentTarget.style.background = "var(--bg)"}>
                 <div style={{ fontFamily: "var(--mono)", fontSize: 16, fontWeight: 700, color: s.c, letterSpacing: "-0.04em" }}>{s.v}</div>
                 <div style={{ fontSize: 8, color: "var(--tx3)", fontWeight: 600, letterSpacing: "0.1em" }}>{s.l}</div>
               </div>
@@ -2789,6 +2951,43 @@ export default function App() {
       </div>
 
       {copyModal && <CopyModal text={copyModal} onClose={() => setCopyModal(null)} />}
+
+      {phaseModal && (
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", backdropFilter: "blur(8px)", zIndex: 9998, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setPhaseModal(null)}>
+          <div onClick={e => e.stopPropagation()} style={{ background: "var(--bg2)", borderRadius: "var(--r-lg)", boxShadow: "0 24px 60px rgba(0,0,0,.2)", width: "100%", maxWidth: 560, maxHeight: "80vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid var(--bg4)", flexShrink: 0 }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 700 }}>{phaseModal.phase}</div>
+                <div style={{ fontSize: 12, color: "var(--tx3)", marginTop: 2 }}>{phaseModal.items.length} items</div>
+              </div>
+              <button onClick={() => setPhaseModal(null)} style={{ background: "var(--bg3)", border: "none", width: 30, height: 30, borderRadius: 15, cursor: "pointer", color: "var(--tx3)", fontSize: 14 }}>✕</button>
+            </div>
+            <div style={{ overflowY: "auto", padding: "8px 16px 16px" }}>
+              {phaseModal.items.length === 0
+                ? <div style={{ textAlign: "center", padding: "24px 0", color: "var(--tx3)", fontSize: 13 }}>Sin items</div>
+                : phaseModal.items.map((it, i) => {
+                    const sq = SQUADS.find(s => s.name === normalizeSquad(it.column_values?.color_mkz0s203));
+                    const tl = parseTL(it.column_values?.timerange_mkzcqv0j);
+                    const od = isOverdue(it);
+                    return (
+                      <div key={it.id || i} style={{ display: "flex", gap: 8, alignItems: "flex-start", padding: "10px 0", borderBottom: "1px solid var(--bg3)" }}>
+                        <div style={{ width: 8, height: 8, borderRadius: "50%", background: sq?.color || "var(--tx3)", flexShrink: 0, marginTop: 4 }} />
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: 13, color: od ? "var(--red)" : "var(--tx)", fontWeight: 500, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.name}</div>
+                          <div style={{ display: "flex", gap: 8, marginTop: 3, fontSize: 11, color: "var(--tx3)", flexWrap: "wrap" }}>
+                            {sq && <span style={{ color: sq.color, fontWeight: 600 }}>{sq.name.split(" ")[0]}</span>}
+                            {it.column_values?.person && <span>👤 {shortName(it.column_values.person)}</span>}
+                            {tl.end && <span style={{ color: od ? "var(--red)" : "var(--tx3)", fontWeight: od ? 700 : 400 }}>{od ? "⚠️ " : ""}📅 {tl.end.toLocaleDateString("es-MX", { day: "2-digit", month: "short" })}</span>}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })
+              }
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Minuta lightbox — renderizado en el root, fuera de cualquier scroll container */}
       {minutaLightbox && (
