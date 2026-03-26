@@ -2916,9 +2916,19 @@ export default function App() {
         // Un proyecto cuenta para esta semana si:
         //   - Cronograma del padre traslapa esta semana, O
         //   - No tiene Cronograma pero tiene Deadline esta semana
+        // CRITERIO DE SEMANA (alineado con Monday "Esta semana"):
+        // 1. Deadline cae esta semana → es el criterio PRIMARIO (igual que Monday)
+        // 2. No hay Deadline pero el Cronograma TERMINA esta semana (no solo traslapa)
+        // 3. No usar "traslapa" puro — un proyecto anual traslapa todas las semanas
         const deadline = it.column_values?.date_mm1b10rx;
-        const deadlineThisWeek = deadline ? overlapsThisWeek(`${deadline} - ${deadline}`) : false;
-        const projectThisWeek = isThisWeek || (!timeline && deadlineThisWeek);
+        const tl = parseTL(timeline);
+        const deadlineThisWeek = deadline
+          ? (new Date(deadline) >= WEEK.start && new Date(deadline) <= WEEK.end)
+          : false;
+        const cronogramaTerminaEstaSemana = !deadline && tl.end
+          ? (tl.end >= WEEK.start && tl.end <= WEEK.end)
+          : false;
+        const projectThisWeek = deadlineThisWeek || cronogramaTerminaEstaSemana;
 
         if (projectThisWeek) {
           // ── PROYECTOS ──────────────────────────────────────────────────
@@ -2929,6 +2939,8 @@ export default function App() {
             pr.split(", ").forEach((p) => {
               const n = normalizePersonName(p);
               if (!isTeamMember(n)) return;
+              // DEBUG — descomentar para diagnosticar
+              // console.log(`[CARGA] PROYECTO: "${it.name}" → person raw="${p}" → normalizado="${n}" | cronograma="${timeline}" | deadline="${it.column_values?.date_mm1b10rx}"`);
               if (!byPersonWeek[n]) byPersonWeek[n] = { projects: 0, tasks: 0, stopped: 0, total: 0 };
               byPersonWeek[n].projects++;
               byPersonWeek[n].total++;
