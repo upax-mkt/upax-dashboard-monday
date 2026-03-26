@@ -853,7 +853,10 @@ function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
                 📊 Generación de Demanda
-                {gddData?.fechas?.semana_desde && <span style={{ fontWeight: 400, marginLeft: 6 }}>{gddData.fechas.semana_desde} → {gddData.fechas.semana_hasta}</span>}
+                {gddData?.fechas?.semana_desde && (() => {
+                  const fD = (s) => { if (!s) return ""; const d = new Date(s + (s.includes("-") ? "T12:00:00" : ", 2026")); return isNaN(d) ? s : d.toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g," - "); };
+                  return <span style={{ fontWeight: 400, marginLeft: 6, color: "var(--tx3)", fontSize: 11 }}>{fD(gddData.fechas.semana_desde)}{gddData.fechas.semana_hasta ? " al " + fD(gddData.fechas.semana_hasta) : ""}</span>;
+                })()}
               </span>
               <button onClick={() => {
                 if (gddEditing) {
@@ -870,6 +873,7 @@ function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
                 const cur = d.semana?.[m] || 0, prev = d.anterior?.[m] || 0, ytd = d.ytd?.[m] || 0;
                 const pct = pctChange(cur, prev);
                 const col = colors[m];
+                const mesVal = (gddData?.mes || {})[m] || 0;
                 return (
                   <div key={m} style={{ background: "var(--bg2)", border: "1px solid var(--bg4)", borderRadius: "var(--r)", padding: "12px 14px", position: "relative", overflow: "hidden" }}>
                     <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: col }} />
@@ -882,6 +886,11 @@ function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
                       <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6, paddingTop: 6, borderTop: "1px solid var(--bg4)" }}>
                         <span style={{ fontSize: 11, fontWeight: 700, color: pct >= 0 ? "var(--green)" : "var(--red)" }}>{pct >= 0 ? "▲" : "▼"}{Math.abs(pct)}%</span>
                         <span style={{ fontSize: 10, color: "var(--tx3)" }}>vs sem. ant.</span>
+                      </div>
+                    )}
+                    {!gddEditing && mesVal > 0 && (
+                      <div style={{ marginTop: 5, paddingTop: 4, borderTop: "1px solid var(--bg4)", fontSize: 10, color: "var(--tx3)" }}>
+                        <span style={{ color: "var(--tx2)", fontWeight: 700, fontFamily: "var(--mono)" }}>{mesVal.toLocaleString()}</span> acum. mes
                       </div>
                     )}
                     {gddEditing && (
@@ -1240,8 +1249,9 @@ function TabPanorama({ analysis: an, items }) {
                       <span style={{ width: 8, height: 8, borderRadius: "50%", background: sq?.color || "var(--tx3)", flexShrink: 0 }} />
                       {g.extra && g.extra(it)}
                       <span style={{ flex: 1, color: "var(--tx)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.name}</span>
-                      {g.showSquad && sq && <span style={{ fontSize: 10, fontWeight: 700, color: sq.color, background: sq.color + "15", borderRadius: 4, padding: "1px 6px", flexShrink: 0 }}>{sq.name.split(" ")[0]}</span>}
-                      {!g.showSquad && <span style={{ color: "var(--tx3)", fontSize: 11 }}>{shortName(it.column_values?.person)}</span>}
+                      {g.showSquad
+                        ? <span style={{ fontSize: 10, fontWeight: 700, color: sq?.color || "var(--tx3)", background: (sq?.color || "#888") + "20", borderRadius: 4, padding: "2px 7px", flexShrink: 0 }}>{sq?.name?.split(" ")[0] || "?"}</span>
+                        : <span style={{ color: "var(--tx3)", fontSize: 11 }}>{shortName(it.column_values?.person)}</span>}
                     </div>
                   );
                 })}
@@ -1803,7 +1813,7 @@ function TabMinutasInline({ wd, analysis, gddData, blockTimes, onOpenMinuta }) {
               <button onClick={() => openMinuta(k)} style={{ background: "var(--bg3)", color: "var(--tx2)", border: "1px solid var(--bg4)", borderRadius: "var(--r-sm)", padding: "4px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
                 ✏️
               </button>
-              {!isFixed(k) && !isToday && (
+              {!isFixed(k) && (
                 <button onClick={(e) => deleteMinuta(k, e)} style={{ background: "var(--bg3)", color: "var(--red)", border: "1px solid var(--bg4)", borderRadius: "var(--r-sm)", padding: "4px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
                   🗑
                 </button>
