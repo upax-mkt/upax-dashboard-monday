@@ -847,22 +847,63 @@ function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
     </div>
   );
 
-  // Compact carga row — no expandable boxes, just a clean bar row
-  const CargaRow = ({ person, d, rank, maxVal }) => {
+  // CargaRow — diseño responsive que funciona bien en mobile y desktop
+  const CargaRow = ({ person, d, rank, maxVal, onClick, isExpanded }) => {
     const pct = maxVal > 0 ? d.total / maxVal : 0;
     const barColor = d.total > 10 ? "var(--red)" : d.total > 6 ? "var(--yellow)" : "var(--green)";
     const sq = PERSONAS.find((p) => p.name === person);
-    const squadColor = SQUADS.find((s) => s.name === sq?.squad)?.color || "var(--tx3)";
+    const squadData = SQUADS.find((s) => s.name === sq?.squad);
+    const squadColor = squadData?.color || "var(--tx3)";
+    const squadShort = squadData?.name?.split(" ")[0] || "";
     return (
-      <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 0", borderBottom: "1px solid var(--bg3)" }}>
-        <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--tx3)", minWidth: 14, textAlign: "right" }}>{rank}</span>
-        <span style={{ width: 6, height: 6, borderRadius: "50%", background: squadColor, flexShrink: 0 }} />
-        <span style={{ fontSize: 12, fontWeight: 600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{shortName(person)}</span>
-        {d.stopped > 0 && <span style={{ fontSize: 10, color: "var(--red)", fontWeight: 600 }}>{d.stopped}🚫</span>}
-        <div style={{ width: 80, height: 5, background: "var(--bg4)", borderRadius: 3, overflow: "hidden", flexShrink: 0 }}>
-          <div style={{ width: (pct * 100) + "%", height: "100%", background: barColor, borderRadius: 3, transition: "width .4s ease" }} />
+      <div onClick={onClick} style={{ cursor: "pointer", borderBottom: "1px solid var(--bg3)", transition: "background .1s" }}
+        onMouseEnter={e => e.currentTarget.style.background = "var(--bg3)"}
+        onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0" }}>
+          {/* Rank */}
+          <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--tx3)", minWidth: 16, textAlign: "right", flexShrink: 0 }}>{rank}</span>
+          {/* Squad dot */}
+          <span title={squadData?.name} style={{ width: 8, height: 8, borderRadius: "50%", background: squadColor, flexShrink: 0 }} />
+          {/* Nombre */}
+          <span style={{ fontSize: 13, fontWeight: 600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{shortName(person)}</span>
+          {/* Squad label — solo en desktop */}
+          <span className="mobile-hide" style={{ fontSize: 10, color: squadColor, fontWeight: 600, background: squadColor + "15", borderRadius: 4, padding: "1px 6px", flexShrink: 0 }}>{squadShort}</span>
+          {/* Detenidos */}
+          {d.stopped > 0 && <span style={{ fontSize: 10, color: "var(--red)", fontWeight: 700, flexShrink: 0 }}>{d.stopped}🚫</span>}
+          {/* Barra de progreso */}
+          <div style={{ width: 60, height: 4, background: "var(--bg4)", borderRadius: 3, overflow: "hidden", flexShrink: 0 }}>
+            <div style={{ width: Math.min(pct * 100, 100) + "%", height: "100%", background: barColor, borderRadius: 3, transition: "width .4s ease" }} />
+          </div>
+          {/* Número */}
+          <span style={{ fontFamily: "var(--mono)", fontSize: 14, fontWeight: 800, color: barColor, minWidth: 24, textAlign: "right", flexShrink: 0 }}>{d.total}</span>
+          {/* Chevron */}
+          <span style={{ fontSize: 10, color: "var(--tx3)", transform: isExpanded ? "rotate(180deg)" : "none", transition: "transform .2s", flexShrink: 0 }}>▾</span>
         </div>
-        <span style={{ fontFamily: "var(--mono)", fontSize: 13, fontWeight: 700, color: barColor, minWidth: 22, textAlign: "right" }}>{d.total}</span>
+        {/* Detalle expandido — proyectos activos de esta persona */}
+        {isExpanded && (
+          <div style={{ paddingLeft: 32, paddingBottom: 8 }}>
+            {items
+              .filter(it => {
+                const ph = it.column_values?.color_mkz09na;
+                if (!isActive(ph)) return false;
+                const person_val = it.column_values?.person || "";
+                return person_val.toLowerCase().includes(person.split(" ")[0].toLowerCase());
+              })
+              .slice(0, 6)
+              .map((it, i) => {
+                const ph = it.column_values?.color_mkz09na;
+                const tl = parseTL(it.column_values?.timerange_mkzcqv0j);
+                const od = isOverdue(it);
+                return (
+                  <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", padding: "3px 0", fontSize: 11 }}>
+                    <div style={{ width: 5, height: 5, borderRadius: "50%", background: PHASES[ph] || "var(--tx3)", flexShrink: 0 }} />
+                    <span style={{ flex: 1, color: od ? "var(--red)" : "var(--tx2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.name}</span>
+                    {tl.end && <span style={{ fontSize: 10, color: od ? "var(--red)" : "var(--tx3)", fontFamily: "var(--mono)", flexShrink: 0 }}>{tl.end.toLocaleDateString("es-MX",{day:"2-digit",month:"short"})}</span>}
+                  </div>
+                );
+              })}
+          </div>
+        )}
       </div>
     );
   };
@@ -958,10 +999,11 @@ function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
         );
       })()}
 
-      {/* Separador */}
+      {/* Separador — diferenciado de Panorama */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, marginTop: 4 }}>
         <div style={{ flex: 1, height: 1, background: "var(--bg4)" }} />
-        <span style={{ fontSize: 10, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: "0.1em", whiteSpace: "nowrap" }}>Resumen operativo</span>
+        <span style={{ fontSize: 10, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: "0.1em", whiteSpace: "nowrap" }}>Estado del sprint</span>
+        <button onClick={onViewAlerts} style={{ fontSize: 9, color: "var(--blue)", background: "none", border: "1px solid var(--blue)", borderRadius: 4, padding: "2px 8px", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>Ver detalle completo →</button>
         <div style={{ flex: 1, height: 1, background: "var(--bg4)" }} />
       </div>
 
@@ -1097,7 +1139,7 @@ function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
           <Card>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <span style={{ fontSize: 14, fontWeight: 700 }}>⚡ Alertas Ejecutivas</span>
-              <button onClick={onViewAlerts} style={{ background: "var(--bg3)", color: "var(--blue)", border: "none", borderRadius: "var(--r-sm)", padding: "4px 12px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Ver todo →</button>
+              <button onClick={onViewAlerts} style={{ background: "var(--bg3)", color: "var(--blue)", border: "none", borderRadius: "var(--r-sm)", padding: "4px 12px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Ver alertas →</button>
             </div>
             {alertGroups.map((g, gi) => (
               <div key={gi} style={{ marginBottom: gi < alertGroups.length - 1 ? 10 : 0 }}>
@@ -3016,7 +3058,7 @@ export default function App() {
         </div>
         <div style={{ height: 20 }} />
 
-        {tab === "home"        && <TabHome analysis={an} items={items} elapsed={elapsed} onStart={startTimer} onViewAlerts={() => setTab("panorama")} />}
+        {tab === "home"        && <TabHome analysis={an} items={items} elapsed={elapsed} onStart={startTimer} onViewAlerts={() => { setTab("panorama"); try { sessionStorage.setItem("panorama-tab","alertas"); } catch {} }} />}
         {tab === "agenda"      && <TabAgenda wd={wd} setWd={setWd} save={saveFn} currentIdx={currentBlockIdx} blockTimes={blockTimes} onJumpToBlock={jumpToBlock} />}
         {tab === "panorama"    && <TabPanorama analysis={an} items={items} />}
         {tab === "focos"       && <TabFocos items={items} wd={wd} setWd={setWd} save={saveFn} activeSquad={activeSquad} setActiveSquad={setActiveSquad} />}
