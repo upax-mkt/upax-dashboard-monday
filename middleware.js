@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 
-const PASSWORD = process.env.DASHBOARD_PASSWORD || 'upax2026'
+const PASSWORD = process.env.DASHBOARD_PASSWORD
 
 export function middleware(request) {
   // Excluir health checks y assets estáticos
@@ -10,6 +10,11 @@ export function middleware(request) {
   }
 
   const authHeader = request.headers.get('authorization')
+
+  // Si no hay password configurado en env, bloquear acceso total
+  if (!PASSWORD) {
+    return new NextResponse('Dashboard no configurado — contacta al administrador', { status: 503 })
+  }
 
   if (authHeader) {
     // Basic Auth: "Basic base64(user:password)"
