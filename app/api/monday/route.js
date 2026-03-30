@@ -117,8 +117,18 @@ export async function GET() {
       const subitems = (item.subitems || []).map(sub => {
         const scv = {}
         ;(sub.column_values || []).forEach(col => {
-          scv[col.id] = col.text || null
-        })
+        let sval = col.text || null
+        if (!sval && col.value) {
+          try {
+            const p = JSON.parse(col.value)
+            sval = p?.label?.text || p?.text || p?.name || null
+            if (col.column?.type === 'multiple-person' || col.column?.type === 'people') {
+              sval = col.text || null
+            }
+          } catch {}
+        }
+        scv[col.id] = sval
+      })
         return { ...sub, column_values: scv }
       })
       return { ...item, column_values: cv, subitems }
