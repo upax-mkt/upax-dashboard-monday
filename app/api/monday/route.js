@@ -47,7 +47,7 @@ export async function GET() {
               column_values(ids: ${colIds}) { id text value column { id title type } }
               subitems {
                 id name
-                column_values(ids: ["person","color_mkzjvp66","timerange_mkzx7r55"]) {
+                column_values(ids: ["person","color_mkzjvp66","timerange_mkzx7r55","date_mm1hnswx"]) {
                   id text value column { id type }
                 }
               }
@@ -77,7 +77,7 @@ export async function GET() {
               column_values(ids: ${colIds}) { id text value column { id title type } }
               subitems {
                 id name
-                column_values(ids: ["person","color_mkzjvp66","timerange_mkzx7r55"]) {
+                column_values(ids: ["person","color_mkzjvp66","timerange_mkzx7r55","date_mm1hnswx"]) {
                   id text value column { id type }
                 }
               }
