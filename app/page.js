@@ -3011,10 +3011,12 @@ export default function App() {
       if (isActive(ph)) {
         // ── PROYECTOS ────────────────────────────────────────────────────
         // P: responsable del ELEMENTO + fase activa + deadline del ELEMENTO esta semana
+        // Comparar como strings YYYY-MM-DD para evitar problemas de timezone
+        const weekStartStr = WEEK.start.toISOString().split("T")[0];
+        const weekEndStr = WEEK.end.toISOString().split("T")[0];
         const deadlineItem = it.column_values?.date_mm1b10rx;
-        const deadlineItemDate = deadlineItem ? new Date(deadlineItem + "T12:00:00") : null;
-        const projectThisWeek = deadlineItemDate
-          ? (deadlineItemDate >= WEEK.start && deadlineItemDate <= WEEK.end)
+        const projectThisWeek = deadlineItem
+          ? (deadlineItem >= weekStartStr && deadlineItem <= weekEndStr)
           : false;
 
         if (projectThisWeek && pr) {
@@ -3030,15 +3032,14 @@ export default function App() {
         // ── TAREAS ───────────────────────────────────────────────────────
         // T: responsable del SUBELEMENTO + fase activa + deadline del SUBELEMENTO esta semana
         // Co-responsables cuentan para cada persona individualmente
-        // Subitems Done o con deadline fuera de esta semana NO cuentan
+        // Comparar deadline como string YYYY-MM-DD
         (it.subitems || []).forEach((sub) => {
           const sp = sub.column_values?.person;
           const subPhase = sub.column_values?.color_mkzjvp66;
           const subDeadline = sub.column_values?.date_mm1hnswx;
           if (!sp) return;
           if (!["🚧 Sprint", "👀 Review", "⚙️ Modificación"].includes(subPhase)) return;
-          const subDL = subDeadline ? new Date(subDeadline + "T12:00:00") : null;
-          if (!subDL || subDL < WEEK.start || subDL > WEEK.end) return;
+          if (!subDeadline || subDeadline < weekStartStr || subDeadline > weekEndStr) return;
           sp.split(", ").forEach((p) => {
             const n = normalizePersonName(p);
             if (!isTeamMember(n)) return;
