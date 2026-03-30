@@ -3011,9 +3011,16 @@ export default function App() {
       if (isActive(ph)) {
         // ── PROYECTOS ────────────────────────────────────────────────────
         // P: responsable del ELEMENTO + fase activa + deadline del ELEMENTO esta semana
-        // Comparar como strings YYYY-MM-DD para evitar problemas de timezone
-        const weekStartStr = WEEK.start.toISOString().split("T")[0];
-        const weekEndStr = WEEK.end.toISOString().split("T")[0];
+        // weekStartStr/weekEndStr calculados desde TODAY_STR (fecha local del cliente)
+        // para evitar bugs de timezone SSR vs cliente
+        const weekDay = new Date(TODAY_STR + "T12:00:00").getDay(); // getDay en hora local
+        const daysToMon = weekDay === 0 ? 6 : weekDay - 1;
+        const monDate = new Date(TODAY_STR + "T12:00:00");
+        monDate.setDate(monDate.getDate() - daysToMon);
+        const friDate = new Date(monDate);
+        friDate.setDate(monDate.getDate() + 4);
+        const weekStartStr = monDate.toLocaleDateString("en-CA"); // YYYY-MM-DD en locale local
+        const weekEndStr = friDate.toLocaleDateString("en-CA");
         const deadlineItem = it.column_values?.date_mm1b10rx;
         const projectThisWeek = deadlineItem
           ? (deadlineItem >= weekStartStr && deadlineItem <= weekEndStr)
