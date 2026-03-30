@@ -15,8 +15,11 @@ const MCP_URL = "https://mcp.monday.com/mcp";
 const SLACK_MCP_URL = "https://mcp.slack.com/mcp";
 const SLACK_GENERAL_CHANNEL = "C081Z8R4ZH9";
 const COL_IDS = ["person","color_mkz0s203","color_mkz09na","timerange_mkzcqv0j","date_mm1b10rx","date_mkzchmsq","color_mkzjvp66","timerange_mkzx7r55"];
-const TODAY_STR = new Date().toISOString().split("T")[0];
-const TODAY = new Date(TODAY_STR);
+// Fecha LOCAL del sistema — no usar toISOString() que devuelve UTC
+// En México (UTC-6) la medianoche local = día anterior en UTC
+const _now = new Date();
+const TODAY_STR = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,"0")}-${String(_now.getDate()).padStart(2,"0")}`;
+const TODAY = new Date(TODAY_STR + "T12:00:00");
 const STORE_KEY = `weekly:${TODAY_STR}`;
 const CACHE_KEY = "monday-cache";
 
