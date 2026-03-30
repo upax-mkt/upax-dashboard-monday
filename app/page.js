@@ -143,6 +143,20 @@ function parseTL(t) {
   const p = t.split(" - ");
   return { start: p[0] ? new Date(p[0]) : null, end: p[1] ? new Date(p[1]) : null };
 }
+// Suma N días a un string YYYY-MM-DD sin usar timezone — puro aritmética de fecha
+function addDays(dateStr, n) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d + n); // new Date(y, m, d) usa hora LOCAL, no UTC
+  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
+}
+// Calcula el lunes de la semana de un string YYYY-MM-DD
+function getMondayStr(dateStr) {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  const day = dt.getDay(); // 0=Dom, 1=Lun...
+  const daysToMon = day === 0 ? 6 : day - 1;
+  return addDays(dateStr, -daysToMon);
+}
 function daysDiff(a, b) { return Math.round((a - b) / 86400000); }
 function isOverdue(it) {
   const ph = it.column_values?.color_mkz09na;
@@ -2992,6 +3006,12 @@ export default function App() {
   const analysis = useMemo(() => {
     if (!items.length) return null;
     const byPhase = {}, byPhaseWeek = {}, bySquad = {}, bySquadWeek = {}, byPerson = {}, byPersonWeek = {}, overdue = [], noResp = [], noCrono = [], stoppedWeek = [], backlogWithDates = [], doneLastWeek = [];
+
+    // Semana actual como strings YYYY-MM-DD — calculado UNA VEZ, fuera del loop
+    // Usa TODAY_STR (fecha local del cliente) + aritmética pura sin timezone
+    const WEEK_START_STR = getMondayStr(TODAY_STR);
+    const WEEK_END_STR = addDays(WEEK_START_STR, 4); // viernes
+
     items.forEach((it) => {
       const cv = it.column_values || {}, ph = cv.color_mkz09na || "?", sq = normalizeSquad(cv.color_mkz0s203 || "?"), pr = cv.person;
       const timeline = cv.timerange_mkzcqv0j, isThisWeek = overlapsThisWeek(timeline);
@@ -3010,20 +3030,10 @@ export default function App() {
 
       if (isActive(ph)) {
         // ── PROYECTOS ────────────────────────────────────────────────────
-        // P: responsable del ELEMENTO + fase activa + deadline del ELEMENTO esta semana
-        // weekStartStr/weekEndStr calculados desde TODAY_STR (fecha local del cliente)
-        // para evitar bugs de timezone SSR vs cliente
-        const weekDay = new Date(TODAY_STR + "T12:00:00").getDay(); // getDay en hora local
-        const daysToMon = weekDay === 0 ? 6 : weekDay - 1;
-        const monDate = new Date(TODAY_STR + "T12:00:00");
-        monDate.setDate(monDate.getDate() - daysToMon);
-        const friDate = new Date(monDate);
-        friDate.setDate(monDate.getDate() + 4);
-        const weekStartStr = monDate.toLocaleDateString("en-CA"); // YYYY-MM-DD en locale local
-        const weekEndStr = friDate.toLocaleDateString("en-CA");
+        // P: responsable del ELEMENTO + fase activa + deadline esta semana
         const deadlineItem = it.column_values?.date_mm1b10rx;
         const projectThisWeek = deadlineItem
-          ? (deadlineItem >= weekStartStr && deadlineItem <= weekEndStr)
+          ? (deadlineItem >= WEEK_START_STR && deadlineItem <= WEEK_END_STR)
           : false;
 
         if (projectThisWeek && pr) {
@@ -3037,16 +3047,15 @@ export default function App() {
         }
 
         // ── TAREAS ───────────────────────────────────────────────────────
-        // T: responsable del SUBELEMENTO + fase activa + deadline del SUBELEMENTO esta semana
-        // Co-responsables cuentan para cada persona individualmente
-        // Comparar deadline como string YYYY-MM-DD
+        // T: responsable del SUBELEMENTO + fase activa + deadline subelemento esta semana
+        // Co-responsables cuentan individualmente
         (it.subitems || []).forEach((sub) => {
           const sp = sub.column_values?.person;
           const subPhase = sub.column_values?.color_mkzjvp66;
           const subDeadline = sub.column_values?.date_mm1hnswx;
           if (!sp) return;
           if (!["🚧 Sprint", "👀 Review", "⚙️ Modificación"].includes(subPhase)) return;
-          if (!subDeadline || subDeadline < weekStartStr || subDeadline > weekEndStr) return;
+          if (!subDeadline || subDeadline < WEEK_START_STR || subDeadline > WEEK_END_STR) return;
           sp.split(", ").forEach((p) => {
             const n = normalizePersonName(p);
             if (!isTeamMember(n)) return;
