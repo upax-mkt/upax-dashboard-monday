@@ -3009,59 +3009,44 @@ export default function App() {
       if (isActive(ph) && pr) pr.split(", ").forEach((p) => { if (!byPerson[p]) byPerson[p] = { items: 0, subitems: 0, total: 0 }; byPerson[p].items++; byPerson[p].total++; });
 
       if (isActive(ph)) {
-        // CRITERIO CORRECTO: contar PROYECTOS (items padre), no subitems individuales
-        // Un proyecto cuenta para esta semana si:
-        //   - Cronograma del padre traslapa esta semana, O
-        //   - No tiene Cronograma pero tiene Deadline esta semana
-        // CRITERIO DE SEMANA (alineado con Monday "Esta semana"):
-        // 1. Deadline cae esta semana → es el criterio PRIMARIO (igual que Monday)
-        // 2. No hay Deadline pero el Cronograma TERMINA esta semana (no solo traslapa)
-        // 3. No usar "traslapa" puro — un proyecto anual traslapa todas las semanas
-        const deadline = it.column_values?.date_mm1b10rx;
-        const tl = parseTL(timeline);
-        const deadlineThisWeek = deadline
-          ? (new Date(deadline) >= WEEK.start && new Date(deadline) <= WEEK.end)
+        // ── PROYECTOS ────────────────────────────────────────────────────
+        // P: responsable del ELEMENTO + fase activa + deadline del ELEMENTO esta semana
+        const deadlineItem = it.column_values?.date_mm1b10rx;
+        const deadlineItemDate = deadlineItem ? new Date(deadlineItem + "T12:00:00") : null;
+        const projectThisWeek = deadlineItemDate
+          ? (deadlineItemDate >= WEEK.start && deadlineItemDate <= WEEK.end)
           : false;
-        const cronogramaTerminaEstaSemana = !deadline && tl.end
-          ? (tl.end >= WEEK.start && tl.end <= WEEK.end)
-          : false;
-        const projectThisWeek = deadlineThisWeek || cronogramaTerminaEstaSemana;
 
-        if (projectThisWeek) {
-          // ── PROYECTOS ──────────────────────────────────────────────────
-          // Responsable(s) del item PADRE = columna "Responsable" del item
-          // 1 proyecto por persona aunque tenga múltiples subitems
-          // Solo personas del equipo (isTeamMember)
-          if (pr) {
-            pr.split(", ").forEach((p) => {
-              const n = normalizePersonName(p);
-              if (!isTeamMember(n)) return;
-              // DEBUG — descomentar para diagnosticar
-              // console.log(`[CARGA] PROYECTO: "${it.name}" → person raw="${p}" → normalizado="${n}" | cronograma="${timeline}" | deadline="${it.column_values?.date_mm1b10rx}"`);
-              if (!byPersonWeek[n]) byPersonWeek[n] = { projects: 0, tasks: 0, stopped: 0, total: 0 };
-              byPersonWeek[n].projects++;
-              byPersonWeek[n].total++;
-            });
-          }
-
-          // ── TAREAS ─────────────────────────────────────────────────────
-          // Cada subitem activo (Sprint/Review/Mod) = 1 tarea por persona asignada
-          // El proyecto padre ya califica para esta semana (projectThisWeek)
-          // Una persona puede tener N tareas en un mismo proyecto
-          (it.subitems || []).forEach((sub) => {
-            const sp = sub.column_values?.person;
-            const subPhase = sub.column_values?.color_mkzjvp66;
-            // Solo subitems activos — excluir Done, Backlog y sin fase
-            if (!sp || !["🚧 Sprint", "👀 Review", "⚙️ Modificación"].includes(subPhase)) return;
-            sp.split(", ").forEach((p) => {
-              const n = normalizePersonName(p);
-              if (!isTeamMember(n)) return;
-              if (!byPersonWeek[n]) byPersonWeek[n] = { projects: 0, tasks: 0, stopped: 0, total: 0 };
-              byPersonWeek[n].tasks++;
-              byPersonWeek[n].total++;
-            });
+        if (projectThisWeek && pr) {
+          pr.split(", ").forEach((p) => {
+            const n = normalizePersonName(p);
+            if (!isTeamMember(n)) return;
+            if (!byPersonWeek[n]) byPersonWeek[n] = { projects: 0, tasks: 0, stopped: 0, total: 0 };
+            byPersonWeek[n].projects++;
+            byPersonWeek[n].total++;
           });
         }
+
+        // ── TAREAS ───────────────────────────────────────────────────────
+        // T: responsable del SUBELEMENTO + fase activa + deadline del SUBELEMENTO esta semana
+        // Co-responsables cuentan para cada persona individualmente
+        // Subitems Done o con deadline fuera de esta semana NO cuentan
+        (it.subitems || []).forEach((sub) => {
+          const sp = sub.column_values?.person;
+          const subPhase = sub.column_values?.color_mkzjvp66;
+          const subDeadline = sub.column_values?.date_mm1hnswx;
+          if (!sp) return;
+          if (!["🚧 Sprint", "👀 Review", "⚙️ Modificación"].includes(subPhase)) return;
+          const subDL = subDeadline ? new Date(subDeadline + "T12:00:00") : null;
+          if (!subDL || subDL < WEEK.start || subDL > WEEK.end) return;
+          sp.split(", ").forEach((p) => {
+            const n = normalizePersonName(p);
+            if (!isTeamMember(n)) return;
+            if (!byPersonWeek[n]) byPersonWeek[n] = { projects: 0, tasks: 0, stopped: 0, total: 0 };
+            byPersonWeek[n].tasks++;
+            byPersonWeek[n].total++;
+          });
+        });
       }
 
       if (ph === "🚫 Detenido" && isThisWeek) stoppedWeek.push(it);
