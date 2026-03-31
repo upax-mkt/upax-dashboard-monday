@@ -43,12 +43,16 @@ export async function GET(request) {
     }
 
     if (action === 'list' && prefix !== null) {
-      const result = await upstash('KEYS', `${prefix}*`)
-      if (result === null) {
-        const keys = [...memStore.keys()].filter(k => k.startsWith(prefix))
-        return NextResponse.json({ keys })
-      }
-      return NextResponse.json({ keys: Array.isArray(result) ? result : [] })
+      // Usar SCAN en lugar de KEYS — KEYS es O(n) bloqueante en Redis (P4.4)
+      const allKeys = []
+      let cursor = '0'
+      do {
+        const result = await upstash('SCAN', cursor, 'MATCH', `${prefix}*`, 'COUNT', '100')
+        if (result === null) break // sin KV configurado
+        cursor = String(result[0])
+        if (Array.isArray(result[1])) allKeys.push(...result[1])
+      } while (cursor !== '0')
+      return NextResponse.json({ keys: allKeys })
     }
 
     return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
