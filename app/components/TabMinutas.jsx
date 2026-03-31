@@ -1,7 +1,7 @@
 'use client'
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-
-import { SQUADS, STORE_KEY, TODAY_STR } from '../lib/constants'
+import React, { useState, useEffect } from 'react'
+// components/TabMinutas.jsx — TabMinutasInline + MinutaDetailView + PdfButton + SlackButton
+import { SQUADS, STORE_KEY, TODAY_STR, WEEKLY_MAR23, PERSONAS } from '../lib/constants'
 import { shortName, pctColor, parseTL, daysDiff, normalizeSquad, overlapsThisWeek, TODAY } from '../lib/utils'
 import { storeGet, storeSet, storeDel, storeList } from '../lib/storage'
 import { generateMinuta } from '../lib/minuta'
@@ -721,6 +721,5 @@ function MinutaDetailView({ weekKey, data, todayWd, todayAnalysis, gddData, bloc
     </>
   );
 }
-
 
 export { TabMinutasInline, MinutaDetailView }
