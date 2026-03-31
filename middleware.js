@@ -20,7 +20,7 @@ export function middleware(request) {
     // Basic Auth: "Basic base64(user:password)"
     const encoded = authHeader.replace('Basic ', '')
     try {
-      const decoded = atob(encoded)
+      const decoded = Buffer.from(encoded, 'base64').toString('utf-8')
       const [, pass] = decoded.split(':')
       if (pass === PASSWORD) {
         return NextResponse.next()
