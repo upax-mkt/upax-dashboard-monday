@@ -1,15 +1,12 @@
 'use client'
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-
-import { PERSONAS, TODAY_STR, STORE_KEY } from '../lib/constants'
+import React, { useState, useEffect } from 'react'
+// components/TabCompromisos.jsx
+import { PERSONAS, TODAY_STR, STORE_KEY, WEEKLY_MAR23 } from '../lib/constants'
 import { shortName, pctColor } from '../lib/utils'
 import { storeGet, storeSet, storeList } from '../lib/storage'
 import { createMondayItem } from '../lib/api'
 import { generateMinuta } from '../lib/minuta'
 import { Card, PersonSelect } from './ui'
-
-   SECTION 14: TAB COMPROMISOS
-   ═══════════════════════════════════════════════════════════════ */
 
 const TabCompromisos = React.memo(function TabCompromisos({ wd, setWd, save, analysis, onCopy, gddData }) {
   const comps = wd.compromisos || [], synced = wd.synced || [];
@@ -189,6 +186,5 @@ const TabCompromisos = React.memo(function TabCompromisos({ wd, setWd, save, ana
    TAB MINUTAS INLINE
    Lista inline de todas las minutas. Click en una → lightbox de detalle.
    ═══════════════════════════════════════════════════════════════ */
-
 
 export default TabCompromisos
