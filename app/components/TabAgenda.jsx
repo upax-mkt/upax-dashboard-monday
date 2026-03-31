@@ -1,0 +1,63 @@
+'use client'
+import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
+
+import { AGENDA, SQUADS, PERSONAS } from '../lib/constants'
+import { Alerta, PersonSelect } from './ui'
+
+   SECTION 10: TAB AGENDA
+   ═══════════════════════════════════════════════════════════════ */
+
+const TabAgenda = React.memo(function TabAgenda({ wd, setWd, save, currentIdx, blockTimes, onJumpToBlock }) {
+  const [edit, setEdit] = useState(false);
+  const pr = wd.presenters || {};
+  const missing = AGENDA.filter((b) => b.squad && !pr[b.id]?.trim());
+  const setPr = (id, v) => { const n = { ...wd, presenters: { ...wd.presenters, [id]: v } }; setWd(n); save(n); };
+
+  return (
+    <div className="fade">
+      {missing.length > 0 && !edit && <Alerta icon="⚠️" text={`Faltan presentadores: ${missing.map((b) => b.label).join(", ")}`} />}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
+        <div>
+          <h2 style={{ fontSize: 16, fontWeight: 700 }}>Agenda</h2>
+          <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>
+            Bloque {currentIdx + 1} de {AGENDA.length} · {AGENDA[currentIdx]?.label}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 6 }}>
+          {currentIdx < AGENDA.length - 1 && (
+            <button onClick={() => onJumpToBlock(currentIdx + 1)} style={{ background: "var(--green)", color: "#fff", border: "none", borderRadius: "var(--r-sm)", padding: "5px 14px", fontSize: 11, fontWeight: 700, cursor: "pointer" }}>
+              ✓ Siguiente →
+            </button>
+          )}
+          <button onClick={() => setEdit(!edit)} style={{ background: edit ? "var(--purple)" : "var(--bg3)", color: edit ? "#fff" : "var(--tx2)", border: edit ? "none" : "1px solid var(--border)", borderRadius: "var(--r-sm)", padding: "5px 14px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>✏ {edit ? "Listo" : "Presentadores"}</button>
+        </div>
+      </div>
+      {AGENDA.map((b, idx) => {
+        const isCur = idx === currentIdx;
+        const isPast = idx < currentIdx;
+        const sq = SQUADS.find((s) => s.id === b.id);
+        return (
+          <div key={b.id} onClick={() => !edit && onJumpToBlock(idx)} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 12px", borderRadius: "var(--r-sm)", marginBottom: 3, background: isCur ? `${b.color}0D` : (b.squad && !pr[b.id]?.trim()) ? "rgba(255,59,48,.04)" : "transparent", border: isCur ? `1px solid ${b.color}25` : "1px solid transparent", cursor: edit ? "default" : "pointer", opacity: isPast && !edit ? 0.35 : 1,
+              transition: "all .2s" }}>
+            <span style={{ fontFamily: "var(--mono)", fontWeight: 700, color: isCur ? b.color : `${b.color}80`, minWidth: 38, fontSize: 11 }}>{String(b.start).padStart(2, "0")}:00</span>
+            <div style={{ width: 3, height: 22, borderRadius: "var(--r-sm)", background: isCur ? b.color : isPast ? `${b.color}40` : "var(--bg4)" }} />
+            <span style={{ minWidth: 120, fontWeight: isCur ? 700 : 500, fontSize: 13, color: isCur ? "var(--tx)" : "var(--tx2)" }}>{b.label}</span>
+            {edit && b.squad
+              ? <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 6 }}><PersonSelect value={pr[b.id] || ""} onChange={(e) => setPr(b.id, e.target.value)} style={{ flex: 1 }} /><span style={{ fontSize: 10, color: "var(--tx3)" }}>Lead: {sq?.lead}</span></div>
+              : <span style={{ flex: 1, fontSize: 12, color: "var(--tx3)" }}>{b.squad ? (pr[b.id] ? <><span style={{ color: b.color, fontWeight: 600 }}>{pr[b.id]}</span> · {sq?.lead}</> : <span style={{ color: "var(--red)" }}>Sin asignar · {sq?.lead}</span>) : b.fixed}</span>}
+            <span style={{ fontFamily: "var(--mono)", color: "var(--tx3)", fontSize: 11 }}>
+              {blockTimes?.[b.id] ? <span style={{ color: blockTimes[b.id] > b.dur * 60 ? "var(--red)" : "var(--green)" }}>{Math.floor(blockTimes[b.id] / 60)}:{String(blockTimes[b.id] % 60).padStart(2, "0")}</span> : `${b.dur}'`}
+            </span>
+            {isPast && !edit && <span style={{ background: "var(--green)", color: "#fff", borderRadius: "50%", width: 18, height: 18, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, flexShrink: 0 }}>✓</span>}
+            {isCur && !edit && <span style={{ background: b.color, color: "#fff", borderRadius: 4, padding: "1px 6px", fontSize: 9, fontWeight: 700, flexShrink: 0 }}>EN CURSO</span>}
+          </div>
+        );
+      })}
+      <div style={{ marginTop: 12, padding: 8, borderRadius: "var(--r-sm)", background: "var(--bg2)", fontSize: 11, color: "var(--tx3)", textAlign: "center" }}>+2 min → "lo sacamos offline" · Sin update Monday = sin voz · Compromiso = Qué + Quién + Cuándo</div>
+    </div>
+  );
+}
+
+/* ═══════════════════════════════════════════════════════════════
+
+export default TabAgenda
