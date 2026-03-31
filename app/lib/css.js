@@ -1,10 +1,6 @@
-// ─── CSS — Apple Modern Light design system ─────────────────────────────────
-// Cargado vía <style>{CSS}</style> en App — JetBrains Mono y Inter cargadas via next/font
+// lib/css.js — Apple Modern Light design system
 
-   SECTION 6: CSS
-   ═══════════════════════════════════════════════════════════════ */
-
-const CSS = `
+export const CSS = `
 /* fonts cargadas vía next/font en layout.js (P3.1) */
 *{box-sizing:border-box;margin:0}
 :root{
@@ -54,3 +50,5 @@ input:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
 textarea:focus-visible{outline:2px solid var(--blue);outline-offset:2px}`;
 
 /* ═══════════════════════════════════════════════════════════════
+   SECTION 7: SHARED UI COMPONENTS
+   ═══════════════════════════════════════════════════════════════ */
