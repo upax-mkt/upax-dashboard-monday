@@ -1250,7 +1250,7 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
       })()}
     </div>
   );
-}
+});
 
 /* ═══════════════════════════════════════════════════════════════
    SECTION 10: TAB AGENDA
@@ -1305,7 +1305,7 @@ const TabAgenda = React.memo(function TabAgenda({ wd, setWd, save, currentIdx, b
       <div style={{ marginTop: 12, padding: 8, borderRadius: "var(--r-sm)", background: "var(--bg2)", fontSize: 11, color: "var(--tx3)", textAlign: "center" }}>+2 min → "lo sacamos offline" · Sin update Monday = sin voz · Compromiso = Qué + Quién + Cuándo</div>
     </div>
   );
-}
+});
 
 /* ═══════════════════════════════════════════════════════════════
    SECTION 11: TAB PANORAMA
@@ -1461,7 +1461,7 @@ const TabPanorama = React.memo(function TabPanorama({ analysis: an, items }) {
       )}
     </div>
   );
-}
+});
 
 /* ═══════════════════════════════════════════════════════════════
    SECTION 13: TAB FOCOS
@@ -1610,7 +1610,7 @@ const TabFocos = React.memo(function TabFocos({ items, wd, setWd, save, activeSq
       )}
     </div>
   );
-}
+});
 
 /* ═══════════════════════════════════════════════════════════════
    SECTION 14: TAB COMPROMISOS
@@ -1774,7 +1774,7 @@ const TabCompromisos = React.memo(function TabCompromisos({ wd, setWd, save, ana
       )}
     </div>
   );
-}
+});
 
 /* ═══════════════════════════════════════════════════════════════
    SECTION 15: MAIN APP
@@ -1789,16 +1789,6 @@ const TabCompromisos = React.memo(function TabCompromisos({ wd, setWd, save, ana
    Nivel 2: preview de la minuta seleccionada (Editar / Copiar / PDF)
    ═══════════════════════════════════════════════════════════════ */
 
-function downloadMinutaTxt(text, dateStr) {
-  try {
-    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url; a.download = "minuta-weekly-" + dateStr + ".txt";
-    a.style.display = "none"; document.body.appendChild(a); a.click();
-    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 2000);
-  } catch {}
-}
 
 /* ═══════════════════════════════════════════════════════════════
    TAB MINUTAS INLINE
@@ -1902,7 +1892,7 @@ const TabMinutasInline = React.memo(function TabMinutasInline({ wd, analysis, gd
       })}
     </div>
   );
-}
+});
 
 
 function parseWhoWhen(text) {
