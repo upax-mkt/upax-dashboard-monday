@@ -1,13 +1,9 @@
 'use client'
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-
+import React, { useState } from 'react'
+// components/TabPanorama.jsx
 import { SQUADS, PHASES, TODAY, WEEK } from '../lib/constants'
 import { parseTL, daysDiff, pctColor, shortName, normalizeSquad, isActive, isOverdue, overlapsThisWeek, getPersonDetail } from '../lib/utils'
-import { Bar, Card, Chip, Alerta } from './ui'
-import { PersonDetailView } from './ui'
-
-   SECTION 11: TAB PANORAMA
-   ═══════════════════════════════════════════════════════════════ */
+import { Bar, Card, Chip, Alerta, PersonDetailView } from './ui'
 
 const TabPanorama = React.memo(function TabPanorama({ analysis: an, items }) {
   const [sec, setSec] = useState(() => {
@@ -162,5 +158,7 @@ const TabPanorama = React.memo(function TabPanorama({ analysis: an, items }) {
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   SECTION 13: TAB FOCOS
+   ═══════════════════════════════════════════════════════════════ */
 
 export default TabPanorama
