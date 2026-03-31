@@ -16,3 +16,5 @@ Dashboard semanal de marketing — Next.js + Monday.com API + Vercel.
 <!-- deploy: Google Sheets API con Service Account — GdD permanente sin CSV -->
 
 <!-- gdd-service-account-active -->
+
+<!-- deploy: GOOGLE_SERVICE_ACCOUNT_JSON configurada via CLI -->
