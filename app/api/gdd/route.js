@@ -128,6 +128,16 @@ function parseKPIsWeekly(rows) {
     if (metrica.includes('pipeline_total') || metrica === 'pipeline') result.semana.pipeline_total = valor
   }
 
+
+  // Fallback: si el total es 0 pero hay parciales mkt+com, calcular suma
+  // Ocurre cuando la hoja tiene leads_mkt/leads_com pero no una fila "leads" total
+  for (const period of ['semana', 'anterior', 'mes', 'ytd']) {
+    const p = result[period]
+    if (!p.leads  && (p.leads_mkt  || p.leads_com))  p.leads  = (p.leads_mkt  || 0) + (p.leads_com  || 0)
+    if (!p.mqls   && (p.mqls_mkt   || p.mqls_com))   p.mqls   = (p.mqls_mkt   || 0) + (p.mqls_com   || 0)
+    if (!p.sqls   && (p.sqls_mkt   || p.sqls_com))   p.sqls   = (p.sqls_mkt   || 0) + (p.sqls_com   || 0)
+    if (!p.opps   && (p.opps_mkt   || p.opps_com))   p.opps   = (p.opps_mkt   || 0) + (p.opps_com   || 0)
+  }
   return result
 }
 
