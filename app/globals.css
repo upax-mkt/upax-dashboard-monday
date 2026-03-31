@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+/* Tailwind eliminado — dashboard usa CSS-in-JS (const CSS en page.js) */
 
 * { box-sizing: border-box; }
 body { background: #0A0A0F; }
