@@ -86,12 +86,12 @@ export async function GET() {
 
     // Paginar
     while (cursor && page < 15) {
+      // Páginas siguientes: solo cursor, SIN query_params
+      // Monday rechaza con 500 si se mandan ambos simultáneamente
       const nextQuery = `
         query {
           boards(ids: [${BOARD_ID}]) {
-            items_page(limit: 100, cursor: "${cursor}", query_params: {
-              rules: [{ column_id: "group", compare_value: ["${GROUP_DELIVERY}"] }]
-            }) {
+            items_page(limit: 100, cursor: "${cursor}") {
               cursor
               items {
                 id name
