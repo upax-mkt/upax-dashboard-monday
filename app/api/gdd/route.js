@@ -1,161 +1,159 @@
 import { NextResponse } from 'next/server'
 
-export const dynamic = 'force-dynamic'
+const SHEET_ID = '1FPzeq0eYJZInSzcnrR4pEa7SMb75Kj1ob8zM1l8mY98'
+const SHEET_NAME = 'KPIs_Weekly'
 
-const CSV_URL = process.env.SHEETS_GDD_CSV_URL
-
-function parseCSV(text) {
-  const lines = text.trim().split('\n').filter(Boolean)
-  if (lines.length < 2) return null
-  const sep = lines[0].includes(';') ? ';' : ','
-  const clean = (s) => (s || '').replace(/^["\s]+|["\s]+$/g, '').trim()
-  const headers = lines[0].split(sep).map(clean).map(h => h.toLowerCase())
-  const iMetrica = headers.indexOf('metrica')
-  const iValor   = headers.indexOf('valor')
-  const iPeriodo = headers.indexOf('periodo')
-  if (iMetrica === -1 || iValor === -1 || iPeriodo === -1) return null
-  const rows = []
-  for (let i = 1; i < lines.length; i++) {
-    const cols = lines[i].split(sep).map(clean)
-    const metrica = cols[iMetrica]?.toLowerCase()
-    const valor   = cols[iValor]
-    const periodo = cols[iPeriodo]?.toLowerCase()
-    if (!metrica || !periodo) continue
-    rows.push({ metrica, valor, periodo })
+// Genera un JWT firmado con la clave privada de la Service Account
+// para autenticarse contra la Google Sheets API
+async function getAccessToken() {
+  const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON)
+  const now = Math.floor(Date.now() / 1000)
+  
+  const header = { alg: 'RS256', typ: 'JWT' }
+  const payload = {
+    iss: credentials.client_email,
+    scope: 'https://www.googleapis.com/auth/spreadsheets.readonly',
+    aud: 'https://oauth2.googleapis.com/token',
+    exp: now + 3600,
+    iat: now,
   }
-  return rows
+
+  const encode = (obj) => Buffer.from(JSON.stringify(obj)).toString('base64url')
+  const signingInput = `${encode(header)}.${encode(payload)}`
+
+  // Importar clave privada RSA
+  const pemKey = credentials.private_key
+  const keyData = pemKey
+    .replace(/-----BEGIN PRIVATE KEY-----/, '')
+    .replace(/-----END PRIVATE KEY-----/, '')
+    .replace(/\n/g, '')
+    .trim()
+
+  const binaryKey = Buffer.from(keyData, 'base64')
+  const cryptoKey = await crypto.subtle.importKey(
+    'pkcs8',
+    binaryKey,
+    { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' },
+    false,
+    ['sign']
+  )
+
+  const signature = await crypto.subtle.sign(
+    'RSASSA-PKCS1-v1_5',
+    cryptoKey,
+    Buffer.from(signingInput)
+  )
+
+  const jwt = `${signingInput}.${Buffer.from(signature).toString('base64url')}`
+
+  // Intercambiar JWT por access token
+  const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `grant_type=urn%3Aietf%3Aparams%3Aoauth%3Agrant-type%3Ajwt-bearer&assertion=${jwt}`,
+  })
+
+  const tokenData = await tokenRes.json()
+  if (!tokenData.access_token) throw new Error(`Token error: ${JSON.stringify(tokenData)}`)
+  return tokenData.access_token
 }
 
-function buildGdd(rows) {
-  const gdd = {
-    semana:   { leads: 0, mqls: 0, sqls: 0, opps: 0, pipeline_mkt: 0, pipeline_com: 0 },
+// Parsear CSV de la hoja KPIs_Weekly
+function parseSheetData(values) {
+  if (!values || values.length < 2) return null
+
+  const result = {
+    semana: { leads: 0, mqls: 0, sqls: 0, opps: 0, pipeline_mkt: 0, pipeline_com: 0 },
     anterior: { leads: 0, mqls: 0, sqls: 0, opps: 0 },
-    mes:      { leads: 0, mqls: 0, sqls: 0, opps: 0 },
-    ytd:      { leads: 0, mqls: 0, sqls: 0, opps: 0 },
-    fechas:   {},
+    mes: { leads: 0, mqls: 0, sqls: 0, opps: 0 },
+    ytd: { leads: 0, mqls: 0, sqls: 0, opps: 0 },
+    fechas: {},
+    source: 'sheets_api',
     lastUpdate: new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }),
-    source: 'sheets',
   }
 
-  // Parsear número — maneja "$102,938,206" o "1186" o "102938206"
-  const num = (v) => {
-    if (!v) return 0
-    const clean = String(v).replace(/[$,\s]/g, '')
-    return parseFloat(clean) || 0
-  }
+  // Saltar primera fila (headers)
+  for (let i = 1; i < values.length; i++) {
+    const row = values[i]
+    if (!row || row.length < 2) continue
+    const metrica = (row[0] || '').toString().trim().toLowerCase()
+    const valor = parseFloat((row[1] || '0').toString().replace(/[,$]/g, '')) || 0
+    const periodo = (row[2] || '').toString().trim().toLowerCase()
 
-  // Normalizar periodo
-  const normPeriodo = (p) => p?.toLowerCase().replace(/\s+/g, '_') || ''
-
-  for (const { metrica, valor, periodo } of rows) {
-    const p = normPeriodo(periodo)
-    const v = num(valor)
-
-    // Semana actual
-    if (p === 'semana_actual') {
-      if (metrica === 'leads_total')   gdd.semana.leads = v
-      if (metrica === 'mqls_total')    gdd.semana.mqls  = v
-      if (metrica === 'sqls_total')    gdd.semana.sqls  = v
-      if (metrica === 'opps_total')    gdd.semana.opps  = v
-      // Fallback si no hay _total
-      if (metrica === 'leads' && !gdd.semana.leads) gdd.semana.leads = v
-      if (metrica === 'mqls'  && !gdd.semana.mqls)  gdd.semana.mqls  = v
-      if (metrica === 'sqls'  && !gdd.semana.sqls)  gdd.semana.sqls  = v
-      if (metrica === 'opps'  && !gdd.semana.opps)  gdd.semana.opps  = v
-      // Fechas
-      if (metrica === 'fecha_desde') gdd.fechas.semana_desde = valor
-      if (metrica === 'fecha_hasta') gdd.fechas.semana_hasta = valor
-    }
-
-    // Semana anterior
-    if (p === 'semana_anterior') {
-      if (metrica === 'leads_total')   gdd.anterior.leads = v
-      if (metrica === 'mqls_total')    gdd.anterior.mqls  = v
-      if (metrica === 'sqls_total')    gdd.anterior.sqls  = v
-      if (metrica === 'opps_total')    gdd.anterior.opps  = v
-      if (metrica === 'leads' && !gdd.anterior.leads) gdd.anterior.leads = v
-      if (metrica === 'mqls'  && !gdd.anterior.mqls)  gdd.anterior.mqls  = v
-      if (metrica === 'sqls'  && !gdd.anterior.sqls)  gdd.anterior.sqls  = v
-      if (metrica === 'opps'  && !gdd.anterior.opps)  gdd.anterior.opps  = v
-    }
-
-    // YTD — maneja "YTD" y "ytd"
-    if (p === 'ytd') {
-      if (metrica === 'leads_total')   gdd.ytd.leads = v
-      if (metrica === 'mqls_total')    gdd.ytd.mqls  = v
-      if (metrica === 'sqls_total')    gdd.ytd.sqls  = v
-      if (metrica === 'opps_total')    gdd.ytd.opps  = v
-      if (metrica === 'leads' && !gdd.ytd.leads) gdd.ytd.leads = v
-      if (metrica === 'mqls'  && !gdd.ytd.mqls)  gdd.ytd.mqls  = v
-      if (metrica === 'sqls'  && !gdd.ytd.sqls)  gdd.ytd.sqls  = v
-      if (metrica === 'opps'  && !gdd.ytd.opps)  gdd.ytd.opps  = v
-    }
-
-    // Mes actual (cuando César lo agregue)
-    if (['mes_actual', 'mes', 'mtd', 'acumulado_mes'].includes(p)) {
-      if (metrica === 'leads_total' || metrica === 'leads') gdd.mes.leads = v
-      if (metrica === 'mqls_total'  || metrica === 'mqls')  gdd.mes.mqls  = v
-      if (metrica === 'sqls_total'  || metrica === 'sqls')  gdd.mes.sqls  = v
-      if (metrica === 'opps_total'  || metrica === 'opps')  gdd.mes.opps  = v
-    }
-
-    // Pipeline activo — usa _valor para pesos
-    if (p === 'actual') {
-      if (metrica === 'pipeline_mkt_valor')   gdd.semana.pipeline_mkt = v
-      if (metrica === 'pipeline_com_valor')   gdd.semana.pipeline_com = v
-      if (metrica === 'pipeline_total_valor') {
-        // Si no hay mkt/com separados, usar total
-        if (!gdd.semana.pipeline_mkt && !gdd.semana.pipeline_com) {
-          gdd.semana.pipeline_mkt = v
-        }
-      }
-      // Fallback sin _valor
-      if (metrica === 'pipeline_mkt' && !gdd.semana.pipeline_mkt)   gdd.semana.pipeline_mkt = v
-      if (metrica === 'pipeline_com' && !gdd.semana.pipeline_com)   gdd.semana.pipeline_com = v
+    if (periodo === 'semana_actual' || periodo === 'semana_actual_total') {
+      if (metrica.includes('lead')) result.semana.leads = valor
+      else if (metrica.includes('mql')) result.semana.mqls = valor
+      else if (metrica.includes('sql')) result.semana.sqls = valor
+      else if (metrica.includes('opp')) result.semana.opps = valor
+      else if (metrica === 'fecha_desde') result.fechas.semana_desde = row[1]
+      else if (metrica === 'fecha_hasta') result.fechas.semana_hasta = row[1]
+    } else if (periodo === 'semana_anterior' || periodo === 'semana_anterior_total') {
+      if (metrica.includes('lead')) result.anterior.leads = valor
+      else if (metrica.includes('mql')) result.anterior.mqls = valor
+      else if (metrica.includes('sql')) result.anterior.sqls = valor
+      else if (metrica.includes('opp')) result.anterior.opps = valor
+    } else if (periodo === 'mes_actual' || periodo === 'mes') {
+      if (metrica.includes('lead')) result.mes.leads = valor
+      else if (metrica.includes('mql')) result.mes.mqls = valor
+      else if (metrica.includes('sql')) result.mes.sqls = valor
+      else if (metrica.includes('opp')) result.mes.opps = valor
+    } else if (periodo === 'ytd') {
+      if (metrica.includes('lead')) result.ytd.leads = valor
+      else if (metrica.includes('mql')) result.ytd.mqls = valor
+      else if (metrica.includes('sql')) result.ytd.sqls = valor
+      else if (metrica.includes('opp')) result.ytd.opps = valor
+    } else if (periodo === 'actual') {
+      if (metrica.includes('pipeline_mkt') || (metrica.includes('pipeline') && metrica.includes('mkt'))) result.semana.pipeline_mkt = valor
+      else if (metrica.includes('pipeline_com') || (metrica.includes('pipeline') && metrica.includes('com'))) result.semana.pipeline_com = valor
     }
   }
 
-  return gdd
+  return result
+}
+
+const GDD_EMPTY = {
+  semana: { leads: 0, mqls: 0, sqls: 0, opps: 0, pipeline_mkt: 0, pipeline_com: 0 },
+  anterior: { leads: 0, mqls: 0, sqls: 0, opps: 0 },
+  mes: { leads: 0, mqls: 0, sqls: 0, opps: 0 },
+  ytd: { leads: 0, mqls: 0, sqls: 0, opps: 0 },
+  fechas: {},
+  source: 'empty',
 }
 
 export async function GET() {
-  if (!CSV_URL) {
-    return NextResponse.json({
-      semana: { leads: 0, mqls: 0, sqls: 0, opps: 0, pipeline_mkt: 0, pipeline_com: 0 },
-      anterior: { leads: 0, mqls: 0, sqls: 0, opps: 0 },
-      mes: { leads: 0, mqls: 0, sqls: 0, opps: 0 },
-      ytd: { leads: 0, mqls: 0, sqls: 0, opps: 0 },
-      fechas: {},
-      source: 'fallback',
-      error: 'SHEETS_GDD_CSV_URL no configurada',
-    })
-  }
-
   try {
-    const res = await fetch(CSV_URL, {
-      headers: { 'Accept': 'text/csv,text/plain,*/*' },
-      next: { revalidate: 3600 },
-    })
-    if (!res.ok) throw new Error(`Sheets HTTP ${res.status}`)
+    if (!process.env.GOOGLE_SERVICE_ACCOUNT_JSON) {
+      console.error('GdD: GOOGLE_SERVICE_ACCOUNT_JSON no configurado')
+      return NextResponse.json({ ...GDD_EMPTY, error: 'credentials_missing' })
+    }
 
-    const text = await res.text()
-    const rows = parseCSV(text)
-    if (!rows?.length) throw new Error('CSV vacío o estructura no reconocida')
+    const accessToken = await getAccessToken()
 
-    const gdd = buildGdd(rows)
-    return NextResponse.json(gdd, {
-      headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' }
+    // Leer hoja KPIs_Weekly completa via Sheets API v4
+    const range = encodeURIComponent(`${SHEET_NAME}!A:C`)
+    const url = `https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${range}`
+    
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      cache: 'no-store',
     })
-  } catch (error) {
-    console.error('GDD fetch error:', error.message)
-    return NextResponse.json({
-      semana: { leads: 0, mqls: 0, sqls: 0, opps: 0, pipeline_mkt: 0, pipeline_com: 0 },
-      anterior: { leads: 0, mqls: 0, sqls: 0, opps: 0 },
-      mes: { leads: 0, mqls: 0, sqls: 0, opps: 0 },
-      ytd: { leads: 0, mqls: 0, sqls: 0, opps: 0 },
-      fechas: {},
-      source: 'fallback',
-      error: error.message,
-    })
+
+    if (!res.ok) {
+      const err = await res.text()
+      console.error('GdD Sheets API error:', res.status, err)
+      return NextResponse.json({ ...GDD_EMPTY, error: `sheets_${res.status}` })
+    }
+
+    const data = await res.json()
+    const parsed = parseSheetData(data.values)
+
+    if (!parsed) {
+      return NextResponse.json({ ...GDD_EMPTY, error: 'parse_failed' })
+    }
+
+    return NextResponse.json(parsed)
+  } catch (err) {
+    console.error('GdD error:', err.message)
+    return NextResponse.json({ ...GDD_EMPTY, error: err.message })
   }
 }
