@@ -8,13 +8,6 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
    para evitar redeploy al cambiar estructura del equipo
    ═══════════════════════════════════════════════════════════════ */
 
-// ─── CONFIGURACIÓN DEL EQUIPO ──────────────────────────────────────────────────
-// TODO P4.3: Separar en módulos cuando se estabilice:
-//   lib/constants.js   → SQUADS, PERSONAS, AGENDA, MONDAY_USERS, PHASES
-//   lib/analysis.js    → useMemo de análisis
-//   lib/storage.js     → storeGet/storeSet/storeList
-//   components/        → un archivo por Tab
-// ────────────────────────────────────────────────────────────────────────────────
 const BOARD_ID = 18044324200;
 const GROUP_DELIVERY = "group_mm15cfz2"; // único grupo de trabajo
 const GROUP_ACUERDOS = "group_mm1mhsd1"; // para crear compromisos de weekly
@@ -110,8 +103,6 @@ const MONDAY_USERS = {
   "Carolina Rojas": 72959487, "Sergio Franco": 70061556,
   "Tairi Medina": 67627150, "Ileana Cruz": 65476115,
   "Elizabeth Gómez": 76801151,
-  // SDRs (Jennifer, Edna, Neyby, Leodegario, Aliosha) no tienen cuenta Monday — P4.9
-  // Si se les crea cuenta, agregar sus IDs aquí para que los compromisos se asignen correctamente
 };
 
 /* ═══════════════════════════════════════════════════════════════
@@ -1799,6 +1790,16 @@ const TabCompromisos = React.memo(function TabCompromisos({ wd, setWd, save, ana
    Nivel 2: preview de la minuta seleccionada (Editar / Copiar / PDF)
    ═══════════════════════════════════════════════════════════════ */
 
+function downloadMinutaTxt(text, dateStr) {
+  try {
+    const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "minuta-weekly-" + dateStr + ".txt";
+    a.style.display = "none"; document.body.appendChild(a); a.click();
+    setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 2000);
+  } catch {}
+}
 
 /* ═══════════════════════════════════════════════════════════════
    TAB MINUTAS INLINE
