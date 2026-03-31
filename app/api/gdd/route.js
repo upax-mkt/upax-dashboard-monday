@@ -131,17 +131,44 @@ function parseKPIsWeekly(rows) {
   return result
 }
 
+// Module-level token cache — evita 2 requests a Google OAuth en cada carga (P3.5)
+let _cachedGoogleToken = null
+let _tokenExpiry = 0
+
+async function getGoogleAccessTokenCached() {
+  const now = Math.floor(Date.now() / 1000)
+  if (_cachedGoogleToken && now < _tokenExpiry - 60) {
+    return _cachedGoogleToken // reusar si quedan más de 60s de vida
+  }
+  const token = await getGoogleAccessToken()
+  _cachedGoogleToken = token
+  _tokenExpiry = now + 3600
+  return token
+}
+
 export async function GET() {
   try {
-    const accessToken = await getGoogleAccessToken()
+    const accessToken = await getGoogleAccessTokenCached()
 
     const range = `${SHEET_NAME}!A:C`
     const url = `https://sheets.googleapis.com/v4/spreadsheets/${SPREADSHEET_ID}/values/${encodeURIComponent(range)}`
 
-    const sheetsRes = await fetch(url, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-      cache: 'no-store',
-    })
+    // Timeout de 8s para no colgar la Serverless Function (P4.10)
+    const sheetsController = new AbortController()
+    const sheetsTimer = setTimeout(() => sheetsController.abort(), 8000)
+    let sheetsRes
+    try {
+      sheetsRes = await fetch(url, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        cache: 'no-store',
+        signal: sheetsController.signal,
+      })
+    } catch (fetchErr) {
+      clearTimeout(sheetsTimer)
+      if (fetchErr.name === 'AbortError') throw new Error('Google Sheets timeout (8s)')
+      throw fetchErr
+    }
+    clearTimeout(sheetsTimer)
 
     if (!sheetsRes.ok) {
       const err = await sheetsRes.text()
