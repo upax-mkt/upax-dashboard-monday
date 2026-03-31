@@ -102,25 +102,27 @@ function parseKPIsWeekly(rows) {
     const target = map[periodo]
     if (!target) continue
 
+    // Leads — separar total de breakdowns mkt/com para evitar double counting
+    // La hoja tiene: leads_mkt, leads_com, leads (total) — solo usar el total para el KPI principal
     if (metrica.includes('leads') && !metrica.includes('mql') && !metrica.includes('sql')) {
       if (metrica.includes('mkt')) result[target].leads_mkt = valor
       else if (metrica.includes('com')) result[target].leads_com = valor
-      else result[target].leads = valor
+      else if (metrica === 'leads') result[target].leads = valor // solo el total exacto
     }
-    if (metrica.includes('mql')) {
+    if (metrica.includes('mql') && !metrica.includes('sql')) {
       if (metrica.includes('mkt')) result[target].mqls_mkt = valor
       else if (metrica.includes('com')) result[target].mqls_com = valor
-      else result[target].mqls = valor
+      else if (metrica === 'mqls' || metrica === 'mql') result[target].mqls = valor
     }
-    if (metrica.includes('sql')) {
+    if (metrica.includes('sql') && !metrica.includes('mql')) {
       if (metrica.includes('mkt')) result[target].sqls_mkt = valor
       else if (metrica.includes('com')) result[target].sqls_com = valor
-      else result[target].sqls = valor
+      else if (metrica === 'sqls' || metrica === 'sql') result[target].sqls = valor
     }
     if (metrica.includes('opp')) {
       if (metrica.includes('mkt')) result[target].opps_mkt = valor
       else if (metrica.includes('com')) result[target].opps_com = valor
-      else result[target].opps = valor
+      else if (metrica === 'opps' || metrica === 'opp') result[target].opps = valor
     }
     if (metrica.includes('pipeline_mkt')) result.semana.pipeline_mkt = valor
     if (metrica.includes('pipeline_com')) result.semana.pipeline_com = valor
