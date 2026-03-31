@@ -12,6 +12,11 @@ export async function POST(request) {
     const { text, channel } = await request.json()
     if (!text) return NextResponse.json({ error: 'text required' }, { status: 400 })
 
+    // Slack limita a 40,000 chars por mensaje — truncar si excede
+    const safeText = text.length > 39000
+      ? text.slice(0, 38900) + '\n\n... [minuta truncada — ver dashboard para versión completa]'
+      : text
+
     const res = await fetch('https://slack.com/api/chat.postMessage', {
       method: 'POST',
       headers: {
@@ -20,7 +25,7 @@ export async function POST(request) {
       },
       body: JSON.stringify({
         channel: channel || SLACK_CHANNEL,
-        text,
+        text: safeText,
         mrkdwn: true,
       }),
     })
