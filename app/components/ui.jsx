@@ -1,14 +1,10 @@
 'use client'
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-
-// ─── SHARED UI COMPONENTS ───────────────────────────────────────────────────
+import React, { useState, useEffect, useRef } from 'react'
+// components/ui.jsx — componentes UI compartidos
 import { PERSONAS, SQUADS, PHASES, PHASE_SHORT, TODAY, TODAY_STR, WEEK } from '../lib/constants'
 import { parseTL, daysDiff, pctColor, shortName, isActive, isOverdue, overlapsThisWeek, getPersonDetail } from '../lib/utils'
 
-   SECTION 7: SHARED UI COMPONENTS
-   ═══════════════════════════════════════════════════════════════ */
-
-function Bar({ segs, h = 20 }) {
+export function Bar({ segs, h = 20 }) {
   const t = segs.reduce((s, x) => s + x.v, 0); if (!t) return null;
   return (
     <div style={{ display: "flex", borderRadius: h / 2, overflow: "hidden", height: h, background: "var(--bg4)" }}>
@@ -21,11 +17,11 @@ function Bar({ segs, h = 20 }) {
   );
 }
 
-function Card({ children, style = {} }) {
+export function Card({ children, style = {} }) {
   return <div style={{ background: "var(--bg2)", borderRadius: "var(--r)", boxShadow: "var(--shadow)", padding: "18px 20px", ...style }}>{children}</div>;
 }
 
-function Chip({ label, active, color, onClick }) {
+export function Chip({ label, active, color, onClick }) {
   return (
     <button onClick={onClick} style={{ background: active ? color : "var(--bg2)", color: active ? "#fff" : "var(--tx2)", border: active ? "none" : "1px solid var(--bg4)", borderRadius: 20, padding: "6px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "var(--sans)", transition: "all .2s", boxShadow: active ? `0 2px 8px ${color}40` : "var(--shadow)" }}>
       {label}
@@ -33,7 +29,7 @@ function Chip({ label, active, color, onClick }) {
   );
 }
 
-function Alerta({ icon, text, color = "var(--yellow)" }) {
+export function Alerta({ icon, text, color = "var(--yellow)" }) {
   return (
     <div style={{ background: "var(--bg2)", borderRadius: "var(--r-sm)", borderLeft: `4px solid ${color}`, boxShadow: "var(--shadow)", padding: "12px 16px", fontSize: 13, color: "var(--tx2)", marginBottom: 8, fontWeight: 500 }}>
       <span style={{ color }}>{icon}</span> {text}
@@ -41,7 +37,7 @@ function Alerta({ icon, text, color = "var(--yellow)" }) {
   );
 }
 
-function PersonSelect({ value, onChange, style = {} }) {
+export function PersonSelect({ value, onChange, style = {} }) {
   const groups = [...new Set(PERSONAS.map((p) => p.squad))];
   return (
     <select value={value || ""} onChange={onChange} style={{ background: "var(--bg2)", border: "1px solid var(--bg4)", borderRadius: 8, padding: "5px 8px", fontSize: 13, fontFamily: "var(--sans)", color: value ? "var(--tx)" : "var(--tx3)", outline: "none", cursor: "pointer", ...style }}>
@@ -55,7 +51,7 @@ function PersonSelect({ value, onChange, style = {} }) {
   );
 }
 
-function CopyModal({ text, onClose }) {
+export function CopyModal({ text, onClose }) {
   const ref = useRef(null);
   useEffect(() => { if (ref.current) { ref.current.focus(); ref.current.select(); } }, []);
   return (
@@ -74,7 +70,7 @@ function CopyModal({ text, onClose }) {
   );
 }
 
-function PersonDetailView({ detail }) {
+export function PersonDetailView({ detail }) {
   const [showAllWeek, setShowAllWeek] = useState(false);
   if (!detail) return null;
   const MAX = 8;
@@ -120,7 +116,7 @@ function PersonDetailView({ detail }) {
   );
 }
 
-function NumInput({ initial, onCommit, style }) {
+export function NumInput({ initial, onCommit, style }) {
   const [val, setVal] = useState(initial != null ? String(initial) : "");
   useEffect(() => { setVal(initial != null ? String(initial) : ""); }, [initial]);
   return (
@@ -133,7 +129,7 @@ function NumInput({ initial, onCommit, style }) {
 }
 
 // Stable component — outside TabFocos so React doesn't recreate it on every render
-function SquadInputSection({ label, icon, field, placeholder, rows, draft, updateDraft, showMeta }) {
+export function SquadInputSection({ label, icon, field, placeholder, rows, draft, updateDraft, showMeta }) {
   return (
     <div style={{ marginBottom: 12 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
@@ -160,3 +156,7 @@ function SquadInputSection({ label, icon, field, placeholder, rows, draft, updat
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   SECTION 8: TIMER ZONE
+   FIX: advanceBlock is now defined in App and passed via props
+   FIX: currentBlockIdx syncs with elapsed time
+   ═══════════════════════════════════════════════════════════════ */
