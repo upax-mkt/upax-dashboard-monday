@@ -1,8 +1,8 @@
 'use client'
-// ─── API — data layer hacia Next.js API routes ───────────────────────────────
+// lib/api.js — data layer hacia Next.js API routes
 import { MONDAY_USERS } from './constants'
 
-async function fetchAllItems() {
+export async function fetchAllItems() {
   try {
     const res = await fetch('/api/monday', { cache: 'no-store' })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -15,7 +15,7 @@ async function fetchAllItems() {
   }
 }
 
-async function createMondayItem(name, dateStr, personName) {
+export async function createMondayItem(name, dateStr, personName) {
   try {
     const userId = personName ? MONDAY_USERS[personName] : null
     const res = await fetch('/api/monday-write', {
@@ -28,7 +28,7 @@ async function createMondayItem(name, dateStr, personName) {
   } catch { return false }
 }
 
-async function sendToSlack(text) {
+export async function sendToSlack(text) {
   try {
     const res = await fetch('/api/slack', {
       method: 'POST',
