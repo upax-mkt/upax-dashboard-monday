@@ -1,15 +1,11 @@
 'use client'
-// ─── UTILS — funciones puras de fecha, análisis y helpers ───────────────────
-import { PERSONAS, SQUADS, SQUAD_ALIASES, TODAY_STR, TODAY, WEEK, PREV_WEEK, PHASES } from './constants'
+// lib/utils.js — funciones puras de fecha, análisis y helpers
+import { TODAY_STR, TODAY, PERSONAS, SQUADS, SQUAD_ALIASES, PHASES } from './constants'
 
-export { PERSONAS, SQUADS, SQUAD_ALIASES, TODAY_STR, TODAY, WEEK, PREV_WEEK, PHASES }
-
-function normalizeSquad(raw) { return SQUAD_ALIASES[raw] || raw; }
-
-const PERSON_NAMES = PERSONAS.map((p) => p.name);
+export const PERSON_NAMES = PERSONAS.map((p) => p.name);
 // Cache module-level para normalizePersonName — evita ~25k comparaciones de string por análisis (P3.2)
-const _nameNormCache = new Map();
-function normalizePersonName(mondayName) {
+export const _nameNormCache = new Map();
+export function normalizePersonName(mondayName) {
   if (!mondayName) return mondayName;
   if (_nameNormCache.has(mondayName)) return _nameNormCache.get(mondayName);
   // resultado se calcula abajo y se cachea antes de retornar
@@ -41,37 +37,37 @@ function normalizePersonName(mondayName) {
   _nameNormCache.set(mondayName, mondayName);
   return mondayName;
 }
-function isTeamMember(name) { return PERSON_NAMES.includes(normalizePersonName(name)); }
+export function isTeamMember(name) { return PERSON_NAMES.includes(normalizePersonName(name)); }
 
-function parseTL(t) {
+export function parseTL(t) {
   if (!t || typeof t !== "string") return { start: null, end: null };
   const p = t.split(" - ");
   return { start: p[0] ? new Date(p[0]) : null, end: p[1] ? new Date(p[1]) : null };
 }
 // Suma N días a un string YYYY-MM-DD sin usar timezone — puro aritmética de fecha
-function addDays(dateStr, n) {
+export function addDays(dateStr, n) {
   const [y, m, d] = dateStr.split("-").map(Number);
   const dt = new Date(y, m - 1, d + n); // new Date(y, m, d) usa hora LOCAL, no UTC
   return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
 }
 // Calcula el lunes de la semana de un string YYYY-MM-DD
-function getMondayStr(dateStr) {
+export function getMondayStr(dateStr) {
   const [y, m, d] = dateStr.split("-").map(Number);
   const dt = new Date(y, m - 1, d);
   const day = dt.getDay(); // 0=Dom, 1=Lun...
   const daysToMon = day === 0 ? 6 : day - 1;
   return addDays(dateStr, -daysToMon);
 }
-function daysDiff(a, b) { return Math.round((a - b) / 86400000); }
-function isOverdue(it) {
+export function daysDiff(a, b) { return Math.round((a - b) / 86400000); }
+export function isOverdue(it) {
   const ph = it.column_values?.color_mkz09na;
   if (ph === "✅ Done" || ph === "🚫 Detenido") return false;
   const tl = parseTL(it.column_values?.timerange_mkzcqv0j);
   return tl.end ? tl.end < TODAY : false;
 }
-function isActive(ph) { return ["🚧 Sprint", "👀 Review", "⚙️ Modificación"].includes(ph); }
+export function isActive(ph) { return ["🚧 Sprint", "👀 Review", "⚙️ Modificación"].includes(ph); }
 
-function getWeekBounds() {
+export function getWeekBounds() {
   // Semana ACTUAL (lunes al viernes de esta semana calendario)
   // Alineado con Monday.com "esta semana"
   const now = new Date(TODAY_STR);
@@ -84,11 +80,11 @@ function getWeekBounds() {
   fri.setDate(mon.getDate() + 4);
   return { start: mon, end: fri };
 }
-const WEEK = getWeekBounds();
+export const WEEK = getWeekBounds();
 
 // PREV_WEEK: semana que acaba de terminar antes de la weekly
 // Basada en el ÚLTIMO lunes (no el próximo), para capturar entregas reales
-function getPrevWeekBounds() {
+export function getPrevWeekBounds() {
   const now = new Date(TODAY_STR);
   const day = now.getDay(); // 0=Dom, 1=Lun...
   const lastMon = new Date(now);
@@ -99,18 +95,18 @@ function getPrevWeekBounds() {
   prevEnd.setDate(lastMon.getDate() - 1);
   return { start: prevStart, end: prevEnd };
 }
-const PREV_WEEK = getPrevWeekBounds();
+export const PREV_WEEK = getPrevWeekBounds();
 
-function overlapsThisWeek(timelineStr) {
+export function overlapsThisWeek(timelineStr) {
   if (!timelineStr) return false;
   const tl = parseTL(timelineStr);
   if (!tl.start || !tl.end) return false;
   return tl.start <= WEEK.end && tl.end >= WEEK.start;
 }
-function pctColor(pct) { return pct >= 80 ? "var(--green)" : pct >= 50 ? "var(--yellow)" : "var(--red)"; }
-function shortName(n) { return (n || "—").split(" ").slice(0, 2).join(" "); }
+export function pctColor(pct) { return pct >= 80 ? "var(--green)" : pct >= 50 ? "var(--yellow)" : "var(--red)"; }
+export function shortName(n) { return (n || "—").split(" ").slice(0, 2).join(" "); }
 
-function getPersonDetail(name, items) {
+export function getPersonDetail(name, items) {
   const weekTasks = [], otherTasks = [];
   const nameWords = name.toLowerCase().split(" ");
   const matchesPerson = (personStr) => {
@@ -141,7 +137,7 @@ function getPersonDetail(name, items) {
   return { weekTasks, otherTasks, weekCount: weekTasks.length, totalCount: weekTasks.length + otherTasks.length };
 }
 
-const PHASE_SHORT = {
+export const PHASE_SHORT = {
   "⏳Backlog": { label: "BKL", color: "#8E8E93" },
   "🚧 Sprint": { label: "SPR", color: "#F59E0B" },
   "👀 Review": { label: "REV", color: "#06B6D4" },
@@ -149,7 +145,7 @@ const PHASE_SHORT = {
   "🚫 Detenido": { label: "DET", color: "#EF4444" },
 };
 
-function downloadTextFile(text, filename) {
+export function downloadTextFile(text, filename) {
   const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");
@@ -158,7 +154,7 @@ function downloadTextFile(text, filename) {
   setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
 }
 
-function copyToClipboard(text) {
+export function copyToClipboard(text) {
   const ta = document.createElement("textarea");
   ta.value = text;
   ta.style.cssText = "position:fixed;left:-9999px;top:-9999px;opacity:0";
