@@ -69,16 +69,20 @@ export async function GET() {
     while (cursor && page < 15) {
       const nextQuery = `
         query {
-          next_items_page(limit: 100, cursor: "${cursor}") {
-            cursor
-            items {
-              id name
-              group { id title }
-              column_values(ids: ${colIds}) { id text value column { id title type } }
-              subitems {
+          boards(ids: [${BOARD_ID}]) {
+            items_page(limit: 100, cursor: "${cursor}", query_params: {
+              rules: [{ column_id: "group", compare_value: ["${GROUP_DELIVERY}"] }]
+            }) {
+              cursor
+              items {
                 id name
-                column_values(ids: ["person","color_mkzjvp66","timerange_mkzx7r55","date_mm1hnswx"]) {
-                  id text value column { id type }
+                group { id title }
+                column_values(ids: ${colIds}) { id text value column { id title type } }
+                subitems {
+                  id name
+                  column_values(ids: ["person","color_mkzjvp66","timerange_mkzx7r55","date_mm1hnswx"]) {
+                    id text value column { id type }
+                  }
                 }
               }
             }
@@ -86,7 +90,7 @@ export async function GET() {
         }
       `
       const nextData = await mondayQuery(apiKey, nextQuery)
-      const page_data = nextData.data?.next_items_page
+      const page_data = nextData.data?.boards?.[0]?.items_page
       if (!page_data?.items?.length) break
       allItems = [...allItems, ...page_data.items]
       cursor = page_data.cursor
