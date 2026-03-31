@@ -1,12 +1,7 @@
 'use client'
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-
+import React from 'react'
+// components/TimerZone.jsx — barra de timer sticky
 import { AGENDA } from '../lib/constants'
-
-   SECTION 8: TIMER ZONE
-   FIX: advanceBlock is now defined in App and passed via props
-   FIX: currentBlockIdx syncs with elapsed time
-   ═══════════════════════════════════════════════════════════════ */
 
 const TimerZone = React.memo(function TimerZone({ elapsed, running, onStart, onPause, onNext, onPrev, onFinish, block, wd, blockTimes, currentIdx }) {
   const mm = Math.floor(elapsed / 60), ss = elapsed % 60;
@@ -54,5 +49,7 @@ const TimerZone = React.memo(function TimerZone({ elapsed, running, onStart, onP
   );
 });
 /* ═══════════════════════════════════════════════════════════════
+   SECTION 9: TAB HOME
+   ═══════════════════════════════════════════════════════════════ */
 
 export default TimerZone
