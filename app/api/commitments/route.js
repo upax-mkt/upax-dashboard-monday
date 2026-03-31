@@ -1,8 +1,6 @@
 import { NextResponse } from 'next/server'
 
-// Commitments route — usa el mismo storage Upstash REST que el resto del dashboard
-// Reemplaza @vercel/kv por fetch directo a Upstash (consistente con /api/storage)
-
+// Commitments route — Upstash REST directo, sin dependencias externas
 const COMMITMENTS_KEY = 'upax_commitments'
 
 async function upstash(command, ...args) {
@@ -22,9 +20,11 @@ async function upstash(command, ...args) {
 export async function GET() {
   try {
     const data = await upstash('GET', COMMITMENTS_KEY)
-    const commitments = data ? (typeof data === 'string' ? JSON.parse(data) : data) : []
+    const commitments = data
+      ? (typeof data === 'string' ? JSON.parse(data) : data)
+      : []
     return NextResponse.json({ commitments })
-  } catch (error) {
+  } catch {
     return NextResponse.json({ commitments: [] })
   }
 }
@@ -32,8 +32,7 @@ export async function GET() {
 export async function POST(request) {
   try {
     const { commitments } = await request.json()
-    const serialized = JSON.stringify(commitments)
-    await upstash('SET', COMMITMENTS_KEY, serialized, 'EX', String(60 * 60 * 24 * 365))
+    await upstash('SET', COMMITMENTS_KEY, JSON.stringify(commitments), 'EX', String(60 * 60 * 24 * 365))
     return NextResponse.json({ success: true })
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
