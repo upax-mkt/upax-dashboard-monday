@@ -1,13 +1,9 @@
 'use client'
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-
-import { SQUADS, PERSONAS, TODAY_STR } from '../lib/constants'
+import React, { useState, useEffect, useRef, useCallback } from 'react'
+// components/TabFocos.jsx
+import { SQUADS, PERSONAS, TODAY_STR, PHASES } from '../lib/constants'
 import { parseTL, daysDiff, pctColor, shortName, normalizeSquad, isActive, isOverdue, overlapsThisWeek } from '../lib/utils'
-import { Chip, Card, PersonSelect } from './ui'
-import { SquadInputSection } from './ui'
-
-   SECTION 13: TAB FOCOS
-   ═══════════════════════════════════════════════════════════════ */
+import { Chip, Card, PersonSelect, SquadInputSection } from './ui'
 
 const TabFocos = React.memo(function TabFocos({ items, wd, setWd, save, activeSquad, setActiveSquad }) {
   const focos = wd.focos || {};
@@ -155,5 +151,7 @@ const TabFocos = React.memo(function TabFocos({ items, wd, setWd, save, activeSq
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   SECTION 14: TAB COMPROMISOS
+   ═══════════════════════════════════════════════════════════════ */
 
 export default TabFocos
