@@ -1,9 +1,7 @@
 'use client'
-// ─── STORAGE — Upstash Redis via /api/storage ────────────────────────────────
-import { STORE_KEY } from './constants'
-export { STORE_KEY }
+// lib/storage.js — Upstash Redis via /api/storage
 
-async function storeGet(key) {
+export async function storeGet(key) {
   try {
     const r = await fetch(`/api/storage?action=get&key=${encodeURIComponent(key)}`)
     const d = await r.json()
@@ -11,7 +9,7 @@ async function storeGet(key) {
     return typeof d.value === 'string' ? JSON.parse(d.value) : d.value
   } catch { return null }
 }
-async function storeSet(key, val) {
+export async function storeSet(key, val) {
   try {
     await fetch('/api/storage', {
       method: 'POST',
@@ -20,7 +18,7 @@ async function storeSet(key, val) {
     })
   } catch {}
 }
-async function storeDel(key) {
+export async function storeDel(key) {
   try {
     await fetch('/api/storage', {
       method: 'POST',
@@ -29,7 +27,7 @@ async function storeDel(key) {
     })
   } catch {}
 }
-async function storeList(prefix) {
+export async function storeList(prefix) {
   try {
     const r = await fetch(`/api/storage?action=list&prefix=${encodeURIComponent(prefix)}`)
     const d = await r.json()
@@ -45,14 +43,14 @@ async function storeList(prefix) {
   }))
   return results.filter(Boolean)
 }
-async function storeGetRaw(key) {
+export async function storeGetRaw(key) {
   try {
     const r = await fetch(`/api/storage?action=get&key=${encodeURIComponent(key)}`)
     const d = await r.json()
     return d.value ? (typeof d.value === 'string' ? d.value : JSON.stringify(d.value)) : null
   } catch { return null }
 }
-async function storeSetRaw(key, val) {
+export async function storeSetRaw(key, val) {
   try {
     await fetch('/api/storage', {
       method: 'POST',
