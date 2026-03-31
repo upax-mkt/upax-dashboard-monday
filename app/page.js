@@ -845,6 +845,7 @@ function OverdueSection({ overdue }) {
   );
 }
 
+// CargaRow — fuera de TabHome para evitar re-creación en cada render (P3.8)
 const CargaRow = React.memo(function CargaRow({ person, d, rank, maxVal, onClick, isExpanded, items }) {
   const pct = maxVal > 0 ? d.total / maxVal : 0;
   // Umbral de carga: proyectos + tareas combinados
