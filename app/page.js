@@ -21,7 +21,7 @@ const _now = new Date();
 const TODAY_STR = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,"0")}-${String(_now.getDate()).padStart(2,"0")}`;
 const TODAY = new Date(TODAY_STR + "T12:00:00");
 const STORE_KEY = `weekly:${TODAY_STR}`;
-const CACHE_KEY = "monday-cache-v2"; // v2: incluye date_mm1hnswx en subitems
+const CACHE_KEY = "monday-cache-v3"; // v3: pagination con filtro de grupo correcto
 
 const SQUADS = [
   { id: "inbound",     name: "Inbound Studio",          color: "#FF375F", lead: "Jean Pierre" },
