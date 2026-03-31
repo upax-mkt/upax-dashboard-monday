@@ -925,7 +925,6 @@ const CargaRow = React.memo(function CargaRow({ person, d, rank, maxVal, onClick
     </div>
   );
 }
-});
 
 const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
   const [alertGroupsExpanded, setAlertGroupsExpanded] = useState({});
