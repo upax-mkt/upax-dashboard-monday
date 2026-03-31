@@ -11,8 +11,6 @@ import React, { useState, useEffect, useRef, useMemo, useCallback } from "react"
 const BOARD_ID = 18044324200;
 const GROUP_DELIVERY = "group_mm15cfz2"; // único grupo de trabajo
 const GROUP_ACUERDOS = "group_mm1mhsd1"; // para crear compromisos de weekly
-const MCP_URL = "https://mcp.monday.com/mcp";
-const SLACK_MCP_URL = "https://mcp.slack.com/mcp";
 const SLACK_GENERAL_CHANNEL = "C081Z8R4ZH9";
 const COL_IDS = ["person","color_mkz0s203","color_mkz09na","timerange_mkzcqv0j","date_mm1b10rx","date_mkzchmsq","color_mkzjvp66","timerange_mkzx7r55"];
 // Fecha LOCAL del sistema — no usar toISOString() que devuelve UTC
@@ -280,7 +278,7 @@ const WEEKLY_MAR23 = {
   },
   compromisos: [{ id: 1742767200001, que: "Toda tarea en Monday debe incluir: qué se entrega, cuándo, para qué sirve y quién es responsable", quien: "Víctor Tzili", cuando: "2026-04-06", status: "pending" }],
   synced: [],
-  minutaText: "📋 MINUTA WEEKLY lunes, 23 de marzo de 2026\n════════════════════════════════════════════\n\n📊 GENERACIÓN DE DEMANDA (16-22 mar)\n  Leads: 1,186 ↓24% | MQLs: 30 ↓43% | SQLs: 10 ↓17% | Opps: 22 ↑10%\n  Pipeline: $159.3M (Mkt $58.9M | Com $100.4M)\n  YTD: Leads 14,636 | MQLs 957 | SQLs 225 | Opps 330\n\n📊 PANORAMA OPERATIVO\nSprint: 77 | Review: 5 | Mod: 4 | Detenido: 26 | Vencidos: 8\n\n🎯 REPORTE POR SQUAD\n▸ Inbound Studio (Arath Escamilla):\n  🎯 Campaña Diagnóstico, 20 años PE, blog abril, credenciales PE\n  🚫 BLOCKER: Pendiente VoBo UDNs → Jean Pierre (25 mar)\n  🤝 NECESITO: Alinear Diagnóstico UPAX → Iris (24 mar)\n\n▸ Performance y Conversión (Fernando Borges):\n  🎯 Mockups Salud, Landing TalentLand, Campaña Aniversario, CRO 2 UDNs, Círculo Rojo Paid\n  🚫 BLOCKER: Falta Ficha Madre César para TalentLand LP → César (25 mar)\n  🤝 NECESITO: Parrilla Paid Media Diagnóstico → Andry (23 mar)\n\n▸ RevOps & Analytics (Diego Luna):\n  🎯 Lead Scoring, Brújula Comercial, CRM\n  🤝 NECESITO: META ADS, SDR Q2, FM LP, Bot WA posts, UTMs campañas, BBDD UDNs → varios (26 mar)\n\n▸ Portafolio y Ecosistema (Sergio Franco):\n  🎯 ResearchLand, Zeus RECLU, reuniones UDNs, UiX credenciales, PE materiales\n  🚫 BLOCKER: Artes no aprobados, frena redes → David (30 mar)\n  🤝 NECESITO: Storytelling secuencias → Ileana (25 mar)\n\n▸ Outbound y Pipeline (Leodegario):\n  🎯 Roleplay objeciones, secuencias Q2, matriz objeciones UDNs\n  🤝 NECESITO: VoBo JP secuencias, UTMs, vista Outbound Looker → JP/César\n\n📝 COMPROMISOS\n1. Toda tarea en Monday debe incluir qué se entrega, cuándo, para qué sirve y quién → Víctor Tzili | 2026-04-06\n",
+  minutaText: "📋 MINUTA WEEKLY lunes, 23 de marzo de 2026\n════════════════════════════════════════════\n\n📊 GENERACIÓN DE DEMANDA (16-22 mar)\n  Leads: 1,186 ↓24% | MQLs: 30 ↓43% | SQLs: 10 ↓17% | Opps: 22 ↑10%\n  Pipeline: (pendiente validación con César)\n  YTD: Leads 14,636 | MQLs 957 | SQLs 225 | Opps 330\n\n📊 PANORAMA OPERATIVO\nSprint: 77 | Review: 5 | Mod: 4 | Detenido: 26 | Vencidos: 8\n\n🎯 REPORTE POR SQUAD\n▸ Inbound Studio (Arath Escamilla):\n  🎯 Campaña Diagnóstico, 20 años PE, blog abril, credenciales PE\n  🚫 BLOCKER: Pendiente VoBo UDNs → Jean Pierre (25 mar)\n  🤝 NECESITO: Alinear Diagnóstico UPAX → Iris (24 mar)\n\n▸ Performance y Conversión (Fernando Borges):\n  🎯 Mockups Salud, Landing TalentLand, Campaña Aniversario, CRO 2 UDNs, Círculo Rojo Paid\n  🚫 BLOCKER: Falta Ficha Madre César para TalentLand LP → César (25 mar)\n  🤝 NECESITO: Parrilla Paid Media Diagnóstico → Andry (23 mar)\n\n▸ RevOps & Analytics (Diego Luna):\n  🎯 Lead Scoring, Brújula Comercial, CRM\n  🤝 NECESITO: META ADS, SDR Q2, FM LP, Bot WA posts, UTMs campañas, BBDD UDNs → varios (26 mar)\n\n▸ Portafolio y Ecosistema (Sergio Franco):\n  🎯 ResearchLand, Zeus RECLU, reuniones UDNs, UiX credenciales, PE materiales\n  🚫 BLOCKER: Artes no aprobados, frena redes → David (30 mar)\n  🤝 NECESITO: Storytelling secuencias → Ileana (25 mar)\n\n▸ Outbound y Pipeline (Leodegario):\n  🎯 Roleplay objeciones, secuencias Q2, matriz objeciones UDNs\n  🤝 NECESITO: VoBo JP secuencias, UTMs, vista Outbound Looker → JP/César\n\n📝 COMPROMISOS\n1. Toda tarea en Monday debe incluir qué se entrega, cuándo, para qué sirve y quién → Víctor Tzili | 2026-04-06\n",
 };
 
 const emptyWeekly = () => ({ date: TODAY_STR, presenters: {}, focos: {}, compromisos: [], synced: [] });
@@ -318,11 +316,10 @@ async function storeList(prefix) {
     const d = await r.json()
     if (d.keys?.length > 0) return d.keys
   } catch {}
-  // Fallback: scan last 8 Mondays
-  const base = new Date(TODAY_STR)
+  // Fallback: scan last 8 Mondays — usar addDays() para respetar timezone local (P2.2)
   const candidates = Array.from({ length: 8 }, (_, i) => {
-    const d = new Date(base); d.setDate(base.getDate() - i * 7)
-    return `weekly:${d.toISOString().split("T")[0]}`
+    const dateStr = addDays(TODAY_STR, -i * 7)
+    return `weekly:${dateStr}`
   })
   const results = await Promise.all(candidates.map(async (k) => {
     const v = await storeGet(k); return v ? k : null
@@ -1026,7 +1023,7 @@ function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
           <div style={{ marginBottom: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                📊 Generación de Demanda{gddData?.source === "sheets" ? <span style={{ fontSize: 9, color: "var(--green)", marginLeft: 6, fontWeight: 700 }}>● LIVE</span> : gddData?.source === "empty" ? <span style={{ fontSize: 9, color: "var(--yellow)", marginLeft: 6 }}>sin datos</span> : gddData?.source === "fallback" ? <span style={{ fontSize: 9, color: "var(--red)", marginLeft: 6 }}>⚠ sin conexión</span> : null}
+                📊 Generación de Demanda{gddData?.source === "sheets_api" ? <span style={{ fontSize: 9, color: "var(--green)", marginLeft: 6, fontWeight: 700 }}>● LIVE</span> : gddData?.source === "empty" ? <span style={{ fontSize: 9, color: "var(--yellow)", marginLeft: 6 }}>sin datos</span> : gddData?.source === "fallback" ? <span style={{ fontSize: 9, color: "var(--red)", marginLeft: 6 }}>⚠ sin conexión</span> : null}
                 {gddData?.fechas?.semana_desde && (() => {
                   const fD = (s) => { if (!s) return ""; const d = new Date(s + (s.includes("-") ? "T12:00:00" : ", 2026")); return isNaN(d) ? s : d.toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g," - "); };
                   return <span style={{ fontWeight: 400, marginLeft: 6, color: "var(--tx3)", fontSize: 11 }}>{fD(gddData.fechas.semana_desde)}{gddData.fechas.semana_hasta ? " al " + fD(gddData.fechas.semana_hasta) : ""}</span>;
@@ -1201,7 +1198,6 @@ function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
 
       {/* Alertas compactas */}
       {(() => {
-        const setAlertGroupsState = () => {}; // handled via alertGroupsExpanded
     const alertGroups = [
           { items: [...(an.overdue || [])].sort((a, b) => (parseTL(a.column_values?.timerange_mkzcqv0j).end || TODAY) - (parseTL(b.column_values?.timerange_mkzcqv0j).end || TODAY)), icon: "🔴", label: "Vencidos", color: "var(--red)", extra: (it) => { const d = parseTL(it.column_values?.timerange_mkzcqv0j).end ? daysDiff(TODAY, parseTL(it.column_values?.timerange_mkzcqv0j).end) : 0; return <span style={{ fontFamily: "var(--mono)", color: "var(--red)", fontWeight: 700, fontSize: 10, minWidth: 28 }}>-{d}d</span>; } },
           { items: an.stoppedWeek || [], icon: "🚫", label: "Detenidos", color: "var(--red)" },
@@ -2826,18 +2822,15 @@ export default function App() {
 
   const saveFn = useCallback(async (d) => { await storeSet(STORE_KEY, d); }, []);
 
-  const GDD_DEFAULT_APP = {
-    semana: { leads: 1186, mqls: 30, sqls: 10, opps: 22, pipeline_mkt: 58938625, pipeline_com: 100372995 },
-    anterior: { leads: 1554, mqls: 53, sqls: 12, opps: 20 },
-    mes: { leads: 4820, mqls: 112, sqls: 38, opps: 78 },
-    ytd: { leads: 14636, mqls: 957, sqls: 225, opps: 330 },
-    fechas: { semana_desde: "16 mar", semana_hasta: "22 mar", mes_label: "mar 2026" },
-    lastUpdate: "23 mar 2026",
+  // GDD_EMPTY: fallback cuando no hay datos — no inventar números históricos (P1.4)
+  const GDD_EMPTY_APP = {
+    semana: { leads: 0, mqls: 0, sqls: 0, opps: 0, pipeline_mkt: 0, pipeline_com: 0 },
+    anterior: {}, mes: {}, ytd: {}, fechas: {}, source: "empty",
   };
   useEffect(() => {
     storeGet("config:gdd-metrics").then((v) => {
-      setAppGddData(v || GDD_DEFAULT_APP);
-    }).catch(() => setAppGddData(GDD_DEFAULT_APP));
+      setAppGddData(v || GDD_EMPTY_APP);
+    }).catch(() => setAppGddData(GDD_EMPTY_APP));
   }, []);
 
   const block = AGENDA[currentBlockIdx] || AGENDA[AGENDA.length - 1];
