@@ -1,15 +1,12 @@
 'use client'
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-
+import React, { useState, useCallback } from 'react'
+// components/TabHome.jsx — Tab Home + CargaRow + OverdueSection
 import { PERSONAS, SQUADS, TODAY, TODAY_STR, WEEK, PREV_WEEK, PHASES, PHASE_SHORT } from '../lib/constants'
 import { parseTL, daysDiff, pctColor, shortName, normalizeSquad, isActive, isOverdue, overlapsThisWeek } from '../lib/utils'
 import { storeGet, storeSet } from '../lib/storage'
 import { Chip, Card, Alerta } from './ui'
 
-   SECTION 9: TAB HOME
-   ═══════════════════════════════════════════════════════════════ */
-
-function OverdueSection({ overdue }) {
+export function OverdueSection({ overdue }) {
   const [showAll, setShowAll] = useState(false);
   const visible = showAll ? overdue : overdue.slice(0, 5);
   return (
@@ -40,7 +37,7 @@ function OverdueSection({ overdue }) {
 }
 
 // CargaRow — fuera de TabHome para evitar re-creación en cada render (P3.8)
-const CargaRow = React.memo(function CargaRow({ person, d, rank, maxVal, onClick, isExpanded, items }) {
+export const CargaRow = React.memo(function CargaRow({ person, d, rank, maxVal, onClick, isExpanded, items }) {
   const pct = maxVal > 0 ? d.total / maxVal : 0;
   // Umbral de carga: proyectos + tareas combinados
   // >20 = rojo (sobrecargado), >10 = amarillo (carga alta), <=10 = verde (normal)
@@ -457,5 +454,7 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   SECTION 10: TAB AGENDA
+   ═══════════════════════════════════════════════════════════════ */
 
 export { TabHome, CargaRow, OverdueSection }
