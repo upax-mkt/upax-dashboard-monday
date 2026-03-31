@@ -26,6 +26,11 @@ async function mondayQuery(apiKey, query, timeoutMs = 15000) {
     clearTimeout(timer)
     if (res.status === 429) {
       const retryAfter = parseInt(res.headers.get('Retry-After') || '10')
+      if (timeoutMs > 5000) {
+        // Un solo retry automático con el Retry-After del servidor (P4.5)
+        await new Promise(r => setTimeout(r, Math.min(retryAfter, 30) * 1000))
+        return mondayQuery(apiKey, query, Math.floor(timeoutMs / 2)) // reducir timeout en retry
+      }
       throw new Error(`Rate limit Monday — espera ${retryAfter}s`)
     }
     if (!res.ok) throw new Error(`Monday HTTP ${res.status}`)
