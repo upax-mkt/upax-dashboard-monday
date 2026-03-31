@@ -1,9 +1,9 @@
 'use client'
-// ─── MINUTA — generador de texto plano de la minuta semanal ─────────────────
-import { TODAY_STR, SQUADS, WEEK, PREV_WEEK } from './constants'
-import { shortName, pctColor, normalizeSquad } from './utils'
+// lib/minuta.js — generador de texto plano de la minuta
+import { TODAY_STR, TODAY, SQUADS, WEEK } from './constants'
+import { shortName, normalizeSquad } from './utils'
 
-function generateMinuta(wd, analysis, gddData, blockTimes) {
+export function generateMinuta(wd, analysis, gddData, blockTimes) {
   const an = analysis, comps = wd?.compromisos || [];
   const dateStr = new Date(TODAY_STR).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   const LINE = "─".repeat(48);
@@ -145,3 +145,5 @@ function generateMinuta(wd, analysis, gddData, blockTimes) {
   return t;
 }
 /* ═══════════════════════════════════════════════════════════════
+   SECTION 6: CSS
+   ═══════════════════════════════════════════════════════════════ */
