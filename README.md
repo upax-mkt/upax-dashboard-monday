@@ -14,3 +14,5 @@ Dashboard semanal de marketing — Next.js + Monday.com API + Vercel.
 <!-- deploy: Upstash Redis conectado — storage permanente activado -->
 
 <!-- deploy: Google Sheets API con Service Account — GdD permanente sin CSV -->
+
+<!-- gdd-service-account-active -->
