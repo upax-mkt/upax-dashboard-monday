@@ -8,21 +8,35 @@ const BOARD_ID = process.env.MONDAY_BOARD_ID || '18044324200'
 const GROUP_DELIVERY = 'group_mm15cfz2'
 const COL_IDS = ['person','color_mkz0s203','color_mkz09na','timerange_mkzcqv0j','date_mm1b10rx','date_mkzchmsq','color_mkzjvp66','timerange_mkzx7r55']
 
-async function mondayQuery(apiKey, query) {
-  const res = await fetch(MONDAY_API_URL, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'Authorization': apiKey,
-      'API-Version': '2024-01',
-    },
-    body: JSON.stringify({ query }),
-    cache: 'no-store',
-  })
-  if (!res.ok) throw new Error(`Monday HTTP ${res.status}`)
-  const data = await res.json()
-  if (data.errors) throw new Error(data.errors[0]?.message || 'Monday GraphQL error')
-  return data
+async function mondayQuery(apiKey, query, timeoutMs = 15000) {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    const res = await fetch(MONDAY_API_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': apiKey,
+        'API-Version': '2024-01',
+      },
+      body: JSON.stringify({ query }),
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+    clearTimeout(timer)
+    if (res.status === 429) {
+      const retryAfter = parseInt(res.headers.get('Retry-After') || '10')
+      throw new Error(`Rate limit Monday — espera ${retryAfter}s`)
+    }
+    if (!res.ok) throw new Error(`Monday HTTP ${res.status}`)
+    const data = await res.json()
+    if (data.errors) throw new Error(data.errors[0]?.message || 'Monday GraphQL error')
+    return data
+  } catch (e) {
+    clearTimeout(timer)
+    if (e.name === 'AbortError') throw new Error(`Monday timeout (${timeoutMs/1000}s)`)
+    throw e
+  }
 }
 
 export async function GET() {
@@ -92,7 +106,7 @@ export async function GET() {
       const nextData = await mondayQuery(apiKey, nextQuery)
       const page_data = nextData.data?.boards?.[0]?.items_page
       if (!page_data?.items?.length) break
-      allItems = [...allItems, ...page_data.items]
+      allItems.push(...page_data.items)
       cursor = page_data.cursor
       page++
     }
@@ -108,11 +122,7 @@ export async function GET() {
             const p = JSON.parse(col.value)
             val = p?.label?.text || p?.text || p?.name || null
             // Para columna person: extraer nombres
-            if (col.column?.type === 'multiple-person' || col.column?.type === 'people') {
-              const persons = p?.personsAndTeams || []
-              // val ya tiene el texto plano de la API
-              val = col.text || null
-            }
+            // people columns: col.text ya tiene el valor correcto
           } catch {}
         }
         cv[col.id] = val
@@ -126,9 +136,7 @@ export async function GET() {
           try {
             const p = JSON.parse(col.value)
             sval = p?.label?.text || p?.text || p?.name || null
-            if (col.column?.type === 'multiple-person' || col.column?.type === 'people') {
-              sval = col.text || null
-            }
+            // people columns: col.text ya tiene el valor correcto
           } catch {}
         }
         scv[col.id] = sval
