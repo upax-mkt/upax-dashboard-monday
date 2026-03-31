@@ -1,8 +1,5 @@
 import { NextResponse } from 'next/server'
 
-// In-memory fallback cuando no hay KV configurado
-const memStore = new Map()
-
 // Upstash REST API — usa las variables que Vercel inyecta automáticamente
 // al conectar Upstash desde el Marketplace:
 // KV_REST_API_URL + KV_REST_API_TOKEN
@@ -34,7 +31,8 @@ export async function GET(request) {
     if (action === 'get' && key) {
       const result = await upstash('GET', key)
       if (result === null) {
-        return NextResponse.json({ value: memStore.get(key) ?? null })
+        // Sin KV configurado — devolver null (el frontend tiene fallback a GDD_EMPTY)
+        return NextResponse.json({ value: null })
       }
       // Upstash devuelve strings — parsear JSON si es posible
       let val = result
@@ -66,15 +64,22 @@ export async function POST(request) {
 
     if (action === 'set' && key) {
       const serialized = typeof value === 'string' ? value : JSON.stringify(value)
+      // Validar tamaño antes de enviar a Upstash (límite ~10MB, safety 5MB)
+      if (serialized.length > 5_000_000) {
+        console.warn(`Storage: key ${key} excede 5MB (${serialized.length} bytes), omitiendo`)
+        return NextResponse.json({ success: false, error: 'value_too_large' })
+      }
       // TTL: 365 días — minutas persisten 1 año
       const result = await upstash('SET', key, serialized, 'EX', String(60 * 60 * 24 * 365))
-      if (result === null) memStore.set(key, value)
+      if (result === null) {
+        console.error('Storage: KV_REST_API_URL no configurado. Configura Upstash en Vercel.')
+        return NextResponse.json({ success: false, error: 'storage_not_configured' }, { status: 503 })
+      }
       return NextResponse.json({ success: true })
     }
 
     if (action === 'delete' && key) {
       const result = await upstash('DEL', key)
-      if (result === null) memStore.delete(key)
       return NextResponse.json({ success: true })
     }
 
