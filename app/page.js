@@ -112,26 +112,38 @@ const MONDAY_USERS = {
 function normalizeSquad(raw) { return SQUAD_ALIASES[raw] || raw; }
 
 const PERSON_NAMES = PERSONAS.map((p) => p.name);
+// Cache module-level para normalizePersonName — evita ~25k comparaciones de string por análisis (P3.2)
+const _nameNormCache = new Map();
 function normalizePersonName(mondayName) {
   if (!mondayName) return mondayName;
+  if (_nameNormCache.has(mondayName)) return _nameNormCache.get(mondayName);
+  // resultado se calcula abajo y se cachea antes de retornar
+  if (!mondayName) return mondayName;
   // Exact match
-  if (PERSON_NAMES.includes(mondayName)) return mondayName;
+  if (PERSON_NAMES.includes(mondayName)) {
+    _nameNormCache.set(mondayName, mondayName);
+    return mondayName;
+  }
   const lower = mondayName.toLowerCase();
   // Intento 1: todas las palabras del nombre de PERSONAS están en el nombre de Monday
   for (const pn of PERSON_NAMES) {
     const parts = pn.toLowerCase().split(" ");
-    if (parts.every(p => lower.includes(p))) return pn;
+    if (parts.every(p => lower.includes(p))) { _nameNormCache.set(mondayName, pn); return pn; }
   }
   // Intento 2: primer nombre + al menos un apellido coincide
   for (const pn of PERSON_NAMES) {
     const parts = pn.toLowerCase().split(" ");
-    if (parts.length >= 2 && lower.includes(parts[0]) && parts.slice(1).some(p => lower.includes(p))) return pn;
+    if (parts.length >= 2 && lower.includes(parts[0]) && parts.slice(1).some(p => lower.includes(p))) { _nameNormCache.set(mondayName, pn); return pn; }
   }
   // Intento 3: solo primer nombre (para nombres únicos como "Diego", "Arath")
   for (const pn of PERSON_NAMES) {
     const firstName = pn.toLowerCase().split(" ")[0];
-    if (firstName.length > 4 && lower.startsWith(firstName)) return pn;
+    if (firstName.length > 4 && lower.startsWith(firstName)) {
+      _nameNormCache.set(mondayName, pn);
+      return pn;
+    }
   }
+  _nameNormCache.set(mondayName, mondayName);
   return mondayName;
 }
 function isTeamMember(name) { return PERSON_NAMES.includes(normalizePersonName(name)); }
@@ -536,7 +548,7 @@ function generateMinuta(wd, analysis, gddData, blockTimes) {
    ═══════════════════════════════════════════════════════════════ */
 
 const CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+/* fonts cargadas vía next/font en layout.js (P3.1) */
 *{box-sizing:border-box;margin:0}
 :root{
   --bg:#FAFAFA;--bg2:#FFFFFF;--bg3:#F2F2F7;--bg4:#E5E5EA;
@@ -824,7 +836,89 @@ function OverdueSection({ overdue }) {
   );
 }
 
-function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
+// CargaRow — fuera de TabHome para evitar re-creación en cada render (P3.8)
+const CargaRow = React.memo(function CargaRow({ person, d, rank, maxVal, onClick, isExpanded, items }) {
+  const pct = maxVal > 0 ? d.total / maxVal : 0;
+  // Umbral de carga: proyectos + tareas combinados
+  // >20 = rojo (sobrecargado), >10 = amarillo (carga alta), <=10 = verde (normal)
+  const barColor = d.total > 20 ? "var(--red)" : d.total > 10 ? "var(--yellow)" : "var(--green)";
+  const sq = PERSONAS.find((p) => p.name === person);
+  const squadData = SQUADS.find((s) => s.name === sq?.squad);
+  const squadColor = squadData?.color || "var(--tx3)";
+  const projects = d.projects || 0;
+  const tasks = d.tasks || 0;
+  const squadShort = squadData?.name?.split(" ")[0] || "";
+  return (
+    <div onClick={onClick} style={{ cursor: "pointer", borderBottom: "1px solid var(--bg3)", transition: "background .1s" }}
+      onMouseEnter={e => e.currentTarget.style.background = "var(--bg3)"}
+      onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0" }}>
+        {/* Rank */}
+        <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--tx3)", minWidth: 16, textAlign: "right", flexShrink: 0 }}>{rank}</span>
+        {/* Squad dot */}
+        <span title={squadData?.name} style={{ width: 8, height: 8, borderRadius: "50%", background: squadColor, flexShrink: 0 }} />
+        {/* Nombre */}
+        <span style={{ fontSize: 13, fontWeight: 600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{shortName(person)}</span>
+        {/* Squad label — solo en desktop */}
+        <span className="mobile-hide" style={{ fontSize: 10, color: squadColor, fontWeight: 600, background: squadColor + "15", borderRadius: 4, padding: "1px 6px", flexShrink: 0 }}>{squadShort}</span>
+        {/* Detenidos */}
+        {d.stopped > 0 && <span style={{ fontSize: 10, color: "var(--red)", fontWeight: 700, flexShrink: 0 }}>{d.stopped}🚫</span>}
+        {/* Barra de progreso — relativa al máximo del equipo */}
+        <div title={`${d.total} de ${maxVal} (máximo del equipo)`} style={{ width: 60, height: 4, background: "var(--bg4)", borderRadius: 3, overflow: "hidden", flexShrink: 0, cursor: "help" }}>
+          <div style={{ width: Math.min(pct * 100, 100) + "%", height: "100%", background: barColor, borderRadius: 3, transition: "width .4s ease" }} />
+        </div>
+        {/* Total + desglose proyectos/tareas */}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0, minWidth: 60 }}>
+          <span style={{ fontFamily: "var(--mono)", fontSize: 14, fontWeight: 800, color: barColor, lineHeight: 1 }}>{d.total}</span>
+          {(projects > 0 || tasks > 0) && (
+            <div style={{ display: "flex", gap: 4, marginTop: 2 }}>
+              {projects > 0 && (
+                <span style={{ fontSize: 10, fontWeight: 700, color: "var(--blue)", background: "rgba(0,122,255,.1)", borderRadius: 3, padding: "1px 4px", whiteSpace: "nowrap" }}>
+                  {projects}P
+                </span>
+              )}
+              {tasks > 0 && (
+                <span style={{ fontSize: 10, fontWeight: 700, color: "var(--purple)", background: "rgba(175,82,222,.1)", borderRadius: 3, padding: "1px 4px", whiteSpace: "nowrap" }}>
+                  {tasks}T
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+        {/* Chevron */}
+        <span style={{ fontSize: 10, color: "var(--tx3)", transform: isExpanded ? "rotate(180deg)" : "none", transition: "transform .2s", flexShrink: 0 }}>▾</span>
+      </div>
+      {/* Detalle expandido — proyectos activos de esta persona */}
+      {isExpanded && (
+        <div style={{ paddingLeft: 32, paddingBottom: 8 }}>
+          {items
+            .filter(it => {
+              const ph = it.column_values?.color_mkz09na;
+              if (!isActive(ph)) return false;
+              const person_val = it.column_values?.person || "";
+              return person_val.toLowerCase().includes(person.split(" ")[0].toLowerCase());
+            })
+            .slice(0, 6)
+            .map((it, i) => {
+              const ph = it.column_values?.color_mkz09na;
+              const tl = parseTL(it.column_values?.timerange_mkzcqv0j);
+              const od = isOverdue(it);
+              return (
+                <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", padding: "3px 0", fontSize: 11 }}>
+                  <div style={{ width: 5, height: 5, borderRadius: "50%", background: PHASES[ph] || "var(--tx3)", flexShrink: 0 }} />
+                  <span style={{ flex: 1, color: od ? "var(--red)" : "var(--tx2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.name}</span>
+                  {tl.end && <span style={{ fontSize: 10, color: od ? "var(--red)" : "var(--tx3)", fontFamily: "var(--mono)", flexShrink: 0 }}>{tl.end.toLocaleDateString("es-MX",{day:"2-digit",month:"short"})}</span>}
+                </div>
+              );
+            })}
+        </div>
+      )}
+    </div>
+  );
+}
+});
+
+const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
   const [alertGroupsExpanded, setAlertGroupsExpanded] = useState({});
   const [expandedPerson, setExpandedPerson] = useState(null);
   const [cargaSquad, setCargaSquad] = useState("all");
@@ -907,86 +1001,6 @@ function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
     </div>
   );
 
-  // CargaRow — diseño responsive que funciona bien en mobile y desktop
-  const CargaRow = ({ person, d, rank, maxVal, onClick, isExpanded }) => {
-    const pct = maxVal > 0 ? d.total / maxVal : 0;
-    // Umbral de carga: proyectos + tareas combinados
-    // >20 = rojo (sobrecargado), >10 = amarillo (carga alta), <=10 = verde (normal)
-    const barColor = d.total > 20 ? "var(--red)" : d.total > 10 ? "var(--yellow)" : "var(--green)";
-    const sq = PERSONAS.find((p) => p.name === person);
-    const squadData = SQUADS.find((s) => s.name === sq?.squad);
-    const squadColor = squadData?.color || "var(--tx3)";
-    const projects = d.projects || 0;
-    const tasks = d.tasks || 0;
-    const squadShort = squadData?.name?.split(" ")[0] || "";
-    return (
-      <div onClick={onClick} style={{ cursor: "pointer", borderBottom: "1px solid var(--bg3)", transition: "background .1s" }}
-        onMouseEnter={e => e.currentTarget.style.background = "var(--bg3)"}
-        onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
-        <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0" }}>
-          {/* Rank */}
-          <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--tx3)", minWidth: 16, textAlign: "right", flexShrink: 0 }}>{rank}</span>
-          {/* Squad dot */}
-          <span title={squadData?.name} style={{ width: 8, height: 8, borderRadius: "50%", background: squadColor, flexShrink: 0 }} />
-          {/* Nombre */}
-          <span style={{ fontSize: 13, fontWeight: 600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{shortName(person)}</span>
-          {/* Squad label — solo en desktop */}
-          <span className="mobile-hide" style={{ fontSize: 10, color: squadColor, fontWeight: 600, background: squadColor + "15", borderRadius: 4, padding: "1px 6px", flexShrink: 0 }}>{squadShort}</span>
-          {/* Detenidos */}
-          {d.stopped > 0 && <span style={{ fontSize: 10, color: "var(--red)", fontWeight: 700, flexShrink: 0 }}>{d.stopped}🚫</span>}
-          {/* Barra de progreso — relativa al máximo del equipo */}
-          <div title={`${d.total} de ${maxVal} (máximo del equipo)`} style={{ width: 60, height: 4, background: "var(--bg4)", borderRadius: 3, overflow: "hidden", flexShrink: 0, cursor: "help" }}>
-            <div style={{ width: Math.min(pct * 100, 100) + "%", height: "100%", background: barColor, borderRadius: 3, transition: "width .4s ease" }} />
-          </div>
-          {/* Total + desglose proyectos/tareas */}
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0, minWidth: 60 }}>
-            <span style={{ fontFamily: "var(--mono)", fontSize: 14, fontWeight: 800, color: barColor, lineHeight: 1 }}>{d.total}</span>
-            {(projects > 0 || tasks > 0) && (
-              <div style={{ display: "flex", gap: 4, marginTop: 2 }}>
-                {projects > 0 && (
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "var(--blue)", background: "rgba(0,122,255,.1)", borderRadius: 3, padding: "1px 4px", whiteSpace: "nowrap" }}>
-                    {projects}P
-                  </span>
-                )}
-                {tasks > 0 && (
-                  <span style={{ fontSize: 10, fontWeight: 700, color: "var(--purple)", background: "rgba(175,82,222,.1)", borderRadius: 3, padding: "1px 4px", whiteSpace: "nowrap" }}>
-                    {tasks}T
-                  </span>
-                )}
-              </div>
-            )}
-          </div>
-          {/* Chevron */}
-          <span style={{ fontSize: 10, color: "var(--tx3)", transform: isExpanded ? "rotate(180deg)" : "none", transition: "transform .2s", flexShrink: 0 }}>▾</span>
-        </div>
-        {/* Detalle expandido — proyectos activos de esta persona */}
-        {isExpanded && (
-          <div style={{ paddingLeft: 32, paddingBottom: 8 }}>
-            {items
-              .filter(it => {
-                const ph = it.column_values?.color_mkz09na;
-                if (!isActive(ph)) return false;
-                const person_val = it.column_values?.person || "";
-                return person_val.toLowerCase().includes(person.split(" ")[0].toLowerCase());
-              })
-              .slice(0, 6)
-              .map((it, i) => {
-                const ph = it.column_values?.color_mkz09na;
-                const tl = parseTL(it.column_values?.timerange_mkzcqv0j);
-                const od = isOverdue(it);
-                return (
-                  <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", padding: "3px 0", fontSize: 11 }}>
-                    <div style={{ width: 5, height: 5, borderRadius: "50%", background: PHASES[ph] || "var(--tx3)", flexShrink: 0 }} />
-                    <span style={{ flex: 1, color: od ? "var(--red)" : "var(--tx2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.name}</span>
-                    {tl.end && <span style={{ fontSize: 10, color: od ? "var(--red)" : "var(--tx3)", fontFamily: "var(--mono)", flexShrink: 0 }}>{tl.end.toLocaleDateString("es-MX",{day:"2-digit",month:"short"})}</span>}
-                  </div>
-                );
-              })}
-          </div>
-        )}
-      </div>
-    );
-  };
 
   return (
     <div className="fade">
@@ -1243,7 +1257,7 @@ function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
    SECTION 10: TAB AGENDA
    ═══════════════════════════════════════════════════════════════ */
 
-function TabAgenda({ wd, setWd, save, currentIdx, blockTimes, onJumpToBlock }) {
+const TabAgenda = React.memo(function TabAgenda({ wd, setWd, save, currentIdx, blockTimes, onJumpToBlock }) {
   const [edit, setEdit] = useState(false);
   const pr = wd.presenters || {};
   const missing = AGENDA.filter((b) => b.squad && !pr[b.id]?.trim());
@@ -1298,7 +1312,7 @@ function TabAgenda({ wd, setWd, save, currentIdx, blockTimes, onJumpToBlock }) {
    SECTION 11: TAB PANORAMA
    ═══════════════════════════════════════════════════════════════ */
 
-function TabPanorama({ analysis: an, items }) {
+const TabPanorama = React.memo(function TabPanorama({ analysis: an, items }) {
   const [sec, setSec] = useState(() => {
     try { return sessionStorage.getItem("panorama-tab") || "kanban"; } catch { return "kanban"; }
   });
@@ -1454,7 +1468,7 @@ function TabPanorama({ analysis: an, items }) {
    SECTION 13: TAB FOCOS
    ═══════════════════════════════════════════════════════════════ */
 
-function TabFocos({ items, wd, setWd, save, activeSquad, setActiveSquad }) {
+const TabFocos = React.memo(function TabFocos({ items, wd, setWd, save, activeSquad, setActiveSquad }) {
   const focos = wd.focos || {};
   const isCross = activeSquad === "cross";
   const sq = isCross ? null : SQUADS.find((s) => s.id === activeSquad);
@@ -1603,7 +1617,7 @@ function TabFocos({ items, wd, setWd, save, activeSquad, setActiveSquad }) {
    SECTION 14: TAB COMPROMISOS
    ═══════════════════════════════════════════════════════════════ */
 
-function TabCompromisos({ wd, setWd, save, analysis, onCopy, gddData }) {
+const TabCompromisos = React.memo(function TabCompromisos({ wd, setWd, save, analysis, onCopy, gddData }) {
   const comps = wd.compromisos || [], synced = wd.synced || [];
   const [syncing, setSyncing] = useState(null);
   const [prevComps, setPrevComps] = useState([]);
@@ -1614,11 +1628,17 @@ function TabCompromisos({ wd, setWd, save, analysis, onCopy, gddData }) {
     (async () => {
       try {
         const allKeys = await storeList("weekly:");
-        const prevKeys = allKeys.filter((k) => k < STORE_KEY).sort().reverse();
+        const prevKeys = allKeys.filter((k) => k < STORE_KEY).sort().reverse().slice(0, 8);
+        // Cargar en paralelo en lugar de secuencial — 8 requests simultáneos (P3.9)
+        const dataList = await Promise.all(
+          prevKeys.map(async (key) => {
+            let data = await storeGet(key);
+            if (!data && key === "weekly:2026-03-23") data = WEEKLY_MAR23;
+            return { key, data };
+          })
+        );
         const historical = [];
-        for (const key of prevKeys.slice(0, 8)) {
-          let data = await storeGet(key);
-          if (!data && key === "weekly:2026-03-23") data = WEEKLY_MAR23;
+        for (const { key, data } of dataList) {
           if (!data?.compromisos?.length) continue;
           data.compromisos.forEach((c) => {
             if (c.que?.trim()) historical.push({ ...c, weekDate: key.replace("weekly:", ""), weekKey: key, pct: c.pct || (c.status === "done" ? 100 : 0) });
@@ -1786,7 +1806,7 @@ function downloadMinutaTxt(text, dateStr) {
    Lista inline de todas las minutas. Click en una → lightbox de detalle.
    ═══════════════════════════════════════════════════════════════ */
 
-function TabMinutasInline({ wd, analysis, gddData, blockTimes, onOpenMinuta }) {
+const TabMinutasInline = React.memo(function TabMinutasInline({ wd, analysis, gddData, blockTimes, onOpenMinuta }) {
   const [keys, setKeys] = useState([]);
   const [loading, setLoading] = useState(true);
   const [confirmDel, setConfirmDel] = useState(null);
@@ -2503,6 +2523,7 @@ function MinutaDetailView({ weekKey, data, todayWd, todayAnalysis, gddData, bloc
 
 export default function App() {
   const [items, setItems] = useState([]);
+  const [itemsFingerprint, setItemsFingerprint] = useState(0); // P3.7: evita re-análisis innecesarios
   const [loading, setLoading] = useState(true);
   const [loadingMsg, setLoadingMsg] = useState("Iniciando...");
   const [err, setErr] = useState(null);
@@ -2655,6 +2676,9 @@ export default function App() {
       const fresh = await fetchAllItems();
       if (fresh.length > 0) {
         setItems(fresh);
+        // Fingerprint basado en count + primer y último ID — evita re-análisis si datos no cambiaron (P3.7)
+        const fp = fresh.length * 1000 + parseInt(fresh[0]?.id || 0) + parseInt(fresh[fresh.length-1]?.id || 0);
+        setItemsFingerprint(fp);
         await storeSet(CACHE_KEY, { items: fresh, ts: new Date().toISOString(), doneCount: fresh._doneCount || 0 });
         setLastUpdate(new Date().toISOString());
       }
@@ -2672,6 +2696,8 @@ export default function App() {
         setWd(stored || WEEKLY_MAR23);
         if (cached?.items?.length > 0) {
           setItems(cached.items);
+          const fp0 = cached.items.length * 1000 + parseInt(cached.items[0]?.id || 0) + parseInt(cached.items[cached.items.length-1]?.id || 0);
+          setItemsFingerprint(fp0);
           setLastUpdate(cached.ts);
           setLoading(false);
           hasCached = true;
@@ -2693,6 +2719,8 @@ export default function App() {
         clearTimeout(safetyTimer);
         if (all.length > 0) {
           setItems(all);
+          const fp1 = all.length * 1000 + parseInt(all[0]?.id || 0) + parseInt(all[all.length-1]?.id || 0);
+          setItemsFingerprint(fp1);
           await storeSet(CACHE_KEY, { items: all, ts: new Date().toISOString(), doneCount: all._doneCount || 0 });
           setLastUpdate(new Date().toISOString());
         } else {
@@ -2709,6 +2737,15 @@ export default function App() {
   const analysis = useMemo(() => {
     if (!items.length) return null;
     const byPhase = {}, byPhaseWeek = {}, bySquad = {}, bySquadWeek = {}, byPerson = {}, byPersonWeek = {}, overdue = [], noResp = [], noCrono = [], stoppedWeek = [], backlogWithDates = [], doneLastWeek = [];
+    // Cache parseTL por string de timeline — evita ~3,500 objetos Date redundantes por análisis (P3.3)
+    const _tlCache = new Map();
+    const parseTLCached = (t) => {
+      if (!t) return { start: null, end: null };
+      if (_tlCache.has(t)) return _tlCache.get(t);
+      const result = parseTL(t);
+      _tlCache.set(t, result);
+      return result;
+    };
 
     // Semana actual como strings YYYY-MM-DD — calculado UNA VEZ, fuera del loop
     // Usa TODAY_STR (fecha local del cliente) + aritmética pura sin timezone
@@ -2718,6 +2755,8 @@ export default function App() {
     items.forEach((it) => {
       const cv = it.column_values || {}, ph = cv.color_mkz09na || "?", sq = normalizeSquad(cv.color_mkz0s203 || "?"), pr = cv.person;
       const timeline = cv.timerange_mkzcqv0j, isThisWeek = overlapsThisWeek(timeline);
+      // Pre-calcular TL del item una vez (parseTLCached reutiliza el resultado en isOverdue y alertas)
+      if (timeline) parseTLCached(timeline);
 
       // Todos los items del grupo Delivery — incluye Done, Detenidos, Sprint, etc.
       byPhase[ph] = (byPhase[ph] || 0) + 1;
@@ -2798,7 +2837,7 @@ export default function App() {
     PERSONAS.filter((p) => !p.sdr).forEach((p) => { if (!byPersonWeek[p.name]) byPersonWeek[p.name] = { items: 0, stopped: 0, total: 0 }; });
 
     return { byPhase, byPhaseWeek, bySquad, bySquadWeek, byPerson, byPersonWeek, overdue, noResp, noCrono, stoppedWeek, backlogWithDates, doneLastWeek, velocity, semaphore, doneTotal };
-  }, [items]);
+  }, [items, itemsFingerprint]); // P3.7: itemsFingerprint previene recálculo innecesario
 
   if (loading) return (
     <div style={{ fontFamily: "var(--sans)", background: "var(--bg)", minHeight: "100vh", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center", color: "var(--tx3)" }}>
@@ -2967,7 +3006,7 @@ export default function App() {
             </div>
           ) : (
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-              <span style={{ fontSize: 11, color: "var(--tx2)", opacity: 0.5, fontFamily: "var(--mono)" }}>v7.9 · mkt corp upax</span>
+              <span style={{ fontSize: 11, color: "var(--tx2)", opacity: 0.5, fontFamily: "var(--mono)" }}>v8.0 · mkt corp upax</span>
               <button onClick={() => setConfirmReset(true)} title="Limpiar focos, compromisos y presentadores de la sesión actual" style={{ background: "transparent", color: "var(--red)", border: "1px solid rgba(255,59,48,.2)", borderRadius: "var(--r-sm)", padding: "3px 10px", fontSize: 10, cursor: "pointer", opacity: 0.5 }}>🗑 Reset sesión</button>
             </div>
           )}
