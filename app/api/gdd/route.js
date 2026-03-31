@@ -56,6 +56,19 @@ async function getGoogleAccessToken() {
   return tokenData.access_token
 }
 
+// Normaliza fecha al formato YYYY-MM-DD
+// Sheets puede devolver DD/M/YYYY, D/M/YYYY o YYYY-MM-DD
+function normalizeFecha(raw) {
+  if (!raw) return raw
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw
+  const parts = raw.split('/')
+  if (parts.length === 3) {
+    const [d, m, y] = parts
+    return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`
+  }
+  return raw
+}
+
 // Parsea los datos de la hoja KPIs_Weekly con la estructura de César
 function parseKPIsWeekly(rows) {
   const result = {
@@ -74,20 +87,6 @@ function parseKPIsWeekly(rows) {
     const valor = parseFloat((row[1] || '0').toString().replace(/,/g, '')) || 0
     const periodo = (row[2] || '').toLowerCase().trim()
 
-    // Fechas — normalizar al formato YYYY-MM-DD
-    // Sheets puede devolver DD/M/YYYY, D/M/YYYY o YYYY-MM-DD según la localización
-    function normalizeFecha(raw) {
-      if (!raw) return raw
-      // Si ya es YYYY-MM-DD
-      if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) return raw
-      // Si es D/M/YYYY o DD/MM/YYYY
-      const parts = raw.split('/')
-      if (parts.length === 3) {
-        const [d, m, y] = parts
-        return `${y}-${m.padStart(2,'0')}-${d.padStart(2,'0')}`
-      }
-      return raw
-    }
     if (metrica === 'fecha_desde' && periodo === 'semana_actual') result.fechas.semana_desde = normalizeFecha(row[1])
     if (metrica === 'fecha_hasta' && periodo === 'semana_actual') result.fechas.semana_hasta = normalizeFecha(row[1])
 
