@@ -1,11 +1,8 @@
 'use client'
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react'
-
+import React, { useState } from 'react'
+// components/TabAgenda.jsx
 import { AGENDA, SQUADS, PERSONAS } from '../lib/constants'
 import { Alerta, PersonSelect } from './ui'
-
-   SECTION 10: TAB AGENDA
-   ═══════════════════════════════════════════════════════════════ */
 
 const TabAgenda = React.memo(function TabAgenda({ wd, setWd, save, currentIdx, blockTimes, onJumpToBlock }) {
   const [edit, setEdit] = useState(false);
@@ -59,5 +56,7 @@ const TabAgenda = React.memo(function TabAgenda({ wd, setWd, save, currentIdx, b
 }
 
 /* ═══════════════════════════════════════════════════════════════
+   SECTION 11: TAB PANORAMA
+   ═══════════════════════════════════════════════════════════════ */
 
 export default TabAgenda
