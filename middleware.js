@@ -44,7 +44,8 @@ export const config = {
      * - _next/static (archivos estáticos)
      * - _next/image (optimización de imágenes)
      * - favicon.ico
+     * - api/* (rutas de API — llamadas desde el cliente JS, no pueden incluir Basic Auth automáticamente)
      */
-    '/((?!_next/static|_next/image|favicon.ico).*)',
+    '/((?!_next/static|_next/image|favicon.ico|api).*)',
   ],
 }
