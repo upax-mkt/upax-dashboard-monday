@@ -1868,7 +1868,7 @@ const TabMinutasInline = React.memo(function TabMinutasInline({ wd, analysis, gd
               <div style={{ minWidth: 0 }}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: "var(--tx)", display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                   {dateFmt(k)}
-                  {isToday && <span style={{ fontSize: 10, background: "var(--blue)", color: "#fff", borderRadius: 4, padding: "2px 6px", fontWeight: 700 }}>HOY</span>}
+                  {isToday && <span style={{ fontSize: 10, background: "var(--blue)", color: "#fff", borderRadius: 4, padding: "2px 6px", fontWeight: 700 }}>ESTA SEM.</span>}
                 </div>
                 <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Weekly Mkt Corp · click para ver</div>
               </div>
@@ -2958,11 +2958,11 @@ export default function App() {
 
 
         {/* Tabs sticky — always visible at top of content area */}
-        <div className="sticky-nav" style={{ display: "flex", gap: 0, marginBottom: 0 }}>
+        <div className="sticky-nav" style={{ display: "flex", gap: 0, marginBottom: 0, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
           {tabs.map((t) => {
             const isAct = tab === t.id, isLive = running && block.tab === t.id;
             return (
-              <button key={t.id} onClick={() => setTab(t.id)} aria-label={t.label} aria-current={isAct ? "page" : undefined} style={{ background: "transparent", color: isAct ? "var(--tx)" : "var(--tx3)", border: "none", borderBottom: isAct ? `2px solid ${t.color}` : "2px solid transparent", padding: "8px 16px", fontSize: 12, fontWeight: isAct ? 700 : 400, cursor: "pointer", fontFamily: "var(--sans)", marginBottom: -1, letterSpacing: "-0.01em", transition: "all .2s" }}>
+              <button key={t.id} onClick={() => setTab(t.id)} aria-label={t.label} aria-current={isAct ? "page" : undefined} style={{ background: "transparent", color: isAct ? "var(--tx)" : "var(--tx3)", border: "none", borderBottom: isAct ? `2px solid ${t.color}` : "2px solid transparent", padding: "8px 12px", fontSize: 12, fontWeight: isAct ? 700 : 400, cursor: "pointer", fontFamily: "var(--sans)", marginBottom: -1, letterSpacing: "-0.01em", transition: "all .2s", flexShrink: 0, whiteSpace: "nowrap" }}>
                 {isLive && <span aria-hidden="true" style={{ display: "inline-block", width: 5, height: 5, borderRadius: "50%", background: block.color, animation: "liveDot 1s ease infinite", marginRight: 5, verticalAlign: "middle" }} />}
                 <span aria-hidden="true">{t.icon}</span> {t.label}
               </button>
