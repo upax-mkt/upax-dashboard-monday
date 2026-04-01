@@ -922,6 +922,23 @@ const CargaRow = React.memo(function CargaRow({ person, d, rank, maxVal, onClick
    Storage: Upstash (storeGet/storeSet) key "gdd_history"
    Auto-save: cuando gddData cambia de semana y no está guardada
    ═══════════════════════════════════════════════════════════════ */
+// ── Audit Log helper ─────────────────────────────────────────────────────────
+// Registra acciones en Upstash key "audit_log" (máx 500 entradas)
+const AUDIT_LOG_KEY = "audit_log";
+
+async function logAudit(tipo, descripcion, datos = {}, origen = "usuario") {
+  try {
+    const current = await storeGet(AUDIT_LOG_KEY);
+    const log = Array.isArray(current) ? current : [];
+    const entry = {
+      id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
+      ts: new Date().toISOString(),
+      tipo, descripcion, datos, origen,
+    };
+    await storeSet(AUDIT_LOG_KEY, [entry, ...log].slice(0, 500));
+  } catch (e) { console.warn("Audit log failed:", e?.message); }
+}
+
 const GDD_HISTORY_KEY = "gdd_history";
 const GDD_MC = { leads: "#007AFF", mqls: "#AF52DE", sqls: "#FF9500", opps: "#34C759" };
 
@@ -2013,6 +2030,18 @@ const TabMinutasInline = React.memo(function TabMinutasInline({ wd, analysis, gd
   }
 
   async function confirmDelete(k) {
+    // Papelera + audit log ANTES de eliminar
+    try {
+      const existing = await storeGet(k);
+      if (existing) {
+        await storeSet("trash:" + k, existing); // papelera 365 días
+        await logAudit("minuta_delete", "Minuta eliminada: " + k.replace("weekly:", ""), {
+          date: k.replace("weekly:", ""),
+          minuta_preview: (existing.minutaText || "").slice(0, 200),
+          compromisos_count: (existing.compromisos || []).length,
+        });
+      }
+    } catch {}
     await storeDel(k);
     setKeys(prev => prev.filter(x => x !== k));
     setConfirmDel(null);
@@ -2721,6 +2750,17 @@ export default function App() {
 
   const saveFn = useCallback(async (d) => { await storeSet(STORE_KEY, d); }, []);
 
+  // Auto-save debounce 3s — previene pérdida de datos si se cierra el browser
+  const autoSaveRef = useRef(null);
+  useEffect(() => {
+    if (!wd || !wd.date) return;
+    clearTimeout(autoSaveRef.current);
+    autoSaveRef.current = setTimeout(() => {
+      storeSet(STORE_KEY, wd).catch(() => {});
+    }, 3000);
+    return () => clearTimeout(autoSaveRef.current);
+  }, [wd]);
+
   // GDD_EMPTY: fallback cuando no hay datos — no inventar números históricos (P1.4)
   const GDD_EMPTY_APP = {
     semana: { leads: 0, mqls: 0, sqls: 0, opps: 0, pipeline_mkt: 0, pipeline_com: 0 },
@@ -2848,6 +2888,7 @@ export default function App() {
         const fp = fresh.length * 1000 + parseInt(fresh[0]?.id || 0) + parseInt(fresh[fresh.length-1]?.id || 0);
         setItemsFingerprint(fp);
         await storeSet(CACHE_KEY, { items: fresh, ts: new Date().toISOString(), doneCount: fresh._doneCount || 0 });
+        logAudit("monday_sync", "Sync Monday.com", { items_count: fresh.length }).catch(() => {});
         setLastUpdate(new Date().toISOString());
       }
     } catch {}
@@ -3180,6 +3221,11 @@ export default function App() {
                 <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Borra focos, compromisos y presentadores. <strong>Las minutas históricas NO se eliminan.</strong></div>
               </div>
               <button onClick={async () => {
+                // Snapshot + audit ANTES del reset
+                await logAudit("session_reset", "Reset de sesión: " + TODAY_STR, {
+                  date: TODAY_STR, focos_areas: Object.keys(wd.focos || {}), compromisos_count: (wd.compromisos || []).length,
+                });
+                await storeSet(STORE_KEY + ":before_reset", wd);
                 await storeDel(STORE_KEY); // solo borra hoy — weekly:YYYY-MM-DD anteriores se conservan
                 setWd(emptyWeekly()); setFinished(false); setMinutaDraft(""); setMinutaSaved(false);
                 setElapsed(0); elRef.current = 0; setCurrentBlockIdx(0); setBlockTimes({});
