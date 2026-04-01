@@ -3509,6 +3509,7 @@ export default function App() {
               <button onClick={() => setConfirmReset(false)} style={{ background: "var(--bg3)", color: "var(--tx2)", border: "none", borderRadius: 8, padding: "5px 16px", fontSize: 12, cursor: "pointer" }}>Cancelar</button>
             </div>
           ) : (
+            <>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <span style={{ fontSize: 11, color: "var(--tx2)", opacity: 0.5, fontFamily: "var(--mono)" }}>v8.0 · mkt corp upax</span>
               <div style={{ display:"flex", gap:6, alignItems:"center" }}>
@@ -3517,6 +3518,7 @@ export default function App() {
               </div>
             </div>
             {auditOpen && <AuditLogPanel />}
+            </>
           )}
         </div>
       </div>
