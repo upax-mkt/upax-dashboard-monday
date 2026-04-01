@@ -1170,17 +1170,17 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
 
       {/* Carga — tabla compacta de todo el equipo */}
       <Card style={{ marginBottom: 16 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-          <div style={{ fontSize: 14, fontWeight: 700 }}>👥 Carga del Equipo <span style={{ fontSize: 11, fontWeight: 400, color: "var(--tx3)" }}>{WEEK.start.toLocaleDateString("es-MX", { day: "numeric", month: "short" })} – {WEEK.end.toLocaleDateString("es-MX", { day: "numeric", month: "short" })}</span></div>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 4 }}>
-          <div style={{ display: "flex", gap: 6, fontSize: 10, color: "var(--tx3)" }}>
-            <span style={{ color: "var(--blue)", fontWeight: 700, background: "rgba(0,122,255,.1)", borderRadius: 3, padding: "1px 5px" }}>P</span>
-            <span style={{ marginRight: 2 }}>= Proyectos</span>
-            <span style={{ color: "var(--purple)", fontWeight: 700, background: "rgba(175,82,222,.1)", borderRadius: 3, padding: "1px 5px" }}>T</span>
-            <span>= Tareas</span>
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, flexWrap: "wrap", gap: 6 }}>
+            <div style={{ fontSize: 14, fontWeight: 700 }}>👥 Carga del Equipo <span style={{ fontSize: 11, fontWeight: 400, color: "var(--tx3)" }}>{WEEK.start.toLocaleDateString("es-MX", { day: "numeric", month: "short" })} – {WEEK.end.toLocaleDateString("es-MX", { day: "numeric", month: "short" })}</span></div>
+            <div style={{ display: "flex", gap: 6, fontSize: 10, color: "var(--tx3)", flexShrink: 0 }}>
+              <span style={{ color: "var(--blue)", fontWeight: 700, background: "rgba(0,122,255,.1)", borderRadius: 3, padding: "1px 5px" }}>P</span>
+              <span>= Proyectos</span>
+              <span style={{ color: "var(--purple)", fontWeight: 700, background: "rgba(175,82,222,.1)", borderRadius: 3, padding: "1px 5px" }}>T</span>
+              <span>= Tareas</span>
+            </div>
           </div>
-        </div>
-        <div style={{ display: "flex", gap: 3, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             <Chip label="Todos" active={cargaSquad === "all"} color="var(--tx2)" onClick={() => setCargaSquad("all")} />
             {SQUADS.map((sq) => <Chip key={sq.id} label={sq.name.split(" ")[0]} active={cargaSquad === sq.id} color={sq.color} onClick={() => setCargaSquad(sq.id)} />)}
           </div>
