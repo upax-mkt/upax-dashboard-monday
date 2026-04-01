@@ -1023,75 +1023,6 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
         </div>
       </div>
 
-      {/* GdD boxes — arriba de todo, como KPIs de generación de demanda */}
-      {(() => {
-        const d = gddData || { semana: {}, anterior: {}, ytd: {} };
-        const metrics = ["leads", "mqls", "sqls", "opps"];
-        const labels = { leads: "Leads", mqls: "MQLs", sqls: "SQLs", opps: "Opps" };
-        const colors = { leads: "var(--blue)", mqls: "var(--purple)", sqls: "var(--green)", opps: "var(--yellow)" };
-        const icons = { leads: "👤", mqls: "⭐", sqls: "🎯", opps: "💼" };
-        const updateField = (period, field, val) => setGddData((prev) => ({ ...prev, [period]: { ...(prev?.[period] || {}), [field]: val } }));
-        const pctChange = (cur, prev) => (!prev || prev === 0) ? null : Math.round(((cur - prev) / prev) * 100);
-        return (
-          <div style={{ marginBottom: 12 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                📊 Generación de Demanda{gddData?.source === "sheets_api" ? <span style={{ fontSize: 9, color: "var(--green)", marginLeft: 6, fontWeight: 700 }}>● LIVE</span> : gddData?.source === "empty" ? <span style={{ fontSize: 9, color: "var(--yellow)", marginLeft: 6 }}>sin datos</span> : gddData?.source === "fallback" ? <span style={{ fontSize: 9, color: "var(--red)", marginLeft: 6 }}>⚠ sin conexión</span> : null}
-                {gddData?.fechas?.semana_desde && (() => {
-                  const fD = (s) => { if (!s) return ""; const d = new Date(s + (s.includes("-") ? "T12:00:00" : ", 2026")); return isNaN(d) ? s : d.toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g," - "); };
-                  return <span style={{ fontWeight: 400, marginLeft: 6, color: "var(--tx3)", fontSize: 11 }}>{fD(gddData.fechas.semana_desde)}{gddData.fechas.semana_hasta ? " al " + fD(gddData.fechas.semana_hasta) : ""}</span>;
-                })()}
-              </span>
-              <button onClick={() => {
-                if (gddEditing) {
-                  const toSave = { ...gddData, lastUpdate: new Date().toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" }) };
-                  setGddData(toSave); storeSet(GDD_KEY, toSave);
-                }
-                setGddEditing(!gddEditing);
-              }} style={{ background: gddEditing ? "var(--blue)" : "transparent", color: gddEditing ? "#fff" : "var(--tx3)", border: gddEditing ? "none" : "1px solid var(--bg4)", borderRadius: 6, padding: "3px 10px", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
-                {gddEditing ? "💾 Guardar" : "✏️ Editar"}
-              </button>
-            </div>
-            <div className="kpi-grid-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 4 }}>
-              {metrics.map((m) => {
-                const cur = d.semana?.[m] || 0, prev = d.anterior?.[m] || 0, ytd = d.ytd?.[m] || 0;
-                const pct = pctChange(cur, prev);
-                const col = colors[m];
-                const mesVal = (gddData?.mes || {})[m] || 0;
-                return (
-                  <div key={m} style={{ background: "var(--bg2)", border: "1px solid var(--bg4)", borderRadius: "var(--r)", padding: "12px 14px", position: "relative", overflow: "hidden" }}>
-                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: col }} />
-                    <div style={{ position: "absolute", top: 8, right: 10, fontSize: 18, opacity: 0.06 }}>{icons[m]}</div>
-                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>{labels[m]}</div>
-                    {gddEditing
-                      ? <NumInput initial={cur} onCommit={(v) => updateField("semana", m, v)} />
-                      : <div style={{ fontFamily: "var(--mono)", fontSize: 28, fontWeight: 800, color: "var(--tx)", lineHeight: 1, letterSpacing: "-0.04em" }}>{cur.toLocaleString()}</div>}
-                    {!gddEditing && pct !== null && (
-                      <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6, paddingTop: 6, borderTop: "1px solid var(--bg4)" }}>
-                        <span style={{ fontSize: 11, fontWeight: 700, color: pct >= 0 ? "var(--green)" : "var(--red)" }}>{pct >= 0 ? "▲" : "▼"}{Math.abs(pct)}%</span>
-                        <span style={{ fontSize: 10, color: "var(--tx3)" }}>vs sem. ant.</span>
-                      </div>
-                    )}
-                    {!gddEditing && mesVal > 0 && (
-                      <div style={{ marginTop: 5, paddingTop: 4, borderTop: "1px solid var(--bg4)", fontSize: 10, color: "var(--tx3)" }}>
-                        <span style={{ color: "var(--tx2)", fontWeight: 700, fontFamily: "var(--mono)" }}>{mesVal.toLocaleString()}</span> acum. mes
-                      </div>
-                    )}
-                    {gddEditing && (
-                      <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px solid var(--bg4)" }}>
-                        <div style={{ fontSize: 9, color: "var(--tx3)", marginBottom: 2 }}>Ant: <NumInput initial={prev} onCommit={(v) => updateField("anterior", m, v)} style={{ width: 48, fontSize: 10, padding: "1px 4px" }} /></div>
-                        <div style={{ fontSize: 9, color: "var(--tx3)" }}>YTD: <NumInput initial={ytd} onCommit={(v) => updateField("ytd", m, v)} style={{ width: 48, fontSize: 10, padding: "1px 4px" }} /></div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            {gddData?.lastUpdate && <div style={{ fontSize: 10, color: "var(--tx3)", textAlign: "right" }}>Actualizado: {gddData.lastUpdate}</div>}
-          </div>
-        );
-      })()}
-
       {/* Separador — diferenciado de Panorama */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, marginTop: 4 }}>
         <div style={{ flex: 1, height: 1, background: "var(--bg4)" }} />
@@ -1196,6 +1127,79 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
           })()
         );
       })()}
+
+      {/* 📊 Generación de Demanda — debajo del Estado del Sprint */}
+      {(() => {
+        const d = gddData || { semana: {}, anterior: {}, ytd: {} };
+        const metrics = ["leads", "mqls", "sqls", "opps"];
+        const labels = { leads: "Leads", mqls: "MQLs", sqls: "SQLs", opps: "Opps" };
+        const colors = { leads: "var(--blue)", mqls: "var(--purple)", sqls: "var(--green)", opps: "var(--yellow)" };
+        const icons = { leads: "👤", mqls: "⭐", sqls: "🎯", opps: "💼" };
+        const updateField = (period, field, val) => setGddData((prev) => ({ ...prev, [period]: { ...(prev?.[period] || {}), [field]: val } }));
+        const pctChange = (cur, prev) => (!prev || prev === 0) ? null : Math.round(((cur - prev) / prev) * 100);
+        return (
+          <div style={{ marginBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                📊 Generación de Demanda{gddData?.source === "sheets_api" ? <span style={{ fontSize: 9, color: "var(--green)", marginLeft: 6, fontWeight: 700 }}>● LIVE</span> : gddData?.source === "empty" ? <span style={{ fontSize: 9, color: "var(--yellow)", marginLeft: 6 }}>sin datos</span> : gddData?.source === "fallback" ? <span style={{ fontSize: 9, color: "var(--red)", marginLeft: 6 }}>⚠ sin conexión</span> : null}
+                {gddData?.fechas?.semana_desde && (() => {
+                  const fD = (s) => { if (!s) return ""; const d = new Date(s + (s.includes("-") ? "T12:00:00" : ", 2026")); return isNaN(d) ? s : d.toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g," - "); };
+                  return <span style={{ fontWeight: 400, marginLeft: 6, color: "var(--tx3)", fontSize: 11 }}>{fD(gddData.fechas.semana_desde)}{gddData.fechas.semana_hasta ? " al " + fD(gddData.fechas.semana_hasta) : ""}</span>;
+                })()}
+              </span>
+              <button onClick={() => {
+                if (gddEditing) {
+                  const toSave = { ...gddData, lastUpdate: new Date().toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" }) };
+                  setGddData(toSave); storeSet(GDD_KEY, toSave);
+                }
+                setGddEditing(!gddEditing);
+              }} style={{ background: gddEditing ? "var(--blue)" : "transparent", color: gddEditing ? "#fff" : "var(--tx3)", border: gddEditing ? "none" : "1px solid var(--bg4)", borderRadius: 6, padding: "3px 10px", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
+                {gddEditing ? "💾 Guardar" : "✏️ Editar"}
+              </button>
+            </div>
+            <div className="kpi-grid-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 4 }}>
+              {metrics.map((m) => {
+                const cur = d.semana?.[m] || 0, prev = d.anterior?.[m] || 0, ytd = d.ytd?.[m] || 0;
+                const pct = pctChange(cur, prev);
+                const col = colors[m];
+                const mesVal = (gddData?.mes || {})[m] || 0;
+                return (
+                  <div key={m} style={{ background: "var(--bg2)", border: "1px solid var(--bg4)", borderRadius: "var(--r)", padding: "12px 14px", position: "relative", overflow: "hidden" }}>
+                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: col }} />
+                    <div style={{ position: "absolute", top: 8, right: 10, fontSize: 18, opacity: 0.06 }}>{icons[m]}</div>
+                    <div style={{ fontSize: 10, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>{labels[m]}</div>
+                    {gddEditing
+                      ? <NumInput initial={cur} onCommit={(v) => updateField("semana", m, v)} />
+                      : <div style={{ fontFamily: "var(--mono)", fontSize: 28, fontWeight: 800, color: "var(--tx)", lineHeight: 1, letterSpacing: "-0.04em" }}>{cur.toLocaleString()}</div>}
+                    {!gddEditing && pct !== null && (
+                      <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6, paddingTop: 6, borderTop: "1px solid var(--bg4)" }}>
+                        <span style={{ fontSize: 11, fontWeight: 700, color: pct >= 0 ? "var(--green)" : "var(--red)" }}>{pct >= 0 ? "▲" : "▼"}{Math.abs(pct)}%</span>
+                        <span style={{ fontSize: 10, color: "var(--tx3)" }}>vs sem. ant.</span>
+                      </div>
+                    )}
+                    {!gddEditing && mesVal > 0 && (
+                      <div style={{ marginTop: 5, paddingTop: 4, borderTop: "1px solid var(--bg4)", fontSize: 10, color: "var(--tx3)" }}>
+                        <span style={{ color: "var(--tx2)", fontWeight: 700, fontFamily: "var(--mono)" }}>{mesVal.toLocaleString()}</span> acum. mes
+                      </div>
+                    )}
+                    {gddEditing && (
+                      <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px solid var(--bg4)" }}>
+                        <div style={{ fontSize: 9, color: "var(--tx3)", marginBottom: 2 }}>Ant: <NumInput initial={prev} onCommit={(v) => updateField("anterior", m, v)} style={{ width: 48, fontSize: 10, padding: "1px 4px" }} /></div>
+                        <div style={{ fontSize: 9, color: "var(--tx3)" }}>YTD: <NumInput initial={ytd} onCommit={(v) => updateField("ytd", m, v)} style={{ width: 48, fontSize: 10, padding: "1px 4px" }} /></div>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            {gddData?.lastUpdate && <div style={{ fontSize: 10, color: "var(--tx3)", textAlign: "right" }}>Actualizado: {gddData.lastUpdate}</div>}
+          </div>
+        );
+      })()}
+
+
+      {/* 📅 Historial Semanal GDD */}
+      <GDDWeeklyHistory gddData={gddData} />
 
       {/* Carga — tabla compacta de todo el equipo */}
       <Card style={{ marginBottom: 16 }}>
