@@ -1052,7 +1052,7 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
                 {gddEditing ? "💾 Guardar" : "✏️ Editar"}
               </button>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 4 }}>
+            <div className="kpi-grid-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 4 }}>
               {metrics.map((m) => {
                 const cur = d.semana?.[m] || 0, prev = d.anterior?.[m] || 0, ytd = d.ytd?.[m] || 0;
                 const pct = pctChange(cur, prev);
@@ -1065,7 +1065,7 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
                     <div style={{ fontSize: 10, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>{labels[m]}</div>
                     {gddEditing
                       ? <NumInput initial={cur} onCommit={(v) => updateField("semana", m, v)} />
-                      : <div style={{ fontFamily: "var(--mono)", fontSize: 32, fontWeight: 800, color: "var(--tx)", lineHeight: 1, letterSpacing: "-0.04em" }}>{cur.toLocaleString()}</div>}
+                      : <div style={{ fontFamily: "var(--mono)", fontSize: 28, fontWeight: 800, color: "var(--tx)", lineHeight: 1, letterSpacing: "-0.04em" }}>{cur.toLocaleString()}</div>}
                     {!gddEditing && pct !== null && (
                       <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6, paddingTop: 6, borderTop: "1px solid var(--bg4)" }}>
                         <span style={{ fontSize: 11, fontWeight: 700, color: pct >= 0 ? "var(--green)" : "var(--red)" }}>{pct >= 0 ? "▲" : "▼"}{Math.abs(pct)}%</span>
@@ -1131,7 +1131,7 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
         );
 
         return (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 16 }}>
+          <div className="kpi-grid-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 16 }}>
             {KPIop(
               "Esta semana",
               activeWeek,
