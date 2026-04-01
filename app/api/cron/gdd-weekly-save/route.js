@@ -1,0 +1,106 @@
+import { NextResponse } from 'next/server'
+
+// Cron dominical: guarda automáticamente los datos GDD de la semana actual en Upstash
+// Schedule: todos los domingos a las 18:00 UTC (12:00 PM CDMX)
+// Protegido con CRON_SECRET (Vercel inyecta el header Authorization automáticamente)
+
+const GDD_HISTORY_KEY = 'gdd_history'
+const AUDIT_LOG_KEY   = 'audit_log'
+
+async function upstash(command, ...args) {
+  const url   = process.env.KV_REST_API_URL   || process.env.UPSTASH_REDIS_REST_URL
+  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN
+  if (!url || !token) throw new Error('Upstash no configurado')
+  const encoded = args.map(a => encodeURIComponent(String(a)))
+  const res = await fetch(`${url}/${[command, ...encoded].join('/')}`, {
+    headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
+  })
+  if (!res.ok) throw new Error(`Upstash ${res.status}`)
+  const data = await res.json()
+  return data.result ?? null
+}
+
+async function upstashGet(key) {
+  const raw = await upstash('GET', key)
+  if (!raw) return null
+  try { return typeof raw === 'string' ? JSON.parse(raw) : raw } catch { return null }
+}
+
+async function upstashSet(key, value) {
+  const serialized = typeof value === 'string' ? value : JSON.stringify(value)
+  await upstash('SET', key, serialized, 'EX', String(60 * 60 * 24 * 365))
+}
+
+export async function GET(request) {
+  // Verificar autorización
+  const auth = request.headers.get('authorization')
+  const secret = process.env.CRON_SECRET
+  if (!secret || auth !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
+  try {
+    // 1. Obtener datos GDD actuales
+    const gddRes = await fetch(new URL('/api/gdd', request.url).toString(), {
+      cache: 'no-store',
+    })
+    if (!gddRes.ok) throw new Error(`GDD API error: ${gddRes.status}`)
+    const gddData = await gddRes.json()
+
+    if (!gddData?.fechas?.semana_desde) {
+      return NextResponse.json({ ok: false, reason: 'no_gdd_data' })
+    }
+
+    const semana_desde = gddData.fechas.semana_desde
+
+    // 2. Verificar si ya existe esa semana en el historial (idempotente)
+    const history = (await upstashGet(GDD_HISTORY_KEY)) || []
+    const exists = history.some((h) => h.semana_desde === semana_desde)
+
+    if (exists) {
+      return NextResponse.json({ ok: true, saved: false, reason: 'already_exists', week: semana_desde })
+    }
+
+    // 3. Construir entrada y guardar
+    const entry = {
+      id:            semana_desde,
+      semana_desde,
+      semana_hasta:  gddData.fechas.semana_hasta || '',
+      leads:         gddData.semana?.leads     || 0,
+      mqls:          gddData.semana?.mqls      || 0,
+      sqls:          gddData.semana?.sqls      || 0,
+      opps:          gddData.semana?.opps      || 0,
+      leads_mkt:     gddData.semana?.leads_mkt || 0,
+      leads_com:     gddData.semana?.leads_com || 0,
+      mqls_mkt:      gddData.semana?.mqls_mkt  || 0,
+      mqls_com:      gddData.semana?.mqls_com  || 0,
+      sqls_mkt:      gddData.semana?.sqls_mkt  || 0,
+      sqls_com:      gddData.semana?.sqls_com  || 0,
+      opps_mkt:      gddData.semana?.opps_mkt  || 0,
+      opps_com:      gddData.semana?.opps_com  || 0,
+      guardado_en:   new Date().toISOString(),
+    }
+
+    const updatedHistory = [entry, ...history].sort((a, b) => b.id.localeCompare(a.id))
+    await upstashSet(GDD_HISTORY_KEY, updatedHistory)
+
+    // 4. Audit log
+    const auditLog = (await upstashGet(AUDIT_LOG_KEY)) || []
+    const auditEntry = {
+      id:           Date.now().toString() + Math.random().toString(36).slice(2, 6),
+      ts:           new Date().toISOString(),
+      tipo:         'gdd_auto_save',
+      descripcion:  `Auto-guardado dominical GDD: semana ${semana_desde}`,
+      datos:        { semana_desde, leads: entry.leads, mqls: entry.mqls, sqls: entry.sqls, opps: entry.opps },
+      origen:       'cron',
+    }
+    const updatedLog = [auditEntry, ...auditLog].slice(0, 500)
+    await upstashSet(AUDIT_LOG_KEY, updatedLog)
+
+    return NextResponse.json({ ok: true, saved: true, week: semana_desde, entry })
+
+  } catch (error) {
+    console.error('Cron GDD save error:', error.message)
+    return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+  }
+}
