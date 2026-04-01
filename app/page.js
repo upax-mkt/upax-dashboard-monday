@@ -917,6 +917,151 @@ const CargaRow = React.memo(function CargaRow({ person, d, rank, maxVal, onClick
   );
 });
 
+/* ═══════════════════════════════════════════════════════════════
+   GDDWeeklyHistory — historial semanal KPIs GdD
+   Storage: Upstash (storeGet/storeSet) key "gdd_history"
+   Auto-save: cuando gddData cambia de semana y no está guardada
+   ═══════════════════════════════════════════════════════════════ */
+const GDD_HISTORY_KEY = "gdd_history";
+const GDD_MC = { leads: "#007AFF", mqls: "#AF52DE", sqls: "#FF9500", opps: "#34C759" };
+
+const GDDWeeklyHistory = React.memo(function GDDWeeklyHistory({ gddData }) {
+  const [history, setHistory] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const prevWeekIdRef = useRef(null);
+
+  // Cargar historial al montar
+  useEffect(() => {
+    storeGet(GDD_HISTORY_KEY).then((h) => {
+      const hist = Array.isArray(h) ? h : [];
+      setHistory(hist);
+      setLoading(false);
+      // Inicializar el ref con la última semana guardada para detectar cambios
+      if (hist.length > 0) prevWeekIdRef.current = hist[0].id;
+    });
+  }, []);
+
+  // Auto-save: cuando gddData llega con una semana diferente a la última guardada
+  useEffect(() => {
+    if (!gddData?.fechas?.semana_desde || loading) return;
+    const id = gddData.fechas.semana_desde;
+    // Solo auto-guardar si hay datos reales y la semana no está ya guardada
+    if (id === prevWeekIdRef.current) return;
+    if (!gddData.semana?.leads && !gddData.semana?.mqls) return; // datos vacíos, no guardar
+    prevWeekIdRef.current = id;
+    // Guardar silenciosamente (sin feedback visual — el usuario no lo pidió)
+    storeGet(GDD_HISTORY_KEY).then((h) => {
+      const hist = Array.isArray(h) ? h : [];
+      if (hist.some((e) => e.id === id)) return; // ya existe, no duplicar
+      const entry = {
+        id, semana_desde: gddData.fechas.semana_desde, semana_hasta: gddData.fechas.semana_hasta || "",
+        leads: gddData.semana?.leads || 0, mqls: gddData.semana?.mqls || 0,
+        sqls: gddData.semana?.sqls || 0,  opps: gddData.semana?.opps || 0,
+        leads_mkt: gddData.semana?.leads_mkt || 0, leads_com: gddData.semana?.leads_com || 0,
+        mqls_mkt: gddData.semana?.mqls_mkt || 0,   mqls_com: gddData.semana?.mqls_com || 0,
+        sqls_mkt: gddData.semana?.sqls_mkt || 0,   sqls_com: gddData.semana?.sqls_com || 0,
+        opps_mkt: gddData.semana?.opps_mkt || 0,   opps_com: gddData.semana?.opps_com || 0,
+        guardado_en: new Date().toISOString(),
+      };
+      const updated = [entry, ...hist].sort((a, b) => b.id.localeCompare(a.id));
+      storeSet(GDD_HISTORY_KEY, updated).then(() => setHistory(updated));
+    });
+  }, [gddData?.fechas?.semana_desde, loading]);
+
+  async function handleSave() {
+    if (!gddData?.fechas?.semana_desde) return;
+    setSaving(true);
+    const id = gddData.fechas.semana_desde;
+    const entry = {
+      id, semana_desde: gddData.fechas.semana_desde, semana_hasta: gddData.fechas.semana_hasta || "",
+      leads: gddData.semana?.leads || 0, mqls: gddData.semana?.mqls || 0,
+      sqls: gddData.semana?.sqls || 0,  opps: gddData.semana?.opps || 0,
+      leads_mkt: gddData.semana?.leads_mkt || 0, leads_com: gddData.semana?.leads_com || 0,
+      mqls_mkt: gddData.semana?.mqls_mkt || 0,   mqls_com: gddData.semana?.mqls_com || 0,
+      sqls_mkt: gddData.semana?.sqls_mkt || 0,   sqls_com: gddData.semana?.sqls_com || 0,
+      opps_mkt: gddData.semana?.opps_mkt || 0,   opps_com: gddData.semana?.opps_com || 0,
+      guardado_en: new Date().toISOString(),
+    };
+    const updated = [...history.filter((e) => e.id !== id), entry].sort((a, b) => b.id.localeCompare(a.id));
+    await storeSet(GDD_HISTORY_KEY, updated);
+    setHistory(updated);
+    prevWeekIdRef.current = id;
+    setSaving(false); setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  }
+
+  async function deleteEntry(id) {
+    const updated = history.filter((e) => e.id !== id);
+    await storeSet(GDD_HISTORY_KEY, updated); setHistory(updated);
+  }
+
+  const pch = (cur, prev) => { if (!prev) return null; const p = Math.round(((cur-prev)/prev)*100); return { p, up: p>0 }; };
+  const fmtR = (d, h) => { const f = (s) => s ? new Date(s+"T00:00:00").toLocaleDateString("es-MX",{day:"numeric",month:"short"}) : "?"; return `${f(d)} – ${f(h)}`; };
+  const ms = ["leads","mqls","sqls","opps"];
+  const ml = { leads:"Leads", mqls:"MQLs", sqls:"SQLs", opps:"Opps" };
+
+  return (
+    <Card style={{ marginBottom: 16 }}>
+      <div style={{ display:"flex", justifyContent:"space-between", alignItems:"center", marginBottom: collapsed ? 0 : 10, flexWrap:"wrap", gap:8 }}>
+        <button onClick={() => setCollapsed(!collapsed)} style={{ background:"none", border:"none", cursor:"pointer", padding:0, display:"flex", alignItems:"center", gap:6 }}>
+          <span style={{ fontSize:14, fontWeight:700 }}>📅 Historial Semanal GDD</span>
+          {history.length > 0 && <span style={{ fontSize:11, color:"var(--tx3)" }}>{history.length} sem.</span>}
+          <span style={{ fontSize:10, color:"var(--tx3)", display:"inline-block", transform: collapsed?"rotate(-90deg)":"none", transition:"transform .2s" }}>▾</span>
+        </button>
+        <button onClick={handleSave} disabled={saving || !gddData?.fechas?.semana_desde}
+          style={{ background: saved?"var(--green)":"var(--blue)", color:"#fff", border:"none", borderRadius:"var(--r-sm)", padding:"5px 14px", fontSize:12, fontWeight:600, cursor:(saving||!gddData?.fechas?.semana_desde)?"default":"pointer", opacity:(!gddData?.fechas?.semana_desde||saving)?0.5:1 }}>
+          {saving ? "⏳" : saved ? "✓ Guardado" : "💾 Guardar semana actual"}
+        </button>
+      </div>
+      {!collapsed && (loading
+        ? <div style={{ textAlign:"center", padding:"10px 0", color:"var(--tx3)", fontSize:12 }}>Cargando...</div>
+        : history.length === 0
+          ? <div style={{ textAlign:"center", padding:"16px 0", color:"var(--tx3)", fontSize:12, border:"2px dashed var(--bg4)", borderRadius:"var(--r-sm)" }}>
+              No hay semanas guardadas aún.<br/>
+              <span style={{ fontSize:11, opacity:0.7 }}>Presiona "💾 Guardar semana actual" para comenzar.</span>
+            </div>
+          : <div style={{ overflowX:"auto" }}>
+              <table style={{ width:"100%", borderCollapse:"collapse", fontSize:12 }}>
+                <thead>
+                  <tr style={{ borderBottom:"2px solid var(--bg4)" }}>
+                    <th style={{ textAlign:"left", padding:"0 8px 5px 0", fontSize:10, fontWeight:700, color:"var(--tx3)", textTransform:"uppercase", letterSpacing:"0.08em", whiteSpace:"nowrap" }}>Semana</th>
+                    {ms.map((m) => <th key={m} style={{ textAlign:"right", padding:"0 8px 5px", fontSize:10, fontWeight:700, color:GDD_MC[m], textTransform:"uppercase", letterSpacing:"0.08em" }}>{ml[m]}</th>)}
+                    <th style={{ width:24 }} />
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.map((entry, idx) => {
+                    const prev = history[idx+1];
+                    return (
+                      <tr key={entry.id} style={{ borderBottom:"1px solid var(--bg3)" }}>
+                        <td style={{ padding:"7px 8px 7px 0", color:"var(--tx2)", whiteSpace:"nowrap", fontSize:11 }}>{fmtR(entry.semana_desde, entry.semana_hasta)}</td>
+                        {ms.map((key) => {
+                          const val = entry[key]||0, ch = prev ? pch(val, prev[key]||0) : null;
+                          return (
+                            <td key={key} style={{ textAlign:"right", padding:"7px 8px", fontFamily:"var(--mono)", fontWeight:700, color:GDD_MC[key], verticalAlign:"top" }}>
+                              {val.toLocaleString()}
+                              {ch !== null && <div style={{ fontSize:9, fontFamily:"var(--sans)", fontWeight:600, color:ch.p===0?"var(--tx3)":ch.up?"var(--green)":"var(--red)", marginTop:1 }}>{ch.up?"▲":"▼"}{Math.abs(ch.p)}%</div>}
+                            </td>
+                          );
+                        })}
+                        <td style={{ textAlign:"center", padding:"0 2px", verticalAlign:"middle" }}>
+                          <button onClick={() => deleteEntry(entry.id)} style={{ background:"none", border:"none", color:"var(--tx3)", cursor:"pointer", fontSize:12, padding:"4px", borderRadius:4 }}>✕</button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+      )}
+    </Card>
+  );
+});
+
+
 const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
   const [alertGroupsExpanded, setAlertGroupsExpanded] = useState({});
   const [expandedPerson, setExpandedPerson] = useState(null);
