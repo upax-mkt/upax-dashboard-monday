@@ -619,7 +619,7 @@ function Card({ children, style = {} }) {
 
 function Chip({ label, active, color, onClick }) {
   return (
-    <button onClick={onClick} style={{ background: active ? color : "var(--bg2)", color: active ? "#fff" : "var(--tx2)", border: active ? "none" : "1px solid var(--bg4)", borderRadius: 20, padding: "6px 16px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "var(--sans)", transition: "all .2s", boxShadow: active ? `0 2px 8px ${color}40` : "var(--shadow)" }}>
+    <button onClick={onClick} style={{ background: active ? color : "var(--bg2)", color: active ? "#fff" : "var(--tx2)", border: active ? "none" : "1px solid var(--bg4)", borderRadius: 20, padding: "5px 10px", fontSize: 13, fontWeight: 600, cursor: "pointer", fontFamily: "var(--sans)", transition: "all .2s", boxShadow: active ? `0 2px 8px ${color}40` : "var(--shadow)" }}>
       {label}
     </button>
   );
@@ -1839,7 +1839,7 @@ const TabMinutasInline = React.memo(function TabMinutasInline({ wd, analysis, gd
     setConfirmDel(null);
   }
 
-  const dateFmt = (k) => new Date(k.replace("weekly:", "")).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const dateFmt = (k) => new Date(k.replace("weekly:", "") + "T00:00:00").toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
   const isFixed = (k) => k === "weekly:2026-03-23"; // minutas fijas no se pueden eliminar
 
   return (
@@ -2307,7 +2307,7 @@ function PdfButton({ text, dateStr, wd, analysis, gddData }) {
     const fmtN = (v) => (v||0).toLocaleString("es-MX");
     const fmtM = (v) => v >= 1000000 ? "$"+(v/1000000).toFixed(1)+"M" : v >= 1000 ? "$"+(v/1000).toFixed(0)+"K" : "$"+(v||0);
     const pct = (cur, prev) => { if (!prev) return ""; const p = Math.round(((cur-prev)/prev)*100); return `<span style="color:${p>=0?"#16a34a":"#dc2626"};font-weight:700">${p>=0?"▲":"▼"}${Math.abs(p)}%</span>`; };
-    const dateLabel = new Date(dateStr).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    const dateLabel = new Date(dateStr + "T00:00:00").toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
     // Construir secciones de focos
     let focosHtml = "";
@@ -2464,7 +2464,7 @@ function MinutaDetailView({ weekKey, data, todayWd, todayAnalysis, gddData, bloc
   const [saved, setSaved] = useState(false);
   const displayText = editMode ? editText : rawText;
   const dateStr = weekKey.replace("weekly:", "");
-  const dateFmt = new Date(dateStr).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const dateFmt = new Date(dateStr + "T00:00:00").toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
   async function handleSave() {
     await storeSet(weekKey, { ...(data || {}), minutaText: editText });
