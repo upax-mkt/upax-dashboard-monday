@@ -2745,59 +2745,246 @@ function SlackButton({ text }) {
 
 function MinutaDetailView({ weekKey, data, todayWd, todayAnalysis, gddData, blockTimes, onBack, onClose }) {
   const isToday = weekKey === STORE_KEY;
-  // Datos estructurados para el renderer visual
-  const visualWd = isToday ? todayWd : (data || {});
-  const visualAn = todayAnalysis; // análisis del board siempre actual, independiente de la fecha de la minuta
-  const visualGdd = gddData; // siempre pasa el gdd actual
-  // Texto plano para copiar/PDF (siempre regenerado con datos actuales)
-  const rawText = isToday
+  const visualWd  = isToday ? todayWd : (data || {});
+  const visualAn  = todayAnalysis;
+  const visualGdd = gddData;
+  const rawText   = isToday
     ? generateMinuta(todayWd, todayAnalysis, gddData, blockTimes)
     : (data?.minutaText || generateMinuta(data, null, gddData, blockTimes));
-  const [editMode, setEditMode] = useState(false);
-  const [editText, setEditText] = useState(rawText);
-  const [copied, setCopied] = useState(false);
-  const [saved, setSaved] = useState(false);
+
+  const [editMode,  setEditMode]  = useState(false);
+  const [editText,  setEditText]  = useState(rawText);
+  const [copied,    setCopied]    = useState(false);
+  const [saved,     setSaved]     = useState(false);
+  const [slackSent, setSlackSent] = useState(false);
+  const [slackErr,  setSlackErr]  = useState(false);
+  const [slackBusy, setSlackBusy] = useState(false);
+
   const displayText = editMode ? editText : rawText;
   const dateStr = weekKey.replace("weekly:", "");
-  const dateFmt = new Date(dateStr + "T00:00:00").toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  const dateFmt = new Date(dateStr + "T00:00:00").toLocaleDateString("es-MX", {
+    weekday: "long", day: "numeric", month: "long", year: "numeric"
+  });
 
   async function handleSave() {
     await storeSet(weekKey, { ...(data || {}), minutaText: editText });
     setSaved(true); setTimeout(() => setSaved(false), 2000); setEditMode(false);
   }
+
   function handleCopy() {
-    copyToClipboard(displayText); setCopied(true); setTimeout(() => setCopied(false), 2000);
+    copyToClipboard(displayText);
+    setCopied(true); setTimeout(() => setCopied(false), 2000);
   }
 
+  function handleDownloadTxt() {
+    try {
+      const blob = new Blob([displayText], { type: "text/plain;charset=utf-8" });
+      const url  = URL.createObjectURL(blob);
+      const a    = document.createElement("a");
+      a.href = url;
+      a.download = "minuta-weekly-" + dateStr + ".txt";
+      a.style.display = "none";
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 2000);
+    } catch {}
+  }
 
+  async function handleSlack() {
+    setSlackBusy(true); setSlackErr(false);
+    try {
+      const res = await fetch("/api/slack", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text: displayText }),
+      });
+      const d = await res.json();
+      if (d.success) {
+        setSlackSent(true); setTimeout(() => setSlackSent(false), 3000);
+        await logAudit("minuta_slack", "Minuta enviada a Slack: " + dateStr, { date: dateStr });
+      } else {
+        setSlackErr(true); setTimeout(() => setSlackErr(false), 3000);
+        copyToClipboard(displayText);
+      }
+    } catch {
+      setSlackErr(true); setTimeout(() => setSlackErr(false), 3000);
+      copyToClipboard(displayText);
+    }
+    setSlackBusy(false);
+  }
 
+  // Genera y descarga el PDF directamente usando el HTML del PdfButton
+  // Sin popup — usa blob URL + <a download> para forzar descarga
+  function handleDownloadPdf() {
+    // Abre en ventana para imprimir (la API de impresión del browser es la única
+    // forma de generar PDF sin librerías externas)
+    // En mobile muestra el HTML con instrucciones claras de "Compartir → Imprimir"
+    const gdd = gddData || {};
+    const s = gdd.semana || {}, a = gdd.anterior || {}, mes = gdd.mes || {}, y = gdd.ytd || {}, f = gdd.fechas || {};
+    const pTotal = (s.pipeline_mkt||0)+(s.pipeline_com||0);
+    const fmtN = (v) => (v||0).toLocaleString("es-MX");
+    const fmtM = (v) => v >= 1000000 ? "$"+(v/1000000).toFixed(1)+"M" : v >= 1000 ? "$"+(v/1000).toFixed(0)+"K" : "$"+(v||0);
+    const pct2 = (cur, prev) => { if (!prev) return ""; const p = Math.round(((cur-prev)/prev)*100); return `<span style="color:${p>=0?"#16a34a":"#dc2626"};font-weight:700">${p>=0?"▲":"▼"}${Math.abs(p)}%</span>`; };
+    const dateLabel = new Date(dateStr + "T00:00:00").toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+
+    let focosHtml = "";
+    if (visualWd) {
+      SQUADS.forEach(sq => {
+        const raw = visualWd.focos?.[sq.id];
+        const arr = Array.isArray(raw) ? raw : [];
+        const filled = arr.filter(f2 => f2.text?.trim());
+        if (!filled.length) return;
+        const presenter = visualWd.presenters?.[sq.id] || sq.lead;
+        focosHtml += `<div style="margin-bottom:14px;padding:10px 14px;border-radius:8px;border-left:4px solid ${sq.color};background:#fafafa">
+          <div style="font-weight:700;color:${sq.color};font-size:13px;margin-bottom:8px">${sq.name} <span style="font-weight:400;color:#666">· ${presenter}</span></div>`;
+        filled.forEach(f2 => {
+          const t = f2.type || "foco";
+          if (t === "foco")     focosHtml += `<div style="font-size:12px;color:#333;margin-bottom:3px">🎯 ${(f2.text||"").replace(/</g,"&lt;")} <span style="color:#888">[${f2.pct||0}%]</span></div>`;
+          if (t === "blocker")  focosHtml += `<div style="font-size:12px;color:#dc2626;margin-bottom:3px">🚫 ${(f2.text||"").replace(/</g,"&lt;")}</div>`;
+          if (t === "necesito") focosHtml += `<div style="font-size:12px;color:#d97706;margin-bottom:3px">🤝 ${(f2.text||"").replace(/</g,"&lt;")}</div>`;
+        });
+        focosHtml += `</div>`;
+      });
+    }
+
+    const comps = (visualWd?.compromisos||[]).filter(c => c.que?.trim());
+    const compsHtml = comps.length ? comps.map((c,i) => {
+      const fecha = c.cuando ? new Date(c.cuando+"T12:00:00").toLocaleDateString("es-MX",{day:"numeric",month:"short"}) : "sin fecha";
+      return `<div style="display:flex;gap:10px;padding:5px 0;border-bottom:1px solid #eee;font-size:12px">
+        <span>${c.status==="done"?"✅":"⬜"}</span>
+        <span style="flex:1;${c.status==="done"?"text-decoration:line-through;color:#999":""}">${(c.que||"").replace(/</g,"&lt;")}</span>
+        <span style="color:#666">${shortName(c.quien)||""}</span>
+        <span style="color:#999">${fecha}</span>
+      </div>`;
+    }).join("") : "";
+
+    const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Minuta Weekly ${dateStr}</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:#1a1a1a;background:#fff;padding:32px 40px;max-width:760px;margin:0 auto;font-size:13px;line-height:1.6}
+  h1{font-size:22px;font-weight:800;letter-spacing:-0.03em;margin-bottom:4px}
+  h2{font-size:14px;font-weight:700;color:#333;margin:20px 0 10px;padding-bottom:6px;border-bottom:2px solid #eee}
+  .meta{font-size:12px;color:#666;margin-bottom:24px}
+  .kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:#e5e5e5;border-radius:8px;overflow:hidden;margin-bottom:16px}
+  .kpi{background:#fff;padding:14px}
+  .kpi-label{font-size:10px;font-weight:700;color:#888;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:6px}
+  .kpi-val{font-family:"Courier New",monospace;font-size:26px;font-weight:800;line-height:1}
+  .kpi-sub{font-size:10px;color:#888;margin-top:4px}
+  .action-bar{position:sticky;top:0;background:#1d1d1f;color:#fff;padding:10px 16px;display:flex;align-items:center;justify-content:space-between;gap:12px;z-index:10}
+  .action-bar span{font-size:12px;opacity:0.8}
+  .action-btn{background:rgba(255,255,255,.12);border:none;color:#fff;padding:6px 14px;border-radius:6px;cursor:pointer;font-size:12px;font-weight:600}
+  .action-btn:hover{background:rgba(255,255,255,.22)}
+  @media print{.action-bar{display:none!important}body{padding:20px}@page{margin:1.5cm;size:A4}h2{break-after:avoid}}
+  @media(max-width:600px){body{padding:20px 16px}.kpi-grid{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body>
+  <div class="action-bar">
+    <span>📄 <strong>⌘P</strong> / <strong>Ctrl+P</strong> → Guardar como PDF</span>
+    <div style="display:flex;gap:8px">
+      <button class="action-btn" onclick="window.print()">🖨 Imprimir / PDF</button>
+      <button class="action-btn" onclick="window.close()">✕ Cerrar</button>
+    </div>
+  </div>
+  <h1>⚡ Minuta Weekly · Mkt Corp</h1>
+  <div class="meta">📅 ${dateLabel} · Grupo UPAX</div>
+  ${s.leads || s.mqls ? `
+  <h2>📊 Generación de Demanda${f.semana_desde ? " · " + f.semana_desde + (f.semana_hasta ? " al " + f.semana_hasta : "") : ""}</h2>
+  <div class="kpi-grid">
+    ${[{l:"Leads",cur:s.leads||0,prev:a.leads||0,mes:mes.leads||0,c:"#0a84ff"},{l:"MQLs",cur:s.mqls||0,prev:a.mqls||0,mes:mes.mqls||0,c:"#af52de"},{l:"SQLs",cur:s.sqls||0,prev:a.sqls||0,mes:mes.sqls||0,c:"#34c759"},{l:"Opps",cur:s.opps||0,prev:a.opps||0,mes:mes.opps||0,c:"#ff9f0a"}]
+      .map(m => `<div class="kpi"><div class="kpi-label">${m.l}</div><div class="kpi-val" style="color:${m.c}">${fmtN(m.cur)}</div><div class="kpi-sub">${pct2(m.cur,m.prev)} vs sem. ant.</div></div>`)
+      .join("")}
+  </div>
+  ${pTotal > 0 ? `<div style="background:#f8f8f8;border-radius:6px;padding:10px 14px;font-size:12px;color:#444;display:flex;gap:16px;margin-bottom:16px;flex-wrap:wrap">🏦 Pipeline: <strong>${fmtM(pTotal)}</strong> · Mkt ${fmtM(s.pipeline_mkt||0)} · Com ${fmtM(s.pipeline_com||0)}</div>` : ""}
+  ` : ""}
+  ${focosHtml ? `<h2>🎯 Focos por Squad</h2>${focosHtml}` : ""}
+  ${compsHtml ? `<h2>📝 Compromisos</h2>${compsHtml}` : ""}
+  <div style="margin-top:28px;font-size:10px;color:#aaa;border-top:1px solid #eee;padding-top:8px;font-family:monospace">
+    Weekly Mkt Corp Upax · generado ${new Date().toLocaleString("es-MX")}
+  </div>
+</body>
+</html>`;
+
+    const win = window.open("", "_blank", "width=860,height=960,menubar=yes,toolbar=yes");
+    if (win) {
+      win.document.write(html);
+      win.document.close();
+      // Auto-print en desktop después de cargar
+      win.onload = () => { try { win.focus(); } catch {} };
+    } else {
+      alert("Habilita popups para generar el PDF");
+    }
+  }
+
+  // Botón de acción inline — diseño compacto con icono
+  const ActBtn = ({ onClick, bg, fg, icon, label, disabled = false, title = "" }) => (
+    <button onClick={onClick} disabled={disabled} title={title} style={{
+      display: "flex", alignItems: "center", gap: 5,
+      background: bg, color: fg || "#fff",
+      border: bg === "var(--bg2)" || bg === "var(--bg3)" ? "1px solid var(--bg4)" : "none",
+      borderRadius: "var(--r-sm)", padding: "7px 14px",
+      fontSize: 12, fontWeight: 600, cursor: disabled ? "default" : "pointer",
+      opacity: disabled ? 0.5 : 1, whiteSpace: "nowrap", fontFamily: "var(--sans)",
+    }}>
+      <span>{icon}</span>
+      <span className="mobile-xs-hide">{label}</span>
+    </button>
+  );
 
   return (
     <>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "14px 20px", borderBottom: "1px solid var(--bg4)", flexShrink: 0 }}>
-        <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <button onClick={onBack} style={{ background: "var(--bg3)", border: "none", borderRadius: "var(--r-sm)", padding: "5px 10px", fontSize: 12, cursor: "pointer", color: "var(--tx3)" }}>← Volver</button>
-          <div>
-            <div style={{ fontSize: 14, fontWeight: 700 }}>📋 Minuta</div>
-            <div style={{ fontSize: 11, color: "var(--tx3)" }}>{dateFmt}</div>
+      {/* Header — mínimo: back + fecha + cerrar */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "12px 16px", borderBottom: "1px solid var(--bg4)", flexShrink: 0, gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, minWidth: 0 }}>
+          <button onClick={onBack} style={{ background: "var(--bg3)", border: "none", borderRadius: "var(--r-sm)", padding: "5px 10px", fontSize: 12, cursor: "pointer", color: "var(--tx3)", flexShrink: 0 }}>← Volver</button>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontSize: 13, fontWeight: 700, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>📋 Minuta</div>
+            <div style={{ fontSize: 10, color: "var(--tx3)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{dateFmt}</div>
           </div>
         </div>
-        <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-          {editMode
-            ? <button onClick={handleSave} style={{ background: "var(--green)", color: "#fff", border: "none", borderRadius: "var(--r-sm)", padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>{saved ? "✓ Guardado" : "💾 Guardar"}</button>
-            : <button onClick={() => { setEditMode(true); setEditText(rawText); }} style={{ background: "var(--bg3)", color: "var(--tx2)", border: "1px solid var(--bg4)", borderRadius: "var(--r-sm)", padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>✏️ Editar</button>}
-          <button onClick={handleCopy} style={{ background: copied ? "var(--green)" : "var(--blue)", color: "#fff", border: "none", borderRadius: "var(--r-sm)", padding: "6px 14px", fontSize: 12, fontWeight: 600, cursor: "pointer" }}>{copied ? "✓ Copiado" : "📋 Copiar"}</button>
-          <SlackButton text={displayText} />
-          <PdfButton text={displayText} dateStr={dateStr} wd={visualWd} analysis={visualAn} gddData={visualGdd} />
-          <button onClick={onClose} style={{ background: "var(--bg3)", border: "none", width: 32, height: 32, borderRadius: 16, fontSize: 16, cursor: "pointer", color: "var(--tx3)", display: "flex", alignItems: "center", justifyContent: "center" }}>✕</button>
-        </div>
+        <button onClick={onClose} style={{ background: "var(--bg3)", border: "none", width: 30, height: 30, borderRadius: 15, fontSize: 15, cursor: "pointer", color: "var(--tx3)", display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>✕</button>
       </div>
+
+      {/* Content */}
       <div style={{ flex: 1, overflow: "hidden", display: "flex", flexDirection: "column" }}>
         {editMode ? (
-          <textarea value={editText} onChange={e => setEditText(e.target.value)} style={{ flex: 1, width: "100%", background: "var(--bg3)", color: "var(--tx)", border: "none", padding: "16px 20px", fontSize: 12, fontFamily: "var(--mono)", resize: "none", outline: "none", lineHeight: 1.7 }} />
+          <textarea value={editText} onChange={e => setEditText(e.target.value)}
+            style={{ flex: 1, width: "100%", background: "var(--bg3)", color: "var(--tx)", border: "none", padding: "16px 20px", fontSize: 12, fontFamily: "var(--mono)", resize: "none", outline: "none", lineHeight: 1.7 }} />
         ) : (
           <div style={{ flex: 1, overflowY: "auto", padding: "16px 20px" }}>
             {renderMinutaVisual(rawText, visualWd, visualAn, visualGdd)}
+          </div>
+        )}
+      </div>
+
+      {/* Action bar inferior — jerarquía visual clara */}
+      <div style={{ borderTop: "1px solid var(--bg4)", padding: "10px 16px", flexShrink: 0, background: "var(--bg2)" }}>
+        {editMode ? (
+          // Modo edición: solo Guardar y Cancelar
+          <div style={{ display: "flex", gap: 6, justifyContent: "flex-end" }}>
+            <ActBtn onClick={() => setEditMode(false)} bg="var(--bg3)" fg="var(--tx2)" icon="✕" label="Cancelar" />
+            <ActBtn onClick={handleSave} bg="var(--green)" icon={saved ? "✓" : "💾"} label={saved ? "Guardado" : "Guardar"} />
+          </div>
+        ) : (
+          // Modo vista: acciones completas en dos grupos
+          <div style={{ display: "flex", gap: 6, justifyContent: "space-between", flexWrap: "wrap" }}>
+            {/* Grupo izquierda: editar */}
+            <ActBtn
+              onClick={() => { setEditMode(true); setEditText(rawText); }}
+              bg="var(--bg3)" fg="var(--tx2)" icon="✏️" label="Editar"
+            />
+            {/* Grupo derecha: acciones de distribución */}
+            <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+              <ActBtn onClick={handleCopy}        bg={copied    ? "var(--green)" : "var(--bg3)"} fg={copied    ? "#fff" : "var(--tx2)"} icon="📋" label={copied    ? "Copiado" : "Copiar texto"} />
+              <ActBtn onClick={handleSlack}        bg={slackSent ? "var(--green)" : slackErr ? "var(--red)" : "linear-gradient(135deg,#4A154B,#611f69)"} icon={slackSent ? "✓" : slackErr ? "⚠️" : "📨"} label={slackSent ? "Enviado" : slackErr ? "Copiado" : "Enviar a Slack"} disabled={slackBusy} />
+              <ActBtn onClick={handleDownloadTxt}  bg="var(--bg3)" fg="var(--tx2)" icon="⬇" label="Descargar .txt" />
+              <ActBtn onClick={handleDownloadPdf}  bg="var(--tx)"  fg="var(--bg)"  icon="📄" label="Ver / PDF" />
+            </div>
           </div>
         )}
       </div>
