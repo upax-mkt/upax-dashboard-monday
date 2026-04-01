@@ -1201,6 +1201,7 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
                   key={p} person={p} d={d} rank={i + 1} maxVal={maxVal}
                   isExpanded={expandedPerson === p}
                   onClick={() => setExpandedPerson(expandedPerson === p ? null : p)}
+                  items={items}
                 />
               ))}
             </div>
@@ -3005,7 +3006,7 @@ export default function App() {
       {copyModal && <CopyModal text={copyModal} onClose={() => setCopyModal(null)} />}
 
       {phaseModal && (
-        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", backdropFilter: "blur(8px)", zIndex: 9998, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setPhaseModal(null)}>
+        <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,.45)", backdropFilter: "blur(8px)", WebkitBackdropFilter: "blur(8px)", zIndex: 9998, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }} onClick={() => setPhaseModal(null)}>
           <div onClick={e => e.stopPropagation()} style={{ background: "var(--bg2)", borderRadius: "var(--r-lg)", boxShadow: "0 24px 60px rgba(0,0,0,.2)", width: "100%", maxWidth: 560, maxHeight: "80vh", display: "flex", flexDirection: "column", overflow: "hidden" }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "16px 20px", borderBottom: "1px solid var(--bg4)", flexShrink: 0 }}>
               <div>
