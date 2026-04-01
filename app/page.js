@@ -1117,54 +1117,83 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
         const detCount = an.byPhase["🚫 Detenido"] || 0;
         const doneCount = (an.doneLastWeek || []).length;
 
-        const KPIop = (label, val, color, line1, line2, icon) => (
+        // pctChg: % cambio entre cur y prev (retorna null si prev=0)
+        const pctChg = (cur, prev) => prev === 0 ? null : Math.round(((cur - prev) / prev) * 100);
+        const ChgBadge = ({ cur, prev, good = "down" }) => {
+          const p = pctChg(cur, prev);
+          if (p === null) return null;
+          const up = p > 0;
+          const isGood = good === "down" ? !up : up;
+          const col = p === 0 ? "var(--tx3)" : isGood ? "var(--green)" : "var(--red)";
+          return <span style={{ fontSize: 10, fontWeight: 700, color: col, background: col + "18", borderRadius: 4, padding: "1px 5px", marginLeft: 4, fontFamily: "var(--mono)" }}>{up ? "▲" : "▼"}{Math.abs(p)}%</span>;
+        };
+        const KPIop = (label, val, color, lines, icon) => (
           <div style={{ background: "var(--bg2)", border: "1px solid var(--bg4)", borderRadius: "var(--r)", padding: "14px 16px", position: "relative", overflow: "hidden" }}>
             <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: color }} />
             <div style={{ position: "absolute", top: 8, right: 12, fontSize: 18, opacity: 0.07 }}>{icon}</div>
             <div style={{ fontSize: 10, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>{label}</div>
             <div style={{ fontFamily: "var(--mono)", fontSize: 36, fontWeight: 800, color, lineHeight: 1, letterSpacing: "-0.05em", marginBottom: 6 }}>{val}</div>
-            <div style={{ paddingTop: 6, borderTop: "1px solid var(--bg4)" }}>
-              {line1 && <div style={{ fontSize: 11, color: "var(--tx3)", lineHeight: 1.4 }}>{line1}</div>}
-              {line2 && <div style={{ fontSize: 11, color: "var(--tx3)", lineHeight: 1.4, marginTop: 2 }}>{line2}</div>}
+            <div style={{ paddingTop: 6, borderTop: "1px solid var(--bg4)", display: "flex", flexDirection: "column", gap: 2 }}>
+              {(lines || []).map((l, i) => l ? <div key={i} style={{ fontSize: 11, color: "var(--tx3)", lineHeight: 1.4, display: "flex", alignItems: "center", gap: 2 }}>{l}</div> : null)}
             </div>
           </div>
         );
 
         return (
+          (() => {
+            const odThis = (an.overdueThisWeek||[]).length;
+            const odPrev = (an.overdueLastWeek||[]).length;
+            const detThis = (an.stoppedWeek||[]).length;
+            const detPrev = (an.stoppedLastWeek||[]).length;
+            const doneW = (an.doneLastWeek||[]).length;
+            const doneCurrent = (an.doneThisWeek||[]).length;
+            return (
           <div className="kpi-grid-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 16 }}>
             {KPIop(
               "Esta semana",
               activeWeek,
               "var(--blue)",
-              `${activeCount} activos total`,
-              `${activeCount - activeWeek} fuera de semana`,
+              [
+                `${activeCount} activos total`,
+                `${activeCount - activeWeek} fuera de semana`,
+              ],
               "⚡"
             )}
             {KPIop(
               "Vencidos",
               overdueCount,
               overdueCount > 0 ? "var(--red)" : "var(--green)",
-              overdueCount > 0 ? `${overdueCritical} con más de 7 días` : "Al día ✓",
-              `${(an.backlogWithDates||[]).length} en backlog con fecha`,
+              [
+                <><span>Esta sem: {odThis}</span><ChgBadge cur={odThis} prev={odPrev} good="down" /></>,
+                <><span>Sem ant: {odPrev}</span></>,
+                `${(an.backlogWithDates||[]).length} en backlog con fecha`,
+              ],
               "⏰"
             )}
             {KPIop(
               "Detenidos",
               detCount,
               detCount > 0 ? "var(--yellow)" : "var(--green)",
-              detCount > 0 ? `${(an.stoppedWeek||[]).length} con fecha esta semana` : "Sin bloqueos ✓",
-              `${(an.noResp||[]).length} sin responsable`,
+              [
+                <><span>Esta sem: {detThis}</span><ChgBadge cur={detThis} prev={detPrev} good="down" /></>,
+                `Sem ant: ${detPrev}`,
+                `${(an.noResp||[]).length} sin responsable`,
+              ],
               "🚫"
             )}
             {KPIop(
               "Done sem.",
-              doneCount,
-              doneCount > 0 ? "var(--green)" : "var(--tx3)",
-              `${PREV_WEEK.start.toLocaleDateString("es-MX",{day:"numeric",month:"short"})} – ${PREV_WEEK.end.toLocaleDateString("es-MX",{day:"numeric",month:"short"})}`,
-              `${doneThisMonth} este mes · ${an.doneTotal||0} total`,
+              doneW,
+              doneW > 0 ? "var(--green)" : "var(--tx3)",
+              [
+                <><span>Esta sem: {doneCurrent}</span><ChgBadge cur={doneCurrent} prev={doneW} good="up" /></>,
+                `${doneThisMonth} este mes · ${an.doneTotal||0} total`,
+              ],
               "✅"
             )}
           </div>
+            );
+          })()
         );
       })()}
 
@@ -2726,7 +2755,7 @@ export default function App() {
 
   const analysis = useMemo(() => {
     if (!items.length) return null;
-    const byPhase = {}, byPhaseWeek = {}, bySquad = {}, bySquadWeek = {}, byPerson = {}, byPersonWeek = {}, overdue = [], noResp = [], noCrono = [], stoppedWeek = [], backlogWithDates = [], doneLastWeek = [];
+    const byPhase = {}, byPhaseWeek = {}, bySquad = {}, bySquadWeek = {}, byPerson = {}, byPersonWeek = {}, overdue = [], noResp = [], noCrono = [], stoppedWeek = [], backlogWithDates = [], doneLastWeek = [], doneThisWeek = [], overdueThisWeekArr = [], overdueLastWeekArr = [], stoppedLastWeekArr = [];
     // Cache parseTL por string de timeline — evita ~3,500 objetos Date redundantes por análisis (P3.3)
     const _tlCache = new Map();
     const parseTLCached = (t) => {
@@ -2798,7 +2827,11 @@ export default function App() {
         });
       }
 
-      if (ph === "🚫 Detenido" && isThisWeek) stoppedWeek.push(it);
+      if (ph === "🚫 Detenido") {
+        if (isThisWeek) stoppedWeek.push(it);
+        const tlDet = parseTLCached(timeline);
+        if (tlDet.start && tlDet.end && tlDet.start <= PREV_WEEK.end && tlDet.end >= PREV_WEEK.start) stoppedLastWeekArr.push(it);
+      }
       if (ph === "⏳Backlog" && timeline) backlogWithDates.push(it);
 
       // Done sem. anterior: fase ✅ Done + Fecha Entrega Real dentro de PREV_WEEK
@@ -2810,10 +2843,21 @@ export default function App() {
           if (deliveryDate >= PREV_WEEK.start && deliveryDate <= PREV_WEEK.end) {
             doneLastWeek.push(it);
           }
+          if (deliveryDate >= WEEK.start && deliveryDate <= WEEK.end) {
+            doneThisWeek.push(it);
+          }
         }
       }
 
-      if (isOverdue(it)) overdue.push(it);
+      if (isOverdue(it)) {
+        overdue.push(it);
+        // Clasificar cuándo se venció: deadline en PREV_WEEK o en WEEK actual
+        const tlEnd = parseTLCached(timeline).end;
+        if (tlEnd) {
+          if (tlEnd >= PREV_WEEK.start && tlEnd <= PREV_WEEK.end) overdueLastWeekArr.push(it);
+          else if (tlEnd >= WEEK.start && tlEnd <= WEEK.end) overdueThisWeekArr.push(it);
+        }
+      }
       if (!pr && ph !== "✅ Done") noResp.push(it);
       if (ph === "🚧 Sprint" && !timeline) noCrono.push(it);
     });
@@ -2826,7 +2870,7 @@ export default function App() {
 
     PERSONAS.filter((p) => !p.sdr).forEach((p) => { if (!byPersonWeek[p.name]) byPersonWeek[p.name] = { items: 0, stopped: 0, total: 0 }; });
 
-    return { byPhase, byPhaseWeek, bySquad, bySquadWeek, byPerson, byPersonWeek, overdue, noResp, noCrono, stoppedWeek, backlogWithDates, doneLastWeek, velocity, semaphore, doneTotal };
+    return { byPhase, byPhaseWeek, bySquad, bySquadWeek, byPerson, byPersonWeek, overdue, noResp, noCrono, stoppedWeek, backlogWithDates, doneLastWeek, doneThisWeek, overdueThisWeek: overdueThisWeekArr, overdueLastWeek: overdueLastWeekArr, stoppedLastWeek: stoppedLastWeekArr, velocity, semaphore, doneTotal };
   }, [items, itemsFingerprint]); // P3.7: itemsFingerprint previene recálculo innecesario
 
   if (loading) return (
@@ -2838,7 +2882,7 @@ export default function App() {
   );
 
   // FIX: Never return null on error — always show the dashboard
-  const emptyAnalysis = { byPhase: {}, byPhaseWeek: {}, bySquad: {}, bySquadWeek: {}, byPerson: {}, byPersonWeek: {}, overdue: [], noResp: [], noCrono: [], stoppedWeek: [], backlogWithDates: [], doneLastWeek: [], velocity: { active: 0, done: 0, overdue: 0 }, semaphore: "yellow", doneTotal: 0 };
+  const emptyAnalysis = { byPhase: {}, byPhaseWeek: {}, bySquad: {}, bySquadWeek: {}, byPerson: {}, byPersonWeek: {}, overdue: [], noResp: [], noCrono: [], stoppedWeek: [], backlogWithDates: [], doneLastWeek: [], doneThisWeek: [], overdueThisWeek: [], overdueLastWeek: [], stoppedLastWeek: [], velocity: { active: 0, done: 0, overdue: 0 }, semaphore: "yellow", doneTotal: 0 };
   const an = analysis || emptyAnalysis;
 
   const tabs = [
