@@ -108,21 +108,18 @@ async function hubspotSearchAll(token, filters, properties) {
 // --- Aggregation logic ---
 function aggregateByOrigin(contacts) {
   const counts = {}
-  let fuenteCampoUsed = 'hs_analytics_source'
+  let hasCustomFuente = false
 
   for (const c of contacts) {
     const props = c.properties || {}
-    // Prefer hs_analytics_source (granular: Paid Search, Organic, etc.)
-    // Fallback to fuente_mql (only Inbound/Outbound)
-    let raw = props.hs_analytics_source
-    if (raw && raw !== 'N/A' && raw.trim() !== '') {
-      fuenteCampoUsed = 'hs_analytics_source'
-    } else {
-      raw = props.fuente_mql || 'UNKNOWN'
-      fuenteCampoUsed = 'fuente_mql'
-    }
+    // Siempre usar hs_analytics_source para el breakdown granular
+    const raw = props.hs_analytics_source || 'UNKNOWN'
     const label = SOURCE_LABELS[raw] || raw
     counts[label] = (counts[label] || 0) + 1
+    // Detectar si hay fuente_mql custom para el campo fuente
+    if (props.fuente_mql && props.fuente_mql !== 'N/A' && props.fuente_mql.trim() !== '') {
+      hasCustomFuente = true
+    }
   }
 
   const total = contacts.length
@@ -134,7 +131,11 @@ function aggregateByOrigin(contacts) {
       pct: total > 0 ? Math.round((count / total) * 100) : 0,
     }))
 
-  return { total, por_origen, fuente_campo: fuenteCampoUsed }
+  return {
+    total,
+    por_origen,
+    fuente_campo: hasCustomFuente ? 'fuente_mql disponible' : 'hs_analytics_source'
+  }
 }
 
 export async function GET(request) {
