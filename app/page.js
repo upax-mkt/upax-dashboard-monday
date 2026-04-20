@@ -1027,6 +1027,7 @@ const AuditLogPanel = React.memo(function AuditLogPanel() {
 
 
 const GDD_HISTORY_KEY = "gdd_history";
+const MQL_ORIGIN_HISTORY_KEY = "mql_origen_history";
 const GDD_MC = { leads: "#007AFF", mqls: "#AF52DE", sqls: "#FF9500", opps: "#34C759" };
 
 const GDDWeeklyHistory = React.memo(function GDDWeeklyHistory({ gddData }) {
@@ -1093,6 +1094,31 @@ const GDDWeeklyHistory = React.memo(function GDDWeeklyHistory({ gddData }) {
     await storeSet(GDD_HISTORY_KEY, updated);
     setHistory(updated);
     prevWeekIdRef.current = id;
+
+    // También guardar origen MQLs en mql_origen_history
+    try {
+      const sd = gddData.fechas.semana_desde;
+      const sh = gddData.fechas.semana_hasta || sd;
+      const mqlRes = await fetch(`/api/hubspot-mqls?semana_desde=${encodeURIComponent(sd)}&semana_hasta=${encodeURIComponent(sh)}`, { cache: "no-store" });
+      if (mqlRes.ok) {
+        const mqlData = await mqlRes.json();
+        const mqlEntry = {
+          id: sd,
+          semana_desde: sd,
+          semana_hasta: sh,
+          por_origen: (mqlData.por_origen || []).map((o) => ({ origen: o.origen, count: o.count, pct: o.pct })),
+          total: mqlData.total || 0,
+          mock: mqlData.mock || false,
+          guardado_en: new Date().toISOString(),
+        };
+        const mqlHist = (await storeGet(MQL_ORIGIN_HISTORY_KEY)) || [];
+        const mqlUpdated = [...mqlHist.filter((e) => e.id !== sd), mqlEntry].sort((a, b) => b.id.localeCompare(a.id));
+        await storeSet(MQL_ORIGIN_HISTORY_KEY, mqlUpdated);
+      }
+    } catch (e) {
+      console.error("MQL origin history save error:", e.message);
+    }
+
     setSaving(false); setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   }
@@ -1166,45 +1192,104 @@ const GDDWeeklyHistory = React.memo(function GDDWeeklyHistory({ gddData }) {
 });
 
 /* ═══════════════════════════════════════════════════════════════
-   MQLOrigenModule — origen de MQLs desde HubSpot
+   MQLOrigenModule — tendencias semanales de canales MQL con historial Upstash
    ═══════════════════════════════════════════════════════════════ */
-const MQL_ORIGIN_COLORS = ["#007AFF", "#AF52DE", "#FF9500", "#34C759", "#FF3B30", "#5AC8FA", "#FF2D55", "#64D2FF"];
+const MQL_CHANNEL_COLORS = {
+  "Paid Search": "#007AFF",
+  "Paid Social": "#AF52DE",
+  "Organic Search": "#FF9500",
+  "Offline / SDR": "#34C759",
+  "Referral": "#FF3B30",
+  "Direct Traffic": "#5AC8FA",
+  "Email Marketing": "#FF2D55",
+};
+const MQL_DEFAULT_COLOR = "var(--tx3)";
 
 const MQLOrigenModule = React.memo(function MQLOrigenModule({ gddData }) {
-  const [data, setData] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [liveData, setLiveData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [liveLoding, setLiveLoading] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
 
   const semanaDesde = gddData?.fechas?.semana_desde;
   const semanaHasta = gddData?.fechas?.semana_hasta;
 
+  // Cargar historial de Upstash al montar
   useEffect(() => {
-    if (!semanaDesde) { setLoading(false); return; }
-    setLoading(true);
-    setError(null);
+    storeGet(MQL_ORIGIN_HISTORY_KEY).then((h) => {
+      setHistory(Array.isArray(h) ? h : []);
+      setLoading(false);
+    });
+  }, []);
+
+  // Fetch live data para semana actual
+  useEffect(() => {
+    if (!semanaDesde) { setLiveLoading(false); return; }
+    setLiveLoading(true);
     fetch(`/api/hubspot-mqls?semana_desde=${encodeURIComponent(semanaDesde)}&semana_hasta=${encodeURIComponent(semanaHasta || semanaDesde)}`, { cache: "no-store" })
-      .then((res) => {
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        return res.json();
-      })
-      .then((d) => { setData(d); setLoading(false); })
-      .catch((err) => { setError(err.message); setLoading(false); });
+      .then((res) => res.ok ? res.json() : null)
+      .then((d) => { setLiveData(d); setLiveLoading(false); })
+      .catch(() => { setLiveLoading(false); });
   }, [semanaDesde, semanaHasta]);
 
-  // Sin fechas configuradas
-  if (!semanaDesde) {
-    return (
-      <Card style={{ marginBottom: 16 }}>
-        <div style={{ textAlign: "center", padding: "16px 0", color: "var(--tx3)", fontSize: 12, border: "2px dashed var(--bg4)", borderRadius: "var(--r-sm)" }}>
-          Configura el rango de semana en el modulo GdD para ver el origen de MQLs
-        </div>
-      </Card>
-    );
+  // Guardar semana actual manualmente
+  async function handleSaveMQL() {
+    if (!semanaDesde || !liveData) return;
+    setSaving(true);
+    const mqlEntry = {
+      id: semanaDesde,
+      semana_desde: semanaDesde,
+      semana_hasta: semanaHasta || semanaDesde,
+      por_origen: (liveData.por_origen || []).map((o) => ({ origen: o.origen, count: o.count, pct: o.pct })),
+      total: liveData.total || 0,
+      mock: liveData.mock || false,
+      guardado_en: new Date().toISOString(),
+    };
+    const updated = [...history.filter((e) => e.id !== semanaDesde), mqlEntry].sort((a, b) => b.id.localeCompare(a.id));
+    await storeSet(MQL_ORIGIN_HISTORY_KEY, updated);
+    setHistory(updated);
+    setSaving(false); setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
   }
 
-  const isMock = data?.mock === true;
-  const maxCount = data?.por_origen?.length > 0 ? Math.max(...data.por_origen.map((o) => o.count)) : 1;
+  // Construir datos de tabla: combinar historial + live
+  const allWeeks = (() => {
+    const weeks = [...history].sort((a, b) => a.id.localeCompare(b.id));
+    // Si la semana actual (live) no está en history, agregarla como "live"
+    if (liveData && semanaDesde && !weeks.some((w) => w.id === semanaDesde)) {
+      weeks.push({
+        id: semanaDesde,
+        semana_desde: semanaDesde,
+        semana_hasta: semanaHasta || semanaDesde,
+        por_origen: liveData.por_origen || [],
+        total: liveData.total || 0,
+        mock: liveData.mock || false,
+        isLive: true,
+      });
+    } else if (liveData && semanaDesde) {
+      // Marcar la semana del historial como live si coincide
+      const idx = weeks.findIndex((w) => w.id === semanaDesde);
+      if (idx >= 0) weeks[idx] = { ...weeks[idx], isLive: true };
+    }
+    // Max 8 semanas, las más recientes
+    return weeks.slice(-8);
+  })();
+
+  // Recolectar todos los canales únicos
+  const allChannels = (() => {
+    const channelSet = new Set();
+    allWeeks.forEach((w) => (w.por_origen || []).forEach((o) => channelSet.add(o.origen)));
+    // Ordenar por total descendente (suma de counts de todas las semanas)
+    const channelTotals = {};
+    allWeeks.forEach((w) => (w.por_origen || []).forEach((o) => { channelTotals[o.origen] = (channelTotals[o.origen] || 0) + o.count; }));
+    return [...channelSet].sort((a, b) => (channelTotals[b] || 0) - (channelTotals[a] || 0));
+  })();
+
+  const isMock = liveData?.mock === true;
+  const fmtWeek = (s) => s ? new Date(s + "T00:00:00").toLocaleDateString("es-MX", { day: "numeric", month: "short" }) : "?";
 
   return (
     <Card style={{ marginBottom: 16 }}>
@@ -1212,6 +1297,7 @@ const MQLOrigenModule = React.memo(function MQLOrigenModule({ gddData }) {
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: collapsed ? 0 : 12, flexWrap: "wrap", gap: 8 }}>
         <button onClick={() => setCollapsed(!collapsed)} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 6 }}>
           <span style={{ fontSize: 14, fontWeight: 700 }}>📊 Origen de MQLs</span>
+          {allWeeks.length > 0 && <span style={{ fontSize: 11, color: "var(--tx3)" }}>{allWeeks.length} sem.</span>}
           <span style={{ fontSize: 10, color: "var(--tx3)", display: "inline-block", transform: collapsed ? "rotate(-90deg)" : "none", transition: "transform .2s" }}>▾</span>
         </button>
         <span style={{
@@ -1220,51 +1306,94 @@ const MQLOrigenModule = React.memo(function MQLOrigenModule({ gddData }) {
           background: isMock ? "rgba(255,204,0,.15)" : "rgba(52,199,89,.12)",
           color: isMock ? "#CC8800" : "var(--green)",
         }}>
-          {isMock ? "● DEMO" : "● HUBSPOT LIVE"}
+          {isMock ? "● DEMO" : "● LIVE"}
         </span>
       </div>
 
       {!collapsed && (
-        loading
-          ? <div style={{ textAlign: "center", padding: "16px 0", color: "var(--tx3)", fontSize: 12 }}>Cargando datos de HubSpot...</div>
-          : error && !data
-            ? <div style={{ textAlign: "center", padding: "16px 0", color: "var(--red)", fontSize: 12 }}>Error: {error}</div>
-            : data && (
-              <div>
-                {/* Total grande */}
-                <div style={{ textAlign: "center", marginBottom: 14 }}>
-                  <div style={{ fontSize: 36, fontWeight: 800, fontFamily: "var(--mono)", color: "var(--tx)" }}>{(data.total || 0).toLocaleString()}</div>
-                  <div style={{ fontSize: 11, color: "var(--tx3)", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase" }}>MQLs esta semana</div>
+        loading || liveLoding
+          ? <div style={{ textAlign: "center", padding: "16px 0", color: "var(--tx3)", fontSize: 12 }}>Cargando tendencias...</div>
+          : allWeeks.length === 0 && !liveData
+            ? <div style={{ textAlign: "center", padding: "20px 12px", color: "var(--tx3)", fontSize: 12, border: "2px dashed var(--bg4)", borderRadius: "var(--r-sm)" }}>
+                Guarda la primera semana usando el boton 💾 del modulo Historial Semanal GDD para comenzar a ver tendencias
+              </div>
+            : <div>
+                {/* Trend table */}
+                <div style={{ overflowX: "auto" }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 11 }}>
+                    <thead>
+                      <tr style={{ borderBottom: "2px solid var(--bg4)" }}>
+                        <th style={{ textAlign: "left", padding: "0 6px 5px 0", fontSize: 10, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: "0.06em", whiteSpace: "nowrap", position: "sticky", left: 0, background: "var(--bg2)", zIndex: 1 }}>Canal</th>
+                        {allWeeks.map((w) => (
+                          <th key={w.id} style={{ textAlign: "center", padding: "0 4px 5px", fontSize: 9, fontWeight: 600, color: w.isLive ? "var(--blue)" : "var(--tx3)", whiteSpace: "nowrap", minWidth: 60 }}>
+                            {fmtWeek(w.semana_desde)}
+                            {w.isLive && <div style={{ fontSize: 8, color: "var(--blue)", fontWeight: 700 }}>LIVE</div>}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allChannels.map((channel) => {
+                        const color = MQL_CHANNEL_COLORS[channel] || MQL_DEFAULT_COLOR;
+                        return (
+                          <tr key={channel} style={{ borderBottom: "1px solid var(--bg3)" }}>
+                            <td style={{ padding: "6px 6px 6px 0", fontSize: 11, fontWeight: 600, color: color, whiteSpace: "nowrap", position: "sticky", left: 0, background: "var(--bg2)", zIndex: 1 }}>{channel}</td>
+                            {allWeeks.map((w, wIdx) => {
+                              const item = (w.por_origen || []).find((o) => o.origen === channel);
+                              const count = item ? item.count : 0;
+                              const pct = item ? item.pct : 0;
+                              // Compare with previous week
+                              const prevWeek = wIdx > 0 ? allWeeks[wIdx - 1] : null;
+                              const prevItem = prevWeek ? (prevWeek.por_origen || []).find((o) => o.origen === channel) : null;
+                              const prevPct = prevItem ? prevItem.pct : null;
+                              const delta = prevPct !== null ? pct - prevPct : null;
+                              const cellBg = delta === null || delta === 0 ? "transparent" : delta > 0 ? "rgba(52,199,89,.08)" : "rgba(255,59,48,.08)";
+                              // Bar width relative to max count in this week
+                              const weekMax = Math.max(...(w.por_origen || []).map((o) => o.count), 1);
+                              const barW = Math.max((count / weekMax) * 100, 0);
+                              return (
+                                <td key={w.id} style={{ padding: "5px 4px", textAlign: "center", background: cellBg, verticalAlign: "middle" }}>
+                                  {count > 0 ? (
+                                    <div>
+                                      <div style={{ fontFamily: "var(--mono)", fontWeight: 700, fontSize: 11, color: "var(--tx)" }}>{count}</div>
+                                      <div style={{ fontSize: 9, color: "var(--tx3)" }}>{pct}%</div>
+                                      <div style={{ height: 3, background: "var(--bg4)", borderRadius: 2, marginTop: 2, overflow: "hidden" }}>
+                                        <div style={{ width: `${barW}%`, height: "100%", background: color, borderRadius: 2 }} />
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <span style={{ color: "var(--tx3)", fontSize: 9 }}>—</span>
+                                  )}
+                                </td>
+                              );
+                            })}
+                          </tr>
+                        );
+                      })}
+                      {/* Total row */}
+                      <tr style={{ borderTop: "2px solid var(--bg4)" }}>
+                        <td style={{ padding: "6px 6px 6px 0", fontSize: 11, fontWeight: 700, color: "var(--tx)", position: "sticky", left: 0, background: "var(--bg2)", zIndex: 1 }}>Total</td>
+                        {allWeeks.map((w) => (
+                          <td key={w.id} style={{ textAlign: "center", padding: "6px 4px", fontFamily: "var(--mono)", fontWeight: 800, fontSize: 12, color: "var(--tx)" }}>
+                            {(w.total || (w.por_origen || []).reduce((s, o) => s + o.count, 0)).toLocaleString()}
+                          </td>
+                        ))}
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
-
-                {/* Barras por origen */}
-                {data.por_origen && data.por_origen.length > 0 ? (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                    {data.por_origen.map((item, idx) => {
-                      const barColor = MQL_ORIGIN_COLORS[idx % MQL_ORIGIN_COLORS.length];
-                      const barWidth = maxCount > 0 ? Math.max((item.count / maxCount) * 100, 2) : 2;
-                      return (
-                        <div key={item.origen} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                          <div style={{ width: 110, fontSize: 11, fontWeight: 600, color: "var(--tx2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flexShrink: 0 }}>{item.origen}</div>
-                          <div style={{ flex: 1, height: 16, background: "var(--bg3)", borderRadius: 4, overflow: "hidden", position: "relative" }}>
-                            <div style={{ width: `${barWidth}%`, height: "100%", background: barColor, borderRadius: 4, transition: "width .4s ease" }} />
-                          </div>
-                          <div style={{ width: 32, fontSize: 12, fontWeight: 700, fontFamily: "var(--mono)", color: barColor, textAlign: "right", flexShrink: 0 }}>{item.count}</div>
-                          <div style={{ width: 34, fontSize: 10, color: "var(--tx3)", textAlign: "right", flexShrink: 0 }}>{item.pct}%</div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                ) : (
-                  <div style={{ textAlign: "center", padding: "10px 0", color: "var(--tx3)", fontSize: 12 }}>Sin datos de origen para esta semana</div>
-                )}
 
                 {/* Footer */}
-                <div style={{ marginTop: 10, fontSize: 10, color: "var(--tx3)", textAlign: "right" }}>
-                  Fuente: HubSpot CRM · campo {data.fuente_campo || "hs_analytics_source"}
+                <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
+                  <span style={{ fontSize: 10, color: "var(--tx3)" }}>
+                    {history.length} semana{history.length !== 1 ? "s" : ""} guardada{history.length !== 1 ? "s" : ""} · Fuente: HubSpot CRM
+                  </span>
+                  <button onClick={handleSaveMQL} disabled={saving || !semanaDesde || !liveData}
+                    style={{ background: saved ? "var(--green)" : "var(--blue)", color: "#fff", border: "none", borderRadius: "var(--r-sm)", padding: "4px 10px", fontSize: 10, fontWeight: 600, cursor: (saving || !semanaDesde || !liveData) ? "default" : "pointer", opacity: (!semanaDesde || !liveData || saving) ? 0.5 : 1 }}>
+                    {saving ? "⏳" : saved ? "✓" : "💾 Guardar esta semana"}
+                  </button>
                 </div>
               </div>
-            )
       )}
     </Card>
   );
