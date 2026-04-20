@@ -1314,8 +1314,67 @@ const MQLOrigenModule = React.memo(function MQLOrigenModule({ gddData }) {
         loading || liveLoading
           ? <div style={{ textAlign: "center", padding: "16px 0", color: "var(--tx3)", fontSize: 12 }}>Cargando tendencias...</div>
           : allWeeks.length === 0 && !liveData
-            ? <div style={{ textAlign: "center", padding: "20px 12px", color: "var(--tx3)", fontSize: 12, border: "2px dashed var(--bg4)", borderRadius: "var(--r-sm)" }}>
-                Guarda la primera semana usando el boton 💾 del modulo Historial Semanal GDD para comenzar a ver tendencias
+            ? <div style={{ padding: "20px 16px", border: "2px dashed var(--bg4)", borderRadius: "var(--r-sm)", background: "var(--bg3)" }}>
+                <div style={{ textAlign: "center", marginBottom: 16 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--tx)", marginBottom: 6 }}>
+                    Aun no hay semanas guardadas
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--tx3)", lineHeight: 1.5, maxWidth: 380, margin: "0 auto" }}>
+                    Guarda la semana actual para ver la tabla de tendencias — los datos de HubSpot se guardaran junto con los datos GDD.
+                  </div>
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <button onClick={handleSaveMQL} disabled={saving || !semanaDesde}
+                    style={{ background: saved ? "var(--green)" : "var(--blue)", color: "#fff", border: "none", borderRadius: "var(--r-sm)", padding: "10px 24px", fontSize: 13, fontWeight: 700, cursor: (saving || !semanaDesde) ? "default" : "pointer", opacity: (!semanaDesde || saving) ? 0.5 : 1, transition: "background .2s" }}>
+                    {saving ? "Guardando..." : saved ? "Guardado" : "Guardar semana actual"}
+                  </button>
+                </div>
+              </div>
+            : allWeeks.length === 0 && liveData
+            ? <div style={{ padding: "16px", border: "2px dashed var(--bg4)", borderRadius: "var(--r-sm)", background: "var(--bg3)" }}>
+                <div style={{ textAlign: "center", marginBottom: 14 }}>
+                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--tx)", marginBottom: 6 }}>
+                    Aun no hay semanas guardadas
+                  </div>
+                  <div style={{ fontSize: 11, color: "var(--tx3)", lineHeight: 1.5, maxWidth: 380, margin: "0 auto" }}>
+                    Guarda la semana actual para ver la tabla de tendencias — los datos de HubSpot se guardaran junto con los datos GDD.
+                  </div>
+                </div>
+                {/* Preview de la semana actual */}
+                <div style={{ background: "var(--bg2)", borderRadius: "var(--r-sm)", padding: "12px 14px", marginBottom: 14 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>
+                    Preview — Semana {fmtWeek(semanaDesde)}{semanaHasta ? ` al ${fmtWeek(semanaHasta)}` : ""}
+                  </div>
+                  {(liveData.por_origen || []).length > 0 ? (liveData.por_origen || []).map((o) => {
+                    const maxCount = Math.max(...(liveData.por_origen || []).map((x) => x.count), 1);
+                    const barW = Math.max((o.count / maxCount) * 100, 0);
+                    const color = MQL_CHANNEL_COLORS[o.origen] || MQL_DEFAULT_COLOR;
+                    return (
+                      <div key={o.origen} style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6 }}>
+                        <div style={{ fontSize: 10, fontWeight: 600, color: color, width: 100, flexShrink: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{o.origen}</div>
+                        <div style={{ flex: 1, height: 6, background: "var(--bg4)", borderRadius: 3, overflow: "hidden" }}>
+                          <div style={{ width: `${barW}%`, height: "100%", background: color, borderRadius: 3, transition: "width .3s" }} />
+                        </div>
+                        <div style={{ fontSize: 10, fontWeight: 700, fontFamily: "var(--mono)", color: "var(--tx)", minWidth: 28, textAlign: "right" }}>{o.count}</div>
+                        <div style={{ fontSize: 9, color: "var(--tx3)", minWidth: 32, textAlign: "right" }}>{o.pct}%</div>
+                      </div>
+                    );
+                  }) : (
+                    <div style={{ fontSize: 11, color: "var(--tx3)", textAlign: "center", padding: "8px 0" }}>Sin datos de origen esta semana</div>
+                  )}
+                  {liveData.total > 0 && (
+                    <div style={{ marginTop: 8, paddingTop: 8, borderTop: "1px solid var(--bg4)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+                      <span style={{ fontSize: 10, fontWeight: 700, color: "var(--tx)" }}>Total MQLs</span>
+                      <span style={{ fontSize: 13, fontWeight: 800, fontFamily: "var(--mono)", color: "var(--tx)" }}>{liveData.total.toLocaleString()}</span>
+                    </div>
+                  )}
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <button onClick={handleSaveMQL} disabled={saving}
+                    style={{ background: saved ? "var(--green)" : "var(--blue)", color: "#fff", border: "none", borderRadius: "var(--r-sm)", padding: "10px 24px", fontSize: 13, fontWeight: 700, cursor: saving ? "default" : "pointer", opacity: saving ? 0.5 : 1, transition: "background .2s" }}>
+                    {saving ? "Guardando..." : saved ? "Guardado" : "Guardar semana actual"}
+                  </button>
+                </div>
               </div>
             : <div>
                 {/* Trend table */}
