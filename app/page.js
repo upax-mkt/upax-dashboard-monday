@@ -1165,6 +1165,111 @@ const GDDWeeklyHistory = React.memo(function GDDWeeklyHistory({ gddData }) {
   );
 });
 
+/* ═══════════════════════════════════════════════════════════════
+   MQLOrigenModule — origen de MQLs desde HubSpot
+   ═══════════════════════════════════════════════════════════════ */
+const MQL_ORIGIN_COLORS = ["#007AFF", "#AF52DE", "#FF9500", "#34C759", "#FF3B30", "#5AC8FA", "#FF2D55", "#64D2FF"];
+
+const MQLOrigenModule = React.memo(function MQLOrigenModule({ gddData }) {
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [collapsed, setCollapsed] = useState(false);
+
+  const semanaDesde = gddData?.fechas?.semana_desde;
+  const semanaHasta = gddData?.fechas?.semana_hasta;
+
+  useEffect(() => {
+    if (!semanaDesde) { setLoading(false); return; }
+    setLoading(true);
+    setError(null);
+    fetch(`/api/hubspot-mqls?semana_desde=${encodeURIComponent(semanaDesde)}&semana_hasta=${encodeURIComponent(semanaHasta || semanaDesde)}`, { cache: "no-store" })
+      .then((res) => {
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        return res.json();
+      })
+      .then((d) => { setData(d); setLoading(false); })
+      .catch((err) => { setError(err.message); setLoading(false); });
+  }, [semanaDesde, semanaHasta]);
+
+  // Sin fechas configuradas
+  if (!semanaDesde) {
+    return (
+      <Card style={{ marginBottom: 16 }}>
+        <div style={{ textAlign: "center", padding: "16px 0", color: "var(--tx3)", fontSize: 12, border: "2px dashed var(--bg4)", borderRadius: "var(--r-sm)" }}>
+          Configura el rango de semana en el modulo GdD para ver el origen de MQLs
+        </div>
+      </Card>
+    );
+  }
+
+  const isMock = data?.mock === true;
+  const maxCount = data?.por_origen?.length > 0 ? Math.max(...data.por_origen.map((o) => o.count)) : 1;
+
+  return (
+    <Card style={{ marginBottom: 16 }}>
+      {/* Header */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: collapsed ? 0 : 12, flexWrap: "wrap", gap: 8 }}>
+        <button onClick={() => setCollapsed(!collapsed)} style={{ background: "none", border: "none", cursor: "pointer", padding: 0, display: "flex", alignItems: "center", gap: 6 }}>
+          <span style={{ fontSize: 14, fontWeight: 700 }}>📊 Origen de MQLs</span>
+          <span style={{ fontSize: 10, color: "var(--tx3)", display: "inline-block", transform: collapsed ? "rotate(-90deg)" : "none", transition: "transform .2s" }}>▾</span>
+        </button>
+        <span style={{
+          fontSize: 9, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase",
+          padding: "2px 8px", borderRadius: 10,
+          background: isMock ? "rgba(255,204,0,.15)" : "rgba(52,199,89,.12)",
+          color: isMock ? "#CC8800" : "var(--green)",
+        }}>
+          {isMock ? "● DEMO" : "● HUBSPOT LIVE"}
+        </span>
+      </div>
+
+      {!collapsed && (
+        loading
+          ? <div style={{ textAlign: "center", padding: "16px 0", color: "var(--tx3)", fontSize: 12 }}>Cargando datos de HubSpot...</div>
+          : error && !data
+            ? <div style={{ textAlign: "center", padding: "16px 0", color: "var(--red)", fontSize: 12 }}>Error: {error}</div>
+            : data && (
+              <div>
+                {/* Total grande */}
+                <div style={{ textAlign: "center", marginBottom: 14 }}>
+                  <div style={{ fontSize: 36, fontWeight: 800, fontFamily: "var(--mono)", color: "var(--tx)" }}>{(data.total || 0).toLocaleString()}</div>
+                  <div style={{ fontSize: 11, color: "var(--tx3)", fontWeight: 600, letterSpacing: "0.05em", textTransform: "uppercase" }}>MQLs esta semana</div>
+                </div>
+
+                {/* Barras por origen */}
+                {data.por_origen && data.por_origen.length > 0 ? (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {data.por_origen.map((item, idx) => {
+                      const barColor = MQL_ORIGIN_COLORS[idx % MQL_ORIGIN_COLORS.length];
+                      const barWidth = maxCount > 0 ? Math.max((item.count / maxCount) * 100, 2) : 2;
+                      return (
+                        <div key={item.origen} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div style={{ width: 110, fontSize: 11, fontWeight: 600, color: "var(--tx2)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", flexShrink: 0 }}>{item.origen}</div>
+                          <div style={{ flex: 1, height: 16, background: "var(--bg3)", borderRadius: 4, overflow: "hidden", position: "relative" }}>
+                            <div style={{ width: `${barWidth}%`, height: "100%", background: barColor, borderRadius: 4, transition: "width .4s ease" }} />
+                          </div>
+                          <div style={{ width: 32, fontSize: 12, fontWeight: 700, fontFamily: "var(--mono)", color: barColor, textAlign: "right", flexShrink: 0 }}>{item.count}</div>
+                          <div style={{ width: 34, fontSize: 10, color: "var(--tx3)", textAlign: "right", flexShrink: 0 }}>{item.pct}%</div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ textAlign: "center", padding: "10px 0", color: "var(--tx3)", fontSize: 12 }}>Sin datos de origen para esta semana</div>
+                )}
+
+                {/* Footer */}
+                <div style={{ marginTop: 10, fontSize: 10, color: "var(--tx3)", textAlign: "right" }}>
+                  Fuente: HubSpot CRM · campo {data.fuente_campo || "hs_analytics_source"}
+                </div>
+              </div>
+            )
+      )}
+    </Card>
+  );
+});
+
 
 const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
   const [alertGroupsExpanded, setAlertGroupsExpanded] = useState({});
@@ -1449,6 +1554,9 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
 
       {/* 📅 Historial Semanal GDD */}
       <GDDWeeklyHistory gddData={gddData} />
+
+      {/* 📊 Origen de MQLs — HubSpot */}
+      <MQLOrigenModule gddData={gddData} />
 
       {/* Carga — tabla compacta de todo el equipo */}
       <Card style={{ marginBottom: 16 }}>
