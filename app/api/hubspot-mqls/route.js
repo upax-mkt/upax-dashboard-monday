@@ -161,13 +161,17 @@ export async function GET(request) {
   }
 
   // Fetch from HubSpot
+  // HubSpot date filters require Unix timestamps in milliseconds
+  const desdeMs = new Date(semana_desde + 'T00:00:00Z').getTime()
+  const hastaMs = new Date(semana_hasta + 'T23:59:59Z').getTime()
+
   try {
     const contacts = await hubspotSearchAll(
       token,
       [
         { propertyName: 'lifecyclestage', operator: 'EQ', value: 'marketingqualifiedlead' },
-        { propertyName: 'fecha_mql', operator: 'GTE', value: semana_desde },
-        { propertyName: 'fecha_mql', operator: 'LTE', value: semana_hasta },
+        { propertyName: 'fecha_mql', operator: 'GTE', value: String(desdeMs) },
+        { propertyName: 'fecha_mql', operator: 'LTE', value: String(hastaMs) },
       ],
       ['fecha_mql', 'hs_analytics_source', 'fuente_mql', 'hubspot_owner_id']
     )
