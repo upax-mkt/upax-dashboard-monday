@@ -1112,7 +1112,7 @@ const GDDWeeklyHistory = React.memo(function GDDWeeklyHistory({ gddData }) {
           guardado_en: new Date().toISOString(),
         };
         const mqlHist = (await storeGet(MQL_ORIGIN_HISTORY_KEY)) || [];
-        const mqlUpdated = [...mqlHist.filter((e) => e.id !== sd), mqlEntry].sort((a, b) => b.id.localeCompare(a.id));
+        const mqlUpdated = [...mqlHist.filter((e) => e.id !== sd), mqlEntry].sort((a, b) => b.id.localeCompare(a.id)).slice(0, 26);
         await storeSet(MQL_ORIGIN_HISTORY_KEY, mqlUpdated);
       }
     } catch (e) {
@@ -1209,7 +1209,7 @@ const MQLOrigenModule = React.memo(function MQLOrigenModule({ gddData }) {
   const [history, setHistory] = useState([]);
   const [liveData, setLiveData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const [liveLoding, setLiveLoading] = useState(true);
+  const [liveLoading, setLiveLoading] = useState(true);
   const [collapsed, setCollapsed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -1248,7 +1248,7 @@ const MQLOrigenModule = React.memo(function MQLOrigenModule({ gddData }) {
       mock: liveData.mock || false,
       guardado_en: new Date().toISOString(),
     };
-    const updated = [...history.filter((e) => e.id !== semanaDesde), mqlEntry].sort((a, b) => b.id.localeCompare(a.id));
+    const updated = [...history.filter((e) => e.id !== semanaDesde), mqlEntry].sort((a, b) => b.id.localeCompare(a.id)).slice(0, 26);
     await storeSet(MQL_ORIGIN_HISTORY_KEY, updated);
     setHistory(updated);
     setSaving(false); setSaved(true);
@@ -1311,7 +1311,7 @@ const MQLOrigenModule = React.memo(function MQLOrigenModule({ gddData }) {
       </div>
 
       {!collapsed && (
-        loading || liveLoding
+        loading || liveLoading
           ? <div style={{ textAlign: "center", padding: "16px 0", color: "var(--tx3)", fontSize: 12 }}>Cargando tendencias...</div>
           : allWeeks.length === 0 && !liveData
             ? <div style={{ textAlign: "center", padding: "20px 12px", color: "var(--tx3)", fontSize: 12, border: "2px dashed var(--bg4)", borderRadius: "var(--r-sm)" }}>
