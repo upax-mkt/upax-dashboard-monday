@@ -111,12 +111,14 @@ function aggregateByOrigin(contacts) {
 
   for (const c of contacts) {
     const props = c.properties || {}
-    // Prefer fuente_mql if populated, fallback to hs_analytics_source
-    let raw = props.fuente_mql
+    // Prefer hs_analytics_source (granular: Paid Search, Organic, etc.)
+    // Fallback to fuente_mql (only Inbound/Outbound)
+    let raw = props.hs_analytics_source
     if (raw && raw !== 'N/A' && raw.trim() !== '') {
-      fuenteCampoUsed = 'fuente_mql'
+      fuenteCampoUsed = 'hs_analytics_source'
     } else {
-      raw = props.hs_analytics_source || 'UNKNOWN'
+      raw = props.fuente_mql || 'UNKNOWN'
+      fuenteCampoUsed = 'fuente_mql'
     }
     const label = SOURCE_LABELS[raw] || raw
     counts[label] = (counts[label] || 0) + 1
