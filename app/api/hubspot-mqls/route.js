@@ -29,6 +29,7 @@ const SOURCE_LABELS = {
   REFERRALS: 'Referral',
   EMAIL_MARKETING: 'Email Marketing',
   OTHER_CAMPAIGNS: 'Otras Campanas',
+  AI_REFERRALS: 'AI / ChatGPT',
 }
 
 // --- Upstash REST cache helpers (sin @vercel/kv) ---
