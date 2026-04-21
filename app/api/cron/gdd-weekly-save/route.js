@@ -61,11 +61,31 @@ export async function GET(request) {
       return NextResponse.json({ ok: true, saved: false, reason: 'already_exists', week: semana_desde })
     }
 
-    // 3. Construir entrada y guardar
+    // 3. Fetch HubSpot breakdown para incluir en la entrada
+    const semana_hasta = gddData.fechas.semana_hasta || semana_desde
+    let por_origen = []
+    let breakdown_macro = { inbound: 0, outbound: 0, unknown: 0 }
+    try {
+      const mqlRes = await fetch(
+        new URL(`/api/hubspot-mqls?semana_desde=${semana_desde}&semana_hasta=${semana_hasta}`, request.url).toString(),
+        { cache: 'no-store' }
+      )
+      if (mqlRes.ok) {
+        const mqlData = await mqlRes.json()
+        if (!mqlData.mock) {
+          por_origen = (mqlData.por_origen || []).map(o => ({ origen: o.origen, count: o.count, pct: o.pct }))
+          breakdown_macro = mqlData.breakdown_macro || breakdown_macro
+        }
+      }
+    } catch (e) {
+      console.error('Cron HubSpot fetch error:', e.message)
+    }
+
+    // 4. Construir entrada unificada y guardar
     const entry = {
       id:            semana_desde,
       semana_desde,
-      semana_hasta:  gddData.fechas.semana_hasta || '',
+      semana_hasta,
       leads:         gddData.semana?.leads     || 0,
       mqls:          gddData.semana?.mqls      || 0,
       sqls:          gddData.semana?.sqls      || 0,
@@ -78,13 +98,15 @@ export async function GET(request) {
       sqls_com:      gddData.semana?.sqls_com  || 0,
       opps_mkt:      gddData.semana?.opps_mkt  || 0,
       opps_com:      gddData.semana?.opps_com  || 0,
+      por_origen,
+      breakdown_macro,
       guardado_en:   new Date().toISOString(),
     }
 
     const updatedHistory = [entry, ...history].sort((a, b) => b.id.localeCompare(a.id))
     await upstashSet(GDD_HISTORY_KEY, updatedHistory)
 
-    // 4. Audit log
+    // 5. Audit log
     const auditLog = (await upstashGet(AUDIT_LOG_KEY)) || []
     const auditEntry = {
       id:           Date.now().toString() + Math.random().toString(36).slice(2, 6),
