@@ -77,15 +77,26 @@ async function hubspotSearchAll(token, filters, properties) {
     }
     if (after) body.after = after
 
-    const res = await fetch('https://api.hubapi.com/crm/v3/objects/contacts/search', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify(body),
-      cache: 'no-store',
-    })
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 8000)
+    let res
+    try {
+      res = await fetch('https://api.hubapi.com/crm/v3/objects/contacts/search', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(body),
+        cache: 'no-store',
+        signal: controller.signal,
+      })
+    } catch (fetchErr) {
+      clearTimeout(timer)
+      if (fetchErr.name === 'AbortError') throw new Error('HubSpot timeout (8s)')
+      throw fetchErr
+    }
+    clearTimeout(timer)
 
     if (!res.ok) {
       const text = await res.text()
@@ -108,18 +119,27 @@ async function hubspotSearchAll(token, filters, properties) {
 // --- Aggregation logic ---
 function aggregateByOrigin(contacts) {
   const counts = {}
-  let hasCustomFuente = false
+  const macroInbound = { inbound: 0, outbound: 0, unknown: 0 }
 
   for (const c of contacts) {
     const props = c.properties || {}
-    // Siempre usar hs_analytics_source para el breakdown granular
-    const raw = props.hs_analytics_source || 'UNKNOWN'
-    const label = SOURCE_LABELS[raw] || raw
-    counts[label] = (counts[label] || 0) + 1
-    // Detectar si hay fuente_mql custom para el campo fuente
-    if (props.fuente_mql && props.fuente_mql !== 'N/A' && props.fuente_mql.trim() !== '') {
-      hasCustomFuente = true
+
+    // MACRO: fuente_mql binario
+    const macro = (props.fuente_mql || '').toLowerCase()
+    if (macro === 'inbound') macroInbound.inbound++
+    else if (macro === 'outbound') macroInbound.outbound++
+    else macroInbound.unknown++
+
+    // GRANULAR: fuente_conversion primero, fallback a hs_analytics_source
+    let label
+    const fc = props.fuente_conversion
+    if (fc && fc.trim() !== '' && fc !== 'N/A') {
+      label = fc.trim()
+    } else {
+      const raw = props.hs_analytics_source || 'UNKNOWN'
+      label = SOURCE_LABELS[raw] || raw
     }
+    counts[label] = (counts[label] || 0) + 1
   }
 
   const total = contacts.length
@@ -134,7 +154,8 @@ function aggregateByOrigin(contacts) {
   return {
     total,
     por_origen,
-    fuente_campo: hasCustomFuente ? 'fuente_mql disponible' : 'hs_analytics_source'
+    breakdown_macro: macroInbound,
+    fuente_campo: 'fuente_conversion',
   }
 }
 
@@ -158,7 +179,7 @@ export async function GET(request) {
   }
 
   // Check Upstash cache first
-  const cacheKey = `hubspot-mqls-${semana_desde}`
+  const cacheKey = `hubspot-mqls-${semana_desde}-${semana_hasta}`
   const cached = await upstashGet(cacheKey)
   if (cached) {
     return NextResponse.json({ ...cached, cached: true })
@@ -177,7 +198,7 @@ export async function GET(request) {
         { propertyName: 'fecha_mql', operator: 'GTE', value: String(desdeMs) },
         { propertyName: 'fecha_mql', operator: 'LTE', value: String(hastaMs) },
       ],
-      ['fecha_mql', 'hs_analytics_source', 'fuente_mql', 'hubspot_owner_id']
+      ['fecha_mql', 'hs_analytics_source', 'fuente_mql', 'fuente_conversion', 'hubspot_owner_id']
     )
 
     const result = {
@@ -199,6 +220,6 @@ export async function GET(request) {
       semana_hasta,
       error: error.message,
       mock: true,
-    })
+    }, { status: 503 })
   }
 }
