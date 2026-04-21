@@ -1036,6 +1036,7 @@ const GDDWeeklyHistory = React.memo(function GDDWeeklyHistory({ gddData }) {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [confirmDelGdd, setConfirmDelGdd] = useState(null);
   const prevWeekIdRef = useRef(null);
 
   // Cargar historial al montar
@@ -1173,12 +1174,20 @@ const GDDWeeklyHistory = React.memo(function GDDWeeklyHistory({ gddData }) {
                           return (
                             <td key={key} style={{ textAlign:"right", padding:"7px 8px", fontFamily:"var(--mono)", fontWeight:700, color:GDD_MC[key], verticalAlign:"top" }}>
                               {val.toLocaleString()}
-                              {ch !== null && <div style={{ fontSize:9, fontFamily:"var(--sans)", fontWeight:600, color:ch.p===0?"var(--tx3)":ch.up?"var(--green)":"var(--red)", marginTop:1 }}>{ch.up?"▲":"▼"}{Math.abs(ch.p)}%</div>}
+                              {ch !== null ? <div style={{ fontSize:9, fontFamily:"var(--sans)", fontWeight:600, color:ch.p===0?"var(--tx3)":ch.up?"var(--green)":"var(--red)", marginTop:1 }}>{ch.up?"▲":"▼"}{Math.abs(ch.p)}%</div> : <div style={{ fontSize:9, color:"var(--tx3)", marginTop:1 }}>–</div>}
                             </td>
                           );
                         })}
                         <td style={{ textAlign:"center", padding:"0 2px", verticalAlign:"middle" }}>
-                          <button onClick={() => deleteEntry(entry.id)} style={{ background:"none", border:"none", color:"var(--tx3)", cursor:"pointer", fontSize:12, padding:"4px", borderRadius:4 }}>✕</button>
+                          {confirmDelGdd === entry.id ? (
+                            <div style={{ display:"flex", gap:4, alignItems:"center" }}>
+                              <span style={{ fontSize:10, color:"var(--tx2)" }}>¿Eliminar?</span>
+                              <button onClick={() => { deleteEntry(entry.id); setConfirmDelGdd(null); }} style={{ background:"var(--red)", color:"#fff", border:"none", borderRadius:4, padding:"2px 8px", fontSize:10, cursor:"pointer" }}>Sí</button>
+                              <button onClick={() => setConfirmDelGdd(null)} style={{ background:"var(--bg3)", color:"var(--tx2)", border:"none", borderRadius:4, padding:"2px 8px", fontSize:10, cursor:"pointer" }}>No</button>
+                            </div>
+                          ) : (
+                            <button onClick={() => setConfirmDelGdd(entry.id)} style={{ background:"none", border:"none", color:"var(--tx3)", cursor:"pointer", fontSize:12, padding:"4px", borderRadius:4 }}>✕</button>
+                          )}
                         </td>
                       </tr>
                     );
@@ -1315,13 +1324,8 @@ const MQLOrigenModule = React.memo(function MQLOrigenModule({ gddData }) {
           ? <div style={{ textAlign: "center", padding: "16px 0", color: "var(--tx3)", fontSize: 12 }}>Cargando tendencias...</div>
           : allWeeks.length === 0 && !liveData
             ? <div style={{ padding: "20px 16px", border: "2px dashed var(--bg4)", borderRadius: "var(--r-sm)", background: "var(--bg3)" }}>
-                <div style={{ textAlign: "center", marginBottom: 16 }}>
-                  <div style={{ fontSize: 13, fontWeight: 600, color: "var(--tx)", marginBottom: 6 }}>
-                    Aun no hay semanas guardadas
-                  </div>
-                  <div style={{ fontSize: 11, color: "var(--tx3)", lineHeight: 1.5, maxWidth: 380, margin: "0 auto" }}>
-                    Guarda la semana actual para ver la tabla de tendencias — los datos de HubSpot se guardaran junto con los datos GDD.
-                  </div>
+                <div style={{ background:"rgba(0,122,255,.06)", border:"1px solid rgba(0,122,255,.2)", borderRadius:"var(--r-sm)", padding:"12px 14px", marginBottom:12, fontSize:12, color:"var(--blue)" }}>
+                  Esta es la semana actual en tiempo real. Presiona <strong>Guardar esta semana</strong> para registrarla en el historial y comenzar a ver tendencias semana a semana.
                 </div>
                 <div style={{ textAlign: "center" }}>
                   <button onClick={handleSaveMQL} disabled={saving || !semanaDesde}
@@ -1385,7 +1389,7 @@ const MQLOrigenModule = React.memo(function MQLOrigenModule({ gddData }) {
                         <th style={{ textAlign: "left", padding: "0 6px 5px 0", fontSize: 10, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: "0.06em", whiteSpace: "nowrap", position: "sticky", left: 0, background: "var(--bg2)", zIndex: 1 }}>Canal</th>
                         {allWeeks.map((w) => (
                           <th key={w.id} style={{ textAlign: "center", padding: "0 4px 5px", fontSize: 9, fontWeight: 600, color: w.isLive ? "var(--blue)" : "var(--tx3)", whiteSpace: "nowrap", minWidth: 60 }}>
-                            {fmtWeek(w.semana_desde)}
+                            {w.semana_hasta ? `${fmtWeek(w.semana_desde)}–${fmtWeek(w.semana_hasta)}` : fmtWeek(w.semana_desde)}
                             {w.isLive && <div style={{ fontSize: 8, color: "var(--blue)", fontWeight: 700 }}>LIVE</div>}
                           </th>
                         ))}
@@ -1445,7 +1449,7 @@ const MQLOrigenModule = React.memo(function MQLOrigenModule({ gddData }) {
                 {/* Footer */}
                 <div style={{ marginTop: 10, display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 6 }}>
                   <span style={{ fontSize: 10, color: "var(--tx3)" }}>
-                    {history.length} semana{history.length !== 1 ? "s" : ""} guardada{history.length !== 1 ? "s" : ""} · Fuente: HubSpot CRM
+                    {history.length} semana{history.length !== 1 ? "s" : ""} guardada{history.length !== 1 ? "s" : ""} · Fuente: HubSpot CRM · Los totales pueden diferir ±1-2 vs GdD (fuentes independientes)
                   </span>
                   <button onClick={handleSaveMQL} disabled={saving || !semanaDesde || !liveData}
                     style={{ background: saved ? "var(--green)" : "var(--blue)", color: "#fff", border: "none", borderRadius: "var(--r-sm)", padding: "4px 10px", fontSize: 10, fontWeight: 600, cursor: (saving || !semanaDesde || !liveData) ? "default" : "pointer", opacity: (!semanaDesde || !liveData || saving) ? 0.5 : 1 }}>
@@ -1670,6 +1674,13 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
         );
       })()}
 
+      {/* Separador — Generación de Demanda */}
+      <div style={{ display:"flex", alignItems:"center", gap:10, margin:"24px 0 14px" }}>
+        <div style={{ flex:1, height:1, background:"var(--bg4)" }} />
+        <span style={{ fontSize:11, fontWeight:700, color:"var(--tx3)", textTransform:"uppercase", letterSpacing:"0.1em", whiteSpace:"nowrap" }}>Generación de Demanda</span>
+        <div style={{ flex:1, height:1, background:"var(--bg4)" }} />
+      </div>
+
       {/* 📊 Generación de Demanda — debajo del Estado del Sprint */}
       {(() => {
         const d = gddData || { semana: {}, anterior: {}, ytd: {} };
@@ -1683,10 +1694,10 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
           <div style={{ marginBottom: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                📊 Generación de Demanda{gddData?.source === "sheets_api" ? <span style={{ fontSize: 9, color: "var(--green)", marginLeft: 6, fontWeight: 700 }}>● LIVE</span> : gddData?.source === "empty" ? <span style={{ fontSize: 9, color: "var(--yellow)", marginLeft: 6 }}>sin datos</span> : gddData?.source === "fallback" ? <span style={{ fontSize: 9, color: "var(--red)", marginLeft: 6 }}>⚠ sin conexión</span> : null}
+                📊 Generación de Demanda{gddData?.source === "sheets_api" ? <span style={{ background: "rgba(52,199,89,.12)", border: "1px solid #34C759", color: "#34C759", borderRadius: 20, padding: "3px 10px", fontSize: 12, fontWeight: 700, letterSpacing: "0.02em", marginLeft: 6 }}>● LIVE</span> : gddData?.source === "empty" ? <span style={{ fontSize: 9, color: "var(--yellow)", marginLeft: 6 }}>sin datos</span> : gddData?.source === "fallback" ? <span style={{ fontSize: 9, color: "var(--red)", marginLeft: 6 }}>⚠ sin conexión</span> : null}
                 {gddData?.fechas?.semana_desde && (() => {
-                  const fD = (s) => { if (!s) return ""; const d = new Date(s + (s.includes("-") ? "T12:00:00" : ", 2026")); return isNaN(d) ? s : d.toLocaleDateString("es-MX",{day:"2-digit",month:"2-digit",year:"numeric"}).replace(/\//g," - "); };
-                  return <span style={{ fontWeight: 400, marginLeft: 6, color: "var(--tx3)", fontSize: 11 }}>{fD(gddData.fechas.semana_desde)}{gddData.fechas.semana_hasta ? " al " + fD(gddData.fechas.semana_hasta) : ""}</span>;
+                  const fD = (s) => { if (!s) return ""; const d = new Date(s + "T12:00:00"); return isNaN(d) ? s : d.toLocaleDateString("es-MX",{day:"numeric",month:"short"}); };
+                  return <span style={{ fontWeight: 400, marginLeft: 6, color: "var(--tx3)", fontSize: 11 }}>{fD(gddData.fechas.semana_desde)}{gddData.fechas.semana_hasta ? " – " + fD(gddData.fechas.semana_hasta) : ""}</span>;
                 })()}
               </span>
               <button onClick={() => {
