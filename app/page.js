@@ -691,7 +691,7 @@ function PersonDetailView({ detail }) {
             const ph = PHASE_SHORT[task.phase] || { label: "SPR", color: "#F59E0B" };
             const isAlert = task.phase === "⏳Backlog" || task.phase === "🚫 Detenido";
             return (
-              <div key={i} style={{ display: "flex", gap: 4, alignItems: "center", padding: "3px 6px", borderRadius: 6, background: isAlert ? "rgba(239,68,68,.06)" : "rgba(0,122,255,.04)", borderLeft: `3px solid ${isAlert ? "var(--red)" : "var(--blue)"}`, marginBottom: 2 }}>
+              <div key={i} style={{ display: "flex", gap: 4, alignItems: "center", padding: "3px 6px", borderRadius: 6, background: isAlert ? "rgba(255,59,48,.06)" : "rgba(0,122,255,.04)", borderLeft: `3px solid ${isAlert ? "var(--red)" : "var(--blue)"}`, marginBottom: 2 }}>
                 <span style={{ fontFamily: "var(--mono)", fontSize: 8, fontWeight: 700, color: "#fff", background: ph.color, borderRadius: 3, padding: "1px 4px", flexShrink: 0, minWidth: 24, textAlign: "center" }}>{ph.label}</span>
                 <span style={{ fontWeight: 500, color: isAlert ? "var(--red)" : "var(--tx)", flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", fontSize: 11 }}>{task.name}</span>
               </div>
@@ -1181,7 +1181,10 @@ const GDDWeeklyHistory = React.memo(function GDDWeeklyHistory({ gddData }) {
                     const prev = history[idx+1];
                     return (
                       <tr key={entry.id} style={{ borderBottom:"1px solid var(--bg3)" }}>
-                        <td style={{ padding:"7px 8px 7px 0", color:"var(--tx2)", whiteSpace:"nowrap", fontSize:11 }}>{fmtR(entry.semana_desde, entry.semana_hasta)}</td>
+                        <td style={{ padding:"7px 8px 7px 0", color:"var(--tx2)", whiteSpace:"nowrap", fontSize:11 }}>
+                          {fmtR(entry.semana_desde, entry.semana_hasta)}
+                          {entry.guardado_en && <div style={{ fontSize:9, color:"var(--tx3)", marginTop:1 }}>Guardado: {new Date(entry.guardado_en).toLocaleDateString("es-MX",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"})}</div>}
+                        </td>
                         {ms.map((key) => {
                           const val = entry[key]||0, ch = prev ? pch(val, prev[key]||0) : null;
                           return (
@@ -1831,7 +1834,7 @@ const TabPanorama = React.memo(function TabPanorama({ analysis: an, items }) {
     const detail = open ? getPersonDetail(p, items) : null;
     return (
       <div>
-        <div onClick={() => setExpandedPerson(open ? null : p)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: "var(--r-sm)", marginBottom: 2, cursor: "pointer", background: open ? "var(--bg3)" : d.total > 8 ? "rgba(239,68,68,.06)" : "var(--bg2)", border: `1px solid ${open ? "var(--border)" : d.total > 8 ? "rgba(239,68,68,.2)" : "transparent"}` }}>
+        <div onClick={() => setExpandedPerson(open ? null : p)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: "var(--r-sm)", marginBottom: 2, cursor: "pointer", background: open ? "var(--bg3)" : d.total > 8 ? "rgba(255,59,48,.06)" : "var(--bg2)", border: `1px solid ${open ? "var(--border)" : d.total > 8 ? "rgba(255,59,48,.2)" : "transparent"}` }}>
           <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--tx3)", minWidth: 16 }}>{rank}</span>
           <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{shortName(p)} {d.total > 8 && "⚠️"}</span>
           <span style={{ fontFamily: "var(--mono)", fontSize: 16, fontWeight: 700, color: d.total > 8 ? "var(--red)" : "var(--tx)", minWidth: 24, textAlign: "right" }}>{d.total}</span>
