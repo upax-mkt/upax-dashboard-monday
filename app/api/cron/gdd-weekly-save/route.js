@@ -53,12 +53,24 @@ export async function GET(request) {
 
     const semana_desde = gddData.fechas.semana_desde
 
-    // 2. Verificar si ya existe esa semana en el historial (idempotente)
+    // 2. Verificar si ya existe esa semana en el historial
     const history = (await upstashGet(GDD_HISTORY_KEY)) || []
-    const exists = history.some((h) => h.semana_desde === semana_desde)
+    const existing = history.find((h) => h.semana_desde === semana_desde)
 
-    if (exists) {
-      return NextResponse.json({ ok: true, saved: false, reason: 'already_exists', week: semana_desde })
+    // Si existe, comparar datos — actualizar solo si hay diferencia >2% en alguna metrica
+    if (existing) {
+      const metrics = ['leads', 'mqls', 'sqls', 'opps']
+      const hasSigDiff = metrics.some((m) => {
+        const oldVal = existing[m] || 0
+        const newVal = gddData.semana?.[m] || 0
+        if (oldVal === 0 && newVal === 0) return false
+        if (oldVal === 0) return true // de 0 a algo = diferencia significativa
+        return Math.abs((newVal - oldVal) / oldVal) > 0.02
+      })
+
+      if (!hasSigDiff) {
+        return NextResponse.json({ ok: true, saved: false, reason: 'no_significant_changes', week: semana_desde })
+      }
     }
 
     // 3. Fetch HubSpot breakdown para incluir en la entrada
@@ -103,7 +115,7 @@ export async function GET(request) {
       guardado_en:   new Date().toISOString(),
     }
 
-    const updatedHistory = [entry, ...history].sort((a, b) => b.id.localeCompare(a.id))
+    const updatedHistory = [entry, ...history.filter((h) => h.semana_desde !== semana_desde)].sort((a, b) => b.id.localeCompare(a.id))
     await upstashSet(GDD_HISTORY_KEY, updatedHistory)
 
     // 5. Audit log
@@ -112,7 +124,7 @@ export async function GET(request) {
       id:           Date.now().toString() + Math.random().toString(36).slice(2, 6),
       ts:           new Date().toISOString(),
       tipo:         'gdd_auto_save',
-      descripcion:  `Auto-guardado dominical GDD: semana ${semana_desde}`,
+      descripcion:  `Auto-${existing ? 'actualización' : 'guardado'} dominical GDD: semana ${semana_desde}`,
       datos:        { semana_desde, leads: entry.leads, mqls: entry.mqls, sqls: entry.sqls, opps: entry.opps },
       origen:       'cron',
     }
