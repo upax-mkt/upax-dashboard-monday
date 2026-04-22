@@ -2,21 +2,6 @@ import { NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
-// --- Mock data para desarrollo sin token ---
-const MOCK_DATA = {
-  total: 47,
-  por_origen: [
-    { origen: 'Paid Search', count: 15, pct: 32 },
-    { origen: 'Paid Social', count: 12, pct: 26 },
-    { origen: 'Organic Search', count: 8, pct: 17 },
-    { origen: 'Offline / SDR', count: 6, pct: 13 },
-    { origen: 'Referral', count: 3, pct: 6 },
-    { origen: 'Direct Traffic', count: 2, pct: 4 },
-    { origen: 'Email Marketing', count: 1, pct: 2 },
-  ],
-  fuente_campo: 'mock',
-  mock: true,
-}
 
 // Etiquetas legibles para hs_analytics_source
 const SOURCE_LABELS = {
@@ -173,9 +158,9 @@ export async function GET(request) {
     )
   }
 
-  // No token → mock data for dev
+  // No token → error, no mock data
   if (!token) {
-    return NextResponse.json({ ...MOCK_DATA, semana_desde, semana_hasta })
+    return NextResponse.json({ error: true, message: 'HUBSPOT_PRIVATE_APP_TOKEN no configurado', por_origen: [], total: 0, semana_desde, semana_hasta }, { status: 503 })
   }
 
   // Check Upstash cache first
@@ -215,11 +200,12 @@ export async function GET(request) {
   } catch (error) {
     console.error('HubSpot MQLs error:', error.message)
     return NextResponse.json({
-      ...MOCK_DATA,
+      error: true,
+      message: error.message,
+      por_origen: [],
+      total: 0,
       semana_desde,
       semana_hasta,
-      error: error.message,
-      mock: true,
     }, { status: 503 })
   }
 }

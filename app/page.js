@@ -414,7 +414,7 @@ function generateMinuta(wd, analysis, gddData, blockTimes) {
 
   // 1. GENERACIÓN DE DEMANDA
   {
-    const gdd = gddData || { semana: { leads:1186,mqls:30,sqls:10,opps:22,pipeline_mkt:58938625,pipeline_com:100372995 }, anterior: { leads:1554,mqls:53,sqls:12,opps:20 }, ytd: { leads:14636,mqls:957,sqls:225,opps:330 }, fechas: { semana_desde:"16 mar",semana_hasta:"22 mar" } };
+    const gdd = gddData || { semana: { leads:0,mqls:0,sqls:0,opps:0,pipeline_mkt:0,pipeline_com:0 }, anterior: { leads:0,mqls:0,sqls:0,opps:0 }, ytd: { leads:0,mqls:0,sqls:0,opps:0 }, fechas: {} };
     const s = gdd.semana || {}, a = gdd.anterior || {}, y = gdd.ytd || {}, f = gdd.fechas || {};
     const pTotal = (s.pipeline_mkt||0) + (s.pipeline_com||0);
     const hasData = s.leads || s.mqls || s.sqls || s.opps;
@@ -1037,6 +1037,7 @@ const GDDWeeklyHistory = React.memo(function GDDWeeklyHistory({ gddData }) {
   const [collapsed, setCollapsed] = useState(false);
   const [confirmDelGdd, setConfirmDelGdd] = useState(null);
   const prevWeekIdRef = useRef(null);
+  const historyLoadedRef = useRef(false);
 
   // Cargar historial al montar
   useEffect(() => {
@@ -1044,6 +1045,7 @@ const GDDWeeklyHistory = React.memo(function GDDWeeklyHistory({ gddData }) {
       const hist = Array.isArray(h) ? h : [];
       setHistory(hist);
       setLoading(false);
+      historyLoadedRef.current = true;
       // Inicializar el ref con la última semana guardada para detectar cambios
       if (hist.length > 0) prevWeekIdRef.current = hist[0].id;
     });
@@ -1051,6 +1053,7 @@ const GDDWeeklyHistory = React.memo(function GDDWeeklyHistory({ gddData }) {
 
   // Auto-save: cuando gddData llega con una semana diferente a la última guardada
   useEffect(() => {
+    if (!historyLoadedRef.current) return;
     if (!gddData?.fechas?.semana_desde || loading) return;
     const id = gddData.fechas.semana_desde;
     if (id === prevWeekIdRef.current) return;
@@ -2469,8 +2472,9 @@ function renderMinutaVisual(text, wd2, an, gdd2) {
     </div>
   );
 
-  const gddFallback = { semana:{leads:1186,mqls:30,sqls:10,opps:22,pipeline_mkt:58938625,pipeline_com:100372995}, anterior:{leads:1554,mqls:53,sqls:12,opps:20}, ytd:{leads:14636,mqls:957,sqls:225,opps:330}, fechas:{semana_desde:"16 mar",semana_hasta:"22 mar"} };
+  const gddFallback = { semana:{leads:0,mqls:0,sqls:0,opps:0,pipeline_mkt:0,pipeline_com:0}, anterior:{leads:0,mqls:0,sqls:0,opps:0}, ytd:{leads:0,mqls:0,sqls:0,opps:0}, fechas:{} };
   const gdd = gdd2 || gddFallback;
+  const gddUnavailable = !gdd2;
   const s = gdd.semana || {}, a = gdd.anterior || {}, y = gdd.ytd || {}, f = gdd.fechas || {};
   const pctChg = (cur, prev) => (!prev) ? null : Math.round(((cur-prev)/prev)*100);
   const fmtM = (v) => v >= 1000000 ? "$"+(v/1000000).toFixed(1)+"M" : v >= 1000 ? "$"+(v/1000).toFixed(0)+"K" : "$"+(v||0);
@@ -2509,6 +2513,11 @@ function renderMinutaVisual(text, wd2, an, gdd2) {
   const gddSub = f.semana_desde ? `${fmtDateDMY(f.semana_desde)}${f.semana_hasta ? " al " + fmtDateDMY(f.semana_hasta) : ""}` : "";
   const sec1 = (
     <SectionWrap num="1" title="GENERACIÓN DE DEMANDA" sub={gddSub} color="var(--blue)">
+      {gddUnavailable && (
+        <div style={{ padding: "12px 16px", background: "rgba(255,159,10,.08)", border: "1px solid rgba(255,159,10,.2)", borderRadius: 8, marginBottom: 8, fontSize: 12, color: "var(--yellow)", fontWeight: 600 }}>
+          Sin datos disponibles — no se pudo conectar con la fuente de datos
+        </div>
+      )}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 1, background: "var(--bg4)" }}>
         {gddMetrics.map((m, i) => {
           const pct = pctChg(m.cur, m.prev);
