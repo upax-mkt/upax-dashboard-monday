@@ -1,5 +1,5 @@
 'use client'
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 // components/TabHome.jsx — Tab Home + CargaRow + OverdueSection
 import { PERSONAS, SQUADS, TODAY, TODAY_STR, WEEK, PREV_WEEK, PHASES, PHASE_SHORT } from '../lib/constants'
 import { parseTL, daysDiff, pctColor, shortName, normalizeSquad, isActive, isOverdue, overlapsThisWeek } from '../lib/utils'

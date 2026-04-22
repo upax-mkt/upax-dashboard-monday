@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 
-const SPREADSHEET_ID = '1FPzeq0eYJZInSzcnrR4pEa7SMb75Kj1ob8zM1l8mY98'
-const SHEET_NAME = 'KPIs_Weekly'
+const SHEET_NAME = process.env.SHEETS_GDD_TAB_NAME || 'KPIs_Weekly'
 
 // Genera un JWT para autenticarse con Google APIs usando la Service Account
 async function getGoogleAccessToken() {
@@ -158,6 +157,11 @@ async function getGoogleAccessTokenCached() {
 
 export async function GET() {
   try {
+    const SPREADSHEET_ID = process.env.SHEETS_GDD_SPREADSHEET_ID
+    if (!SPREADSHEET_ID) {
+      return NextResponse.json({ error: 'SHEETS_GDD_SPREADSHEET_ID no configurado', source: 'error' }, { status: 500 })
+    }
+
     const accessToken = await getGoogleAccessTokenCached()
 
     const range = `${SHEET_NAME}!A:C`
@@ -189,7 +193,7 @@ export async function GET() {
     const rows = data.values || []
 
     if (rows.length < 2) {
-      return NextResponse.json({ error: 'Hoja vacía o sin datos', source: 'sheets_api' }, { status: 200 })
+      return NextResponse.json({ error: 'Hoja vacía o sin datos', source: 'sheets_api' }, { status: 204 })
     }
 
     const parsed = parseKPIsWeekly(rows)
@@ -197,6 +201,6 @@ export async function GET() {
 
   } catch (error) {
     console.error('GdD API error:', error.message)
-    return NextResponse.json({ error: error.message, source: 'error' }, { status: 200 })
+    return NextResponse.json({ error: error.message, source: 'error' }, { status: 503 })
   }
 }

@@ -29,6 +29,13 @@ async function upstashSet(key, value) {
 }
 
 export async function GET(request) {
+  // Proteger endpoint — requiere CRON_SECRET (mismo esquema que gdd-weekly-save)
+  const auth = request.headers.get('authorization')
+  const secret = process.env.CRON_SECRET
+  if (!secret || auth !== `Bearer ${secret}`) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     const history = (await upstashGet(GDD_HISTORY_KEY)) || []
     if (!Array.isArray(history) || history.length === 0) {

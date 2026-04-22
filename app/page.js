@@ -1362,7 +1362,7 @@ const MQLOrigenModule = React.memo(function MQLOrigenModule({ gddData }) {
 
                 {/* Footer */}
                 <div style={{ marginTop: 10, fontSize: 10, color: "var(--tx3)" }}>
-                  Fuente: gdd_history (unificado) · HubSpot CRM live · Los totales pueden diferir ±1-2 vs GdD (fuentes independientes)
+                  Fuente: gdd_history (unificado) · HubSpot CRM live
                 </div>
               </div>
       )}
