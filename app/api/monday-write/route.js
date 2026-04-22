@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { MONDAY_USERS } from '../../lib/server-constants'
 
 const MONDAY_API_URL = 'https://api.monday.com/v2'
 const BOARD_ID = process.env.MONDAY_BOARD_ID || '18044324200'
@@ -16,15 +17,18 @@ export async function POST(request) {
     const apiKey = process.env.MONDAY_API_KEY
     if (!apiKey) return NextResponse.json({ error: 'No API key' }, { status: 500 })
 
-    const { name, dateStr, personId } = await request.json()
+    const { name, dateStr, personId, personName } = await request.json()
     if (!name) return NextResponse.json({ error: 'name required' }, { status: 400 })
+
+    // Resolver personId: acepta ID directo o nombre para resolver server-side
+    const resolvedPersonId = personId || (personName ? MONDAY_USERS[personName] : null)
 
     let colVals = `"color_mkz09na": {"label": "🚧 Sprint"}`
     if (dateStr) {
       colVals += `, "timerange_mkzcqv0j": {"from": "${dateStr}", "to": "${dateStr}"}`
     }
-    if (personId) {
-      colVals += `, "person": {"personsAndTeams": [{"id": ${personId}, "kind": "person"}]}`
+    if (resolvedPersonId) {
+      colVals += `, "person": {"personsAndTeams": [{"id": ${resolvedPersonId}, "kind": "person"}]}`
     }
 
     const mutation = `

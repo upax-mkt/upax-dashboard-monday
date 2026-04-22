@@ -166,7 +166,7 @@ const TabCompromisos = React.memo(function TabCompromisos({ wd, setWd, save, ana
       )}
     </div>
   );
-}
+});
 
 /* ═══════════════════════════════════════════════════════════════
    SECTION 15: MAIN APP
@@ -187,4 +187,4 @@ const TabCompromisos = React.memo(function TabCompromisos({ wd, setWd, save, ana
    Lista inline de todas las minutas. Click en una → lightbox de detalle.
    ═══════════════════════════════════════════════════════════════ */
 
-export default TabCompromisos
+export { TabCompromisos }

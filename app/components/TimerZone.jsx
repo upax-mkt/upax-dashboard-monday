@@ -52,4 +52,4 @@ const TimerZone = React.memo(function TimerZone({ elapsed, running, onStart, onP
    SECTION 9: TAB HOME
    ═══════════════════════════════════════════════════════════════ */
 
-export default TimerZone
+export { TimerZone }

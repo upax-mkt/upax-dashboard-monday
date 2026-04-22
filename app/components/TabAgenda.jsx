@@ -53,10 +53,10 @@ const TabAgenda = React.memo(function TabAgenda({ wd, setWd, save, currentIdx, b
       <div style={{ marginTop: 12, padding: 8, borderRadius: "var(--r-sm)", background: "var(--bg2)", fontSize: 11, color: "var(--tx3)", textAlign: "center" }}>+2 min → "lo sacamos offline" · Sin update Monday = sin voz · Compromiso = Qué + Quién + Cuándo</div>
     </div>
   );
-}
+});
 
 /* ═══════════════════════════════════════════════════════════════
    SECTION 11: TAB PANORAMA
    ═══════════════════════════════════════════════════════════════ */
 
-export default TabAgenda
+export { TabAgenda }

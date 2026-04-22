@@ -1,6 +1,9 @@
 'use client'
 // lib/utils.js — funciones puras de fecha, análisis y helpers
-import { TODAY_STR, TODAY, PERSONAS, SQUADS, SQUAD_ALIASES, PHASES } from './constants'
+import { TODAY_STR, TODAY, PERSONAS, SQUADS, SQUAD_ALIASES, PHASES, normalizeSquad as _normalizeSquad } from './constants'
+
+// Re-export de constants.js para compatibilidad con imports existentes
+export const normalizeSquad = _normalizeSquad;
 
 export const PERSON_NAMES = PERSONAS.map((p) => p.name);
 // Cache module-level para normalizePersonName — evita ~25k comparaciones de string por análisis (P3.2)
@@ -154,7 +157,17 @@ export function downloadTextFile(text, filename) {
   setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
 }
 
-export function copyToClipboard(text) {
+export async function copyToClipboard(text) {
+  // Modern API (navigator.clipboard) con fallback a execCommand
+  if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch {
+      // Fallback below
+    }
+  }
+  // Fallback para contextos sin permisos o browsers legacy
   const ta = document.createElement("textarea");
   ta.value = text;
   ta.style.cssText = "position:fixed;left:-9999px;top:-9999px;opacity:0";

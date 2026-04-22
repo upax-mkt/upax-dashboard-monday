@@ -1,7 +1,7 @@
 'use client'
 import React, { useState } from 'react'
 // components/TabPanorama.jsx
-import { SQUADS, PHASES, TODAY, WEEK } from '../lib/constants'
+import { SQUADS, PHASES, TODAY, WEEK, PERSONAS } from '../lib/constants'
 import { parseTL, daysDiff, pctColor, shortName, normalizeSquad, isActive, isOverdue, overlapsThisWeek, getPersonDetail } from '../lib/utils'
 import { Bar, Card, Chip, Alerta, PersonDetailView } from './ui'
 
@@ -155,10 +155,10 @@ const TabPanorama = React.memo(function TabPanorama({ analysis: an, items }) {
       )}
     </div>
   );
-}
+});
 
 /* ═══════════════════════════════════════════════════════════════
    SECTION 13: TAB FOCOS
    ═══════════════════════════════════════════════════════════════ */
 
-export default TabPanorama
+export { TabPanorama }

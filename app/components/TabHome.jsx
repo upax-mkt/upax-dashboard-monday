@@ -1,10 +1,10 @@
 'use client'
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState } from 'react'
 // components/TabHome.jsx — Tab Home + CargaRow + OverdueSection
-import { PERSONAS, SQUADS, TODAY, TODAY_STR, WEEK, PREV_WEEK, PHASES, PHASE_SHORT } from '../lib/constants'
+import { PERSONAS, SQUADS, TODAY, TODAY_STR, WEEK, PREV_WEEK, PHASES } from '../lib/constants'
 import { parseTL, daysDiff, pctColor, shortName, normalizeSquad, isActive, isOverdue, overlapsThisWeek } from '../lib/utils'
-import { storeGet, storeSet } from '../lib/storage'
-import { Chip, Card, Alerta } from './ui'
+import { storeSet } from '../lib/storage'
+import { Chip, Card, Alerta, NumInput } from './ui'
 
 export function OverdueSection({ overdue }) {
   const [showAll, setShowAll] = useState(false);
@@ -115,71 +115,18 @@ export const CargaRow = React.memo(function CargaRow({ person, d, rank, maxVal, 
       )}
     </div>
   );
-}
 });
 
-const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts }) {
+const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts, gddData: propGddData, setGddData: propSetGddData, mqlBreakdown, gddHistory, setGddHistory, gddLoading }) {
   const [alertGroupsExpanded, setAlertGroupsExpanded] = useState({});
   const [expandedPerson, setExpandedPerson] = useState(null);
   const [cargaSquad, setCargaSquad] = useState("all");
-  const [gddData, setGddData] = useState(null);
   const [gddEditing, setGddEditing] = useState(false);
   const GDD_KEY = "config:gdd-metrics";
 
-  // GdD vacío — se muestra cuando no hay datos reales aún
-  const GDD_EMPTY = {
-    semana: { leads: 0, mqls: 0, sqls: 0, opps: 0, pipeline_mkt: 0, pipeline_com: 0 },
-    anterior: { leads: 0, mqls: 0, sqls: 0, opps: 0 },
-    mes: { leads: 0, mqls: 0, sqls: 0, opps: 0 },
-    ytd: { leads: 0, mqls: 0, sqls: 0, opps: 0 },
-    fechas: {},
-    source: "empty",
-  };
-
-  useEffect(() => {
-    (async () => {
-      try {
-        // 1. Fetch a /api/gdd PRIMERO — fuente de verdad (Google Sheets de César)
-        //    Con timeout de 10s para no bloquear si Sheets tarda
-        const controller = new AbortController();
-        const timeout = setTimeout(() => controller.abort(), 10000);
-        try {
-          const res = await fetch("/api/gdd", { cache: "no-store", signal: controller.signal });
-          clearTimeout(timeout);
-          if (res.ok) {
-            const data = await res.json();
-            const hasData = !data.error && (
-              (data.semana?.leads > 0) ||
-              (data.semana?.mqls > 0) ||
-              (data.semana?.sqls > 0) ||
-              (data.semana?.opps > 0) ||
-              (data.semana?.pipeline_mkt > 0)
-            );
-            if (hasData) {
-              setGddData(data);
-              return;
-            }
-          }
-        } catch (fetchErr) {
-          clearTimeout(timeout);
-          // Timeout o error de red — continuar al fallback
-          console.warn("GdD fetch timeout/error:", fetchErr.message);
-        }
-
-        // 2. Override manual del usuario (solo si existe en storage)
-        const manual = await storeGet(GDD_KEY);
-        if (manual && Object.keys(manual).length > 0) {
-          setGddData({ ...manual, source: "manual" });
-          return;
-        }
-
-        // 3. Sin datos — mostrar vacío (no inventar números)
-        setGddData(GDD_EMPTY);
-      } catch {
-        setGddData(GDD_EMPTY);
-      }
-    })();
-  }, []);
+  // GDD data viene del hook useGDDData via props
+  const gddData = propGddData;
+  const setGddData = propSetGddData || (() => {});
 
   if (!an) return null;
   const activeCount = (an.byPhase["🚧 Sprint"] || 0) + (an.byPhase["👀 Review"] || 0) + (an.byPhase["⚙️ Modificación"] || 0);
@@ -451,10 +398,10 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
       })()}
     </div>
   );
-}
+});
 
 /* ═══════════════════════════════════════════════════════════════
    SECTION 10: TAB AGENDA
    ═══════════════════════════════════════════════════════════════ */
 
-export { TabHome, CargaRow, OverdueSection }
+export { TabHome }

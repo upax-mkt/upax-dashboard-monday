@@ -1,6 +1,6 @@
 'use client'
 // lib/api.js — data layer hacia Next.js API routes
-import { MONDAY_USERS } from './constants'
+// MONDAY_USERS se resuelve server-side en /api/monday-write
 
 const authHeaders = () => ({
   'Content-Type': 'application/json',
@@ -22,11 +22,10 @@ export async function fetchAllItems() {
 
 export async function createMondayItem(name, dateStr, personName) {
   try {
-    const userId = personName ? MONDAY_USERS[personName] : null
     const res = await fetch('/api/monday-write', {
       method: 'POST',
       headers: authHeaders(),
-      body: JSON.stringify({ name, dateStr, personId: userId }),
+      body: JSON.stringify({ name, dateStr, personName }),
     })
     const data = await res.json()
     return data.success === true
@@ -44,7 +43,3 @@ export async function sendToSlack(text) {
     return data.success === true
   } catch { return false }
 }
-
-/* ═══════════════════════════════════════════════════════════════
-   SECTION 5: MINUTA GENERATOR
-   ═══════════════════════════════════════════════════════════════ */

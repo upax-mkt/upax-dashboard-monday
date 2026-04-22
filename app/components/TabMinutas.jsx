@@ -1,11 +1,11 @@
 'use client'
 import React, { useState, useEffect } from 'react'
 // components/TabMinutas.jsx — TabMinutasInline + MinutaDetailView + PdfButton + SlackButton
-import { SQUADS, STORE_KEY, TODAY_STR, WEEKLY_MAR23, PERSONAS } from '../lib/constants'
-import { shortName, pctColor, parseTL, daysDiff, normalizeSquad, overlapsThisWeek, TODAY } from '../lib/utils'
+import { SQUADS, STORE_KEY, TODAY_STR, WEEKLY_MAR23, PERSONAS, TODAY, WEEK } from '../lib/constants'
+import { shortName, pctColor, parseTL, daysDiff, normalizeSquad, overlapsThisWeek, copyToClipboard, downloadTextFile } from '../lib/utils'
 import { storeGet, storeSet, storeDel, storeList } from '../lib/storage'
 import { generateMinuta } from '../lib/minuta'
-import { copyToClipboard, downloadTextFile } from '../lib/utils'
+import { Alerta } from './ui'
 
 const TabMinutasInline = React.memo(function TabMinutasInline({ wd, analysis, gddData, blockTimes, onOpenMinuta }) {
   const [keys, setKeys] = useState([]);
@@ -104,7 +104,7 @@ const TabMinutasInline = React.memo(function TabMinutasInline({ wd, analysis, gd
       })}
     </div>
   );
-}
+});
 
 
 function parseWhoWhen(text) {

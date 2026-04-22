@@ -4,7 +4,7 @@
 export const BOARD_ID = 18044324200;
 export const GROUP_DELIVERY = "group_mm15cfz2"; // único grupo de trabajo
 export const GROUP_ACUERDOS = "group_mm1mhsd1"; // para crear compromisos de weekly
-export const SLACK_GENERAL_CHANNEL = "C081Z8R4ZH9";
+// SLACK_GENERAL_CHANNEL removido — se usa process.env.SLACK_CHANNEL en /api/slack (server-side only)
 export const COL_IDS = ["person","color_mkz0s203","color_mkz09na","timerange_mkzcqv0j","date_mm1b10rx","date_mkzchmsq","color_mkzjvp66","timerange_mkzx7r55"];
 // Fecha LOCAL del sistema — no usar toISOString() que devuelve UTC
 // En México (UTC-6) la medianoche local = día anterior en UTC
@@ -83,22 +83,8 @@ export const PERSONAS = [
   { name: "Elizabeth Gómez",         squad: "Outbound y Pipeline",    sdr: true },
 ];
 
-export const MONDAY_USERS = {
-  "Franco Cruzat": 65476480, "Víctor Tzili": 67444758,
-  "Jean Pierre Barroilhet": 68748021, "Paul Zárate": 65476499,
-  "Andrea Jurado": 80225986, "Arath Escamilla": 71090387,
-  "Andry Carvajal": 98248405, "Alejandro Maciel": 77343229,
-  "Iris Múgica": 65476486, "Fernando Borges": 77871300,
-  "Marco Antonio Juárez": 69017925, "Diana Cruz": 70199066,
-  "Santiago Arango": 77820047, "César Mejía": 67757625,
-  "Adrián González": 77017562, "Diego Luna": 76944156,
-  "David Porchini": 65476492, "Cyndi Pérez": 67054348,
-  "Carolina Rojas": 72959487, "Sergio Franco": 70061556,
-  "Tairi Medina": 67627150, "Ileana Cruz": 65476115,
-  "Elizabeth Gómez": 76801151,
-  // SDRs (Jennifer, Edna, Neyby, Leodegario, Aliosha) no tienen cuenta Monday — P4.9
-  // Si se les crea cuenta, agregar sus IDs aquí para que los compromisos se asignen correctamente
-};
+// MONDAY_USERS movido a lib/server-constants.js — IDs no deben estar en el bundle del frontend
+// La API route /api/monday-write ahora resuelve personName → personId server-side
 
 /* ═══════════════════════════════════════════════════════════════
    SECTION 2: UTILITIES
@@ -184,7 +170,7 @@ function getWeekBounds() {
   fri.setDate(mon.getDate() + 4);
   return { start: mon, end: fri };
 }
-const WEEK = getWeekBounds();
+export const WEEK = getWeekBounds();
 
 // PREV_WEEK: semana que acaba de terminar antes de la weekly
 // Basada en el ÚLTIMO lunes (no el próximo), para capturar entregas reales
@@ -199,7 +185,7 @@ function getPrevWeekBounds() {
   prevEnd.setDate(lastMon.getDate() - 1);
   return { start: prevStart, end: prevEnd };
 }
-const PREV_WEEK = getPrevWeekBounds();
+export const PREV_WEEK = getPrevWeekBounds();
 
 function overlapsThisWeek(timelineStr) {
   if (!timelineStr) return false;
@@ -241,7 +227,7 @@ function getPersonDetail(name, items) {
   return { weekTasks, otherTasks, weekCount: weekTasks.length, totalCount: weekTasks.length + otherTasks.length };
 }
 
-const PHASE_SHORT = {
+export const PHASE_SHORT = {
   "⏳Backlog": { label: "BKL", color: "#8E8E93" },
   "🚧 Sprint": { label: "SPR", color: "#F59E0B" },
   "👀 Review": { label: "REV", color: "#06B6D4" },

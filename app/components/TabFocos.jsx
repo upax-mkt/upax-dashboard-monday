@@ -148,10 +148,10 @@ const TabFocos = React.memo(function TabFocos({ items, wd, setWd, save, activeSq
       )}
     </div>
   );
-}
+});
 
 /* ═══════════════════════════════════════════════════════════════
    SECTION 14: TAB COMPROMISOS
    ═══════════════════════════════════════════════════════════════ */
 
-export default TabFocos
+export { TabFocos }
