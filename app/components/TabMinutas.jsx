@@ -637,9 +637,10 @@ function SlackButton({ text }) {
   async function handleSend() {
     setSending(true); setErr(false);
     try {
+      const _ah = { 'Content-Type': 'application/json', ...(process.env.NEXT_PUBLIC_API_SECRET ? { 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_API_SECRET}` } : {}) };
       const res = await fetch("/api/slack", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: _ah,
         body: JSON.stringify({ text }),
       });
       const d = await res.json();

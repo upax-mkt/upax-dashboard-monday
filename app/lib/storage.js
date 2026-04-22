@@ -1,6 +1,11 @@
 'use client'
 // lib/storage.js — Upstash Redis via /api/storage
 
+const authHeaders = () => ({
+  'Content-Type': 'application/json',
+  ...(process.env.NEXT_PUBLIC_API_SECRET ? { 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_API_SECRET}` } : {}),
+})
+
 export async function storeGet(key) {
   try {
     const r = await fetch(`/api/storage?action=get&key=${encodeURIComponent(key)}`)
@@ -13,7 +18,7 @@ export async function storeSet(key, val) {
   try {
     await fetch('/api/storage', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({ action: 'set', key, value: JSON.stringify(val) }),
     })
   } catch {}
@@ -22,7 +27,7 @@ export async function storeDel(key) {
   try {
     await fetch('/api/storage', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({ action: 'delete', key }),
     })
   } catch {}
@@ -54,7 +59,7 @@ export async function storeSetRaw(key, val) {
   try {
     await fetch('/api/storage', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({ action: 'set', key, value: val }),
     })
   } catch {}

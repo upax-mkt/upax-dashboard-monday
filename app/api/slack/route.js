@@ -3,6 +3,13 @@ import { NextResponse } from 'next/server'
 const SLACK_CHANNEL = process.env.SLACK_CHANNEL || 'C081Z8R4ZH9'
 
 export async function POST(request) {
+  // Validar autorización para operaciones de escritura
+  const authHeader = request.headers.get('authorization')
+  const expected = `Bearer ${process.env.API_SECRET}`
+  if (!process.env.API_SECRET || !authHeader || authHeader !== expected) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     const slackToken = process.env.SLACK_BOT_TOKEN
     if (!slackToken) {

@@ -296,6 +296,10 @@ const WEEKLY_MAR23 = {
 const emptyWeekly = () => ({ date: TODAY_STR, presenters: {}, focos: {}, compromisos: [], synced: [] });
 
 // ─── Storage: Next.js API route (/api/storage) ───────────────────
+const _authHeaders = () => ({
+  'Content-Type': 'application/json',
+  ...(process.env.NEXT_PUBLIC_API_SECRET ? { 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_API_SECRET}` } : {}),
+});
 async function storeGet(key) {
   try {
     const r = await fetch(`/api/storage?action=get&key=${encodeURIComponent(key)}`)
@@ -308,7 +312,7 @@ async function storeSet(key, val) {
   try {
     await fetch('/api/storage', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: _authHeaders(),
       body: JSON.stringify({ action: 'set', key, value: JSON.stringify(val) }),
     })
   } catch {}
@@ -317,7 +321,7 @@ async function storeDel(key) {
   try {
     await fetch('/api/storage', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: _authHeaders(),
       body: JSON.stringify({ action: 'delete', key }),
     })
   } catch {}
@@ -349,7 +353,7 @@ async function storeSetRaw(key, val) {
   try {
     await fetch('/api/storage', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: _authHeaders(),
       body: JSON.stringify({ action: 'set', key, value: val }),
     })
   } catch {}
@@ -378,7 +382,7 @@ async function createMondayItem(name, dateStr, personName) {
     const userId = personName ? MONDAY_USERS[personName] : null
     const res = await fetch('/api/monday-write', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: _authHeaders(),
       body: JSON.stringify({ name, dateStr, personId: userId }),
     })
     const data = await res.json()
@@ -390,7 +394,7 @@ async function sendToSlack(text) {
   try {
     const res = await fetch('/api/slack', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: _authHeaders(),
       body: JSON.stringify({ text }),
     })
     const data = await res.json()
@@ -2946,7 +2950,7 @@ function SlackButton({ text }) {
     try {
       const res = await fetch("/api/slack", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: _authHeaders(),
         body: JSON.stringify({ text }),
       });
       const d = await res.json();
@@ -3019,7 +3023,7 @@ function MinutaDetailView({ weekKey, data, todayWd, todayAnalysis, gddData, bloc
     try {
       const res = await fetch("/api/slack", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: _authHeaders(),
         body: JSON.stringify({ text: displayText }),
       });
       const d = await res.json();

@@ -5,6 +5,13 @@ const BOARD_ID = process.env.MONDAY_BOARD_ID || '18044324200'
 const GROUP_ACUERDOS = 'group_mm1mhsd1'
 
 export async function POST(request) {
+  // Validar autorización para operaciones de escritura
+  const authHeader = request.headers.get('authorization')
+  const expected = `Bearer ${process.env.API_SECRET}`
+  if (!process.env.API_SECRET || !authHeader || authHeader !== expected) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
+
   try {
     const apiKey = process.env.MONDAY_API_KEY
     if (!apiKey) return NextResponse.json({ error: 'No API key' }, { status: 500 })

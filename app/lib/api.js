@@ -2,6 +2,11 @@
 // lib/api.js — data layer hacia Next.js API routes
 import { MONDAY_USERS } from './constants'
 
+const authHeaders = () => ({
+  'Content-Type': 'application/json',
+  ...(process.env.NEXT_PUBLIC_API_SECRET ? { 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_API_SECRET}` } : {}),
+})
+
 export async function fetchAllItems() {
   try {
     const res = await fetch('/api/monday', { cache: 'no-store' })
@@ -20,7 +25,7 @@ export async function createMondayItem(name, dateStr, personName) {
     const userId = personName ? MONDAY_USERS[personName] : null
     const res = await fetch('/api/monday-write', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({ name, dateStr, personId: userId }),
     })
     const data = await res.json()
@@ -32,7 +37,7 @@ export async function sendToSlack(text) {
   try {
     const res = await fetch('/api/slack', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: authHeaders(),
       body: JSON.stringify({ text }),
     })
     const data = await res.json()
