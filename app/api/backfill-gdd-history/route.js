@@ -67,10 +67,8 @@ export async function GET(request) {
         )
         if (mqlRes.ok) {
           const mqlData = await mqlRes.json()
-          if (!mqlData.mock) {
-            por_origen = (mqlData.por_origen || []).map(o => ({ origen: o.origen, count: o.count, pct: o.pct }))
-            breakdown_macro = mqlData.breakdown_macro || breakdown_macro
-          }
+          por_origen = (mqlData.por_origen || []).map(o => ({ origen: o.origen, count: o.count, pct: o.pct }))
+          breakdown_macro = mqlData.breakdown_macro || breakdown_macro
         }
       } catch (e) {
         console.error(`Backfill fetch error for ${sd}:`, e.message)

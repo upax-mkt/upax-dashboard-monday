@@ -1,8 +1,8 @@
 'use client'
 import React, { useState, useEffect, useRef } from 'react'
 // components/ui.jsx — componentes UI compartidos
-import { PERSONAS, SQUADS, PHASES, PHASE_SHORT, TODAY, TODAY_STR, WEEK } from '../lib/constants'
-import { parseTL, daysDiff, pctColor, shortName, isActive, isOverdue, overlapsThisWeek, getPersonDetail } from '../lib/utils'
+import { PERSONAS, SQUADS, PHASES, TODAY, TODAY_STR } from '../lib/constants'
+import { WEEK, PHASE_SHORT, parseTL, daysDiff, pctColor, shortName, isActive, isOverdue, overlapsThisWeek, getPersonDetail } from '../lib/utils'
 
 export function Bar({ segs, h = 20 }) {
   const t = segs.reduce((s, x) => s + x.v, 0); if (!t) return null;

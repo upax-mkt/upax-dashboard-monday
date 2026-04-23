@@ -168,23 +168,4 @@ const TabCompromisos = React.memo(function TabCompromisos({ wd, setWd, save, ana
   );
 });
 
-/* ═══════════════════════════════════════════════════════════════
-   SECTION 15: MAIN APP
-   FIX: advanceBlock defined here and passed as props
-   FIX: currentBlockIdx syncs properly with timer
-   FIX: error state shows message instead of blank
-   ═══════════════════════════════════════════════════════════════ */
-
-/* ═══════════════════════════════════════════════════════════════
-   MINUTAS MODAL — 2 niveles
-   Nivel 1: lista de todas las minutas guardadas
-   Nivel 2: preview de la minuta seleccionada (Editar / Copiar / PDF)
-   ═══════════════════════════════════════════════════════════════ */
-
-
-/* ═══════════════════════════════════════════════════════════════
-   TAB MINUTAS INLINE
-   Lista inline de todas las minutas. Click en una → lightbox de detalle.
-   ═══════════════════════════════════════════════════════════════ */
-
 export { TabCompromisos }

@@ -1,8 +1,8 @@
 'use client'
 import React, { useState } from 'react'
 // components/TabPanorama.jsx
-import { SQUADS, PHASES, TODAY, WEEK, PERSONAS } from '../lib/constants'
-import { parseTL, daysDiff, pctColor, shortName, normalizeSquad, isActive, isOverdue, overlapsThisWeek, getPersonDetail } from '../lib/utils'
+import { SQUADS, PHASES, TODAY, PERSONAS } from '../lib/constants'
+import { WEEK, parseTL, daysDiff, pctColor, shortName, normalizeSquad, isActive, isOverdue, overlapsThisWeek, getPersonDetail } from '../lib/utils'
 import { Bar, Card, Chip, Alerta, PersonDetailView } from './ui'
 
 const TabPanorama = React.memo(function TabPanorama({ analysis: an, items }) {

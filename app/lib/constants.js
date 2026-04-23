@@ -1,5 +1,6 @@
 'use client'
 // lib/constants.js — config del equipo, board y agenda
+// Solo contiene DATOS y CONSTANTES. Funciones utilitarias viven en utils.js.
 
 export const BOARD_ID = 18044324200;
 export const GROUP_DELIVERY = "group_mm15cfz2"; // único grupo de trabajo
@@ -86,178 +87,8 @@ export const PERSONAS = [
 // MONDAY_USERS movido a lib/server-constants.js — IDs no deben estar en el bundle del frontend
 // La API route /api/monday-write ahora resuelve personName → personId server-side
 
-/* ═══════════════════════════════════════════════════════════════
-   SECTION 2: UTILITIES
-   ═══════════════════════════════════════════════════════════════ */
-
+// normalizeSquad: única función que vive aquí porque depende directamente de SQUAD_ALIASES
 export function normalizeSquad(raw) { return SQUAD_ALIASES[raw] || raw; }
-
-const PERSON_NAMES = PERSONAS.map((p) => p.name);
-// Cache module-level para normalizePersonName — evita ~25k comparaciones de string por análisis (P3.2)
-const _nameNormCache = new Map();
-function normalizePersonName(mondayName) {
-  if (!mondayName) return mondayName;
-  if (_nameNormCache.has(mondayName)) return _nameNormCache.get(mondayName);
-  // resultado se calcula abajo y se cachea antes de retornar
-  if (!mondayName) return mondayName;
-  // Exact match
-  if (PERSON_NAMES.includes(mondayName)) {
-    _nameNormCache.set(mondayName, mondayName);
-    return mondayName;
-  }
-  const lower = mondayName.toLowerCase();
-  // Intento 1: todas las palabras del nombre de PERSONAS están en el nombre de Monday
-  for (const pn of PERSON_NAMES) {
-    const parts = pn.toLowerCase().split(" ");
-    if (parts.every(p => lower.includes(p))) { _nameNormCache.set(mondayName, pn); return pn; }
-  }
-  // Intento 2: primer nombre + al menos un apellido coincide
-  for (const pn of PERSON_NAMES) {
-    const parts = pn.toLowerCase().split(" ");
-    if (parts.length >= 2 && lower.includes(parts[0]) && parts.slice(1).some(p => lower.includes(p))) { _nameNormCache.set(mondayName, pn); return pn; }
-  }
-  // Intento 3: solo primer nombre (para nombres únicos como "Diego", "Arath")
-  for (const pn of PERSON_NAMES) {
-    const firstName = pn.toLowerCase().split(" ")[0];
-    if (firstName.length > 4 && lower.startsWith(firstName)) {
-      _nameNormCache.set(mondayName, pn);
-      return pn;
-    }
-  }
-  _nameNormCache.set(mondayName, mondayName);
-  return mondayName;
-}
-function isTeamMember(name) { return PERSON_NAMES.includes(normalizePersonName(name)); }
-
-function parseTL(t) {
-  if (!t || typeof t !== "string") return { start: null, end: null };
-  const p = t.split(" - ");
-  return { start: p[0] ? new Date(p[0]) : null, end: p[1] ? new Date(p[1]) : null };
-}
-// Suma N días a un string YYYY-MM-DD sin usar timezone — puro aritmética de fecha
-function addDays(dateStr, n) {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const dt = new Date(y, m - 1, d + n); // new Date(y, m, d) usa hora LOCAL, no UTC
-  return `${dt.getFullYear()}-${String(dt.getMonth()+1).padStart(2,"0")}-${String(dt.getDate()).padStart(2,"0")}`;
-}
-// Calcula el lunes de la semana de un string YYYY-MM-DD
-function getMondayStr(dateStr) {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const dt = new Date(y, m - 1, d);
-  const day = dt.getDay(); // 0=Dom, 1=Lun...
-  const daysToMon = day === 0 ? 6 : day - 1;
-  return addDays(dateStr, -daysToMon);
-}
-function daysDiff(a, b) { return Math.round((a - b) / 86400000); }
-function isOverdue(it) {
-  const ph = it.column_values?.color_mkz09na;
-  if (ph === "✅ Done" || ph === "🚫 Detenido") return false;
-  const tl = parseTL(it.column_values?.timerange_mkzcqv0j);
-  return tl.end ? tl.end < TODAY : false;
-}
-function isActive(ph) { return ["🚧 Sprint", "👀 Review", "⚙️ Modificación"].includes(ph); }
-
-function getWeekBounds() {
-  // Semana ACTUAL (lunes al viernes de esta semana calendario)
-  // Alineado con Monday.com "esta semana"
-  const now = new Date(TODAY_STR);
-  const day = now.getDay(); // 0=Dom, 1=Lun, 2=Mar...
-  const mon = new Date(now);
-  // Retroceder al lunes de esta semana
-  if (day === 0) mon.setDate(now.getDate() - 6); // Domingo → lunes anterior
-  else mon.setDate(now.getDate() - (day - 1));    // Lun=0, Mar=1, Mié=2...
-  const fri = new Date(mon);
-  fri.setDate(mon.getDate() + 4);
-  return { start: mon, end: fri };
-}
-export const WEEK = getWeekBounds();
-
-// PREV_WEEK: semana que acaba de terminar antes de la weekly
-// Basada en el ÚLTIMO lunes (no el próximo), para capturar entregas reales
-function getPrevWeekBounds() {
-  const now = new Date(TODAY_STR);
-  const day = now.getDay(); // 0=Dom, 1=Lun...
-  const lastMon = new Date(now);
-  lastMon.setDate(now.getDate() - (day === 0 ? 6 : day - 1));
-  const prevStart = new Date(lastMon);
-  prevStart.setDate(lastMon.getDate() - 7);
-  const prevEnd = new Date(lastMon);
-  prevEnd.setDate(lastMon.getDate() - 1);
-  return { start: prevStart, end: prevEnd };
-}
-export const PREV_WEEK = getPrevWeekBounds();
-
-function overlapsThisWeek(timelineStr) {
-  if (!timelineStr) return false;
-  const tl = parseTL(timelineStr);
-  if (!tl.start || !tl.end) return false;
-  return tl.start <= WEEK.end && tl.end >= WEEK.start;
-}
-function pctColor(pct) { return pct >= 80 ? "var(--green)" : pct >= 50 ? "var(--yellow)" : "var(--red)"; }
-function shortName(n) { return (n || "—").split(" ").slice(0, 2).join(" "); }
-
-function getPersonDetail(name, items) {
-  const weekTasks = [], otherTasks = [];
-  const nameWords = name.toLowerCase().split(" ");
-  const matchesPerson = (personStr) => {
-    if (!personStr) return false;
-    const lower = personStr.toLowerCase();
-    return nameWords.every((w) => lower.includes(w));
-  };
-  items.forEach((it) => {
-    const cv = it.column_values || {}, ph = cv.color_mkz09na;
-    if (!isActive(ph) && ph !== "🚫 Detenido") return;
-    const parentTimeline = cv.timerange_mkzcqv0j;
-    const parentThisWeek = overlapsThisWeek(parentTimeline);
-    (it.subitems || []).forEach((sub) => {
-      const subPhase = sub.column_values?.color_mkzjvp66;
-      if (!matchesPerson(sub.column_values?.person) || subPhase === "✅ Done") return;
-      const subTimeline = sub.column_values?.timerange_mkzx7r55;
-      const subThisWeek = subTimeline ? overlapsThisWeek(subTimeline) : false;
-      const task = { name: sub.name, parentName: it.name, phase: subPhase || "🚧 Sprint" };
-      if (subThisWeek) weekTasks.push(task);
-      else otherTasks.push(task);
-    });
-    if ((it.subitems || []).length === 0 && matchesPerson(cv.person)) {
-      const task = { name: it.name, parentName: null, phase: ph };
-      if (parentThisWeek) weekTasks.push(task);
-      else otherTasks.push(task);
-    }
-  });
-  return { weekTasks, otherTasks, weekCount: weekTasks.length, totalCount: weekTasks.length + otherTasks.length };
-}
-
-export const PHASE_SHORT = {
-  "⏳Backlog": { label: "BKL", color: "#8E8E93" },
-  "🚧 Sprint": { label: "SPR", color: "#F59E0B" },
-  "👀 Review": { label: "REV", color: "#06B6D4" },
-  "⚙️ Modificación": { label: "MOD", color: "#A855F7" },
-  "🚫 Detenido": { label: "DET", color: "#EF4444" },
-};
-
-function downloadTextFile(text, filename) {
-  const blob = new Blob([text], { type: "text/plain;charset=utf-8" });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url; a.download = filename; a.style.display = "none";
-  document.body.appendChild(a); a.click();
-  setTimeout(() => { document.body.removeChild(a); URL.revokeObjectURL(url); }, 100);
-}
-
-function copyToClipboard(text) {
-  const ta = document.createElement("textarea");
-  ta.value = text;
-  ta.style.cssText = "position:fixed;left:-9999px;top:-9999px;opacity:0";
-  document.body.appendChild(ta); ta.focus(); ta.select();
-  let ok = false;
-  try { ok = document.execCommand("copy"); } catch {}
-  document.body.removeChild(ta);
-  return ok;
-}
-
-/* ═══════════════════════════════════════════════════════════════
-   SECTION 3: STORAGE
-   ═══════════════════════════════════════════════════════════════ */
 
 export const WEEKLY_MAR23 = {
   date: "2026-03-23",
@@ -275,5 +106,3 @@ export const WEEKLY_MAR23 = {
 };
 
 export const emptyWeekly = () => ({ date: TODAY_STR, presenters: {}, focos: {}, compromisos: [], synced: [] });
-
-// ─── Storage: Next.js API route (/api/storage) ───────────────────

@@ -1,5 +1,7 @@
 'use client'
 // lib/storage.js — Upstash Redis via /api/storage
+import { TODAY_STR } from './constants'
+import { addDays } from './utils'
 
 const authHeaders = () => ({
   'Content-Type': 'application/json',
@@ -64,8 +66,3 @@ export async function storeSetRaw(key, val) {
     })
   } catch {}
 }
-
-/* ═══════════════════════════════════════════════════════════════
-   SECTION 4: DATA LAYER — Next.js API routes
-   Reemplaza MCP calls por fetch directo a rutas propias
-   ═══════════════════════════════════════════════════════════════ */

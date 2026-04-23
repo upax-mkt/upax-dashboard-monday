@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
+import { storeGet } from '../lib/storage'
 
 const GDD_HISTORY_KEY = 'gdd_history'
 const GDD_MANUAL_KEY = 'config:gdd-metrics'
@@ -16,16 +17,6 @@ async function fetchWithTimeout(url, opts = {}, timeoutMs = 10000) {
     clearTimeout(timer)
     throw err
   }
-}
-
-// Storage helpers (inline para evitar dependencia circular)
-async function storeGet(key) {
-  try {
-    const r = await fetch(`/api/storage?action=get&key=${encodeURIComponent(key)}`)
-    const d = await r.json()
-    if (!d.value) return null
-    return typeof d.value === 'string' ? JSON.parse(d.value) : d.value
-  } catch { return null }
 }
 
 const GDD_EMPTY = {
