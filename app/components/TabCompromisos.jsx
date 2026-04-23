@@ -1,7 +1,7 @@
 'use client'
 import React, { useState, useEffect } from 'react'
 // components/TabCompromisos.jsx
-import { PERSONAS, TODAY_STR, STORE_KEY, WEEKLY_MAR23 } from '../lib/constants'
+import { TODAY_STR, STORE_KEY, WEEKLY_MAR23 } from '../lib/constants'
 import { shortName, pctColor } from '../lib/utils'
 import { storeGet, storeSet, storeList } from '../lib/storage'
 import { createMondayItem } from '../lib/api'

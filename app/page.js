@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useRef, useMemo, useCallback } from "react";
 import {
-  TODAY_STR, TODAY, STORE_KEY, CACHE_KEY,
+  TODAY_STR, STORE_KEY, CACHE_KEY,
   SQUADS, AGENDA, PERSONAS,
   emptyWeekly,
 } from "./lib/constants";

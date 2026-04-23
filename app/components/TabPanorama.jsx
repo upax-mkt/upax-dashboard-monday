@@ -2,8 +2,8 @@
 import React, { useState } from 'react'
 // components/TabPanorama.jsx
 import { SQUADS, PHASES, TODAY, PERSONAS } from '../lib/constants'
-import { WEEK, parseTL, daysDiff, pctColor, shortName, normalizeSquad, isActive, isOverdue, overlapsThisWeek, getPersonDetail } from '../lib/utils'
-import { Bar, Card, Chip, Alerta, PersonDetailView } from './ui'
+import { WEEK, parseTL, daysDiff, shortName, normalizeSquad, getPersonDetail } from '../lib/utils'
+import { Bar, Card, Chip, PersonDetailView } from './ui'
 
 const TabPanorama = React.memo(function TabPanorama({ analysis: an, items }) {
   const [sec, setSec] = useState(() => {

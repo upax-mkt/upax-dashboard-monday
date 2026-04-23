@@ -1,9 +1,9 @@
 'use client'
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 // components/TabFocos.jsx
-import { SQUADS, PERSONAS, TODAY_STR, PHASES } from '../lib/constants'
-import { parseTL, daysDiff, pctColor, shortName, normalizeSquad, isActive, isOverdue, overlapsThisWeek } from '../lib/utils'
-import { Chip, Card, PersonSelect, SquadInputSection } from './ui'
+import { SQUADS, PHASES } from '../lib/constants'
+import { parseTL, daysDiff, shortName, normalizeSquad, isActive, isOverdue, overlapsThisWeek } from '../lib/utils'
+import { Chip, Card, SquadInputSection } from './ui'
 
 const TabFocos = React.memo(function TabFocos({ items, wd, setWd, save, activeSquad, setActiveSquad }) {
   const focos = wd.focos || {};

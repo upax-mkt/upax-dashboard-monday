@@ -1,8 +1,8 @@
 'use client'
 import React, { useState, useEffect, useRef } from 'react'
 // components/ui.jsx — componentes UI compartidos
-import { PERSONAS, SQUADS, PHASES, TODAY, TODAY_STR } from '../lib/constants'
-import { WEEK, PHASE_SHORT, parseTL, daysDiff, pctColor, shortName, isActive, isOverdue, overlapsThisWeek, getPersonDetail } from '../lib/utils'
+import { PERSONAS } from '../lib/constants'
+import { PHASE_SHORT } from '../lib/utils'
 
 export function Bar({ segs, h = 20 }) {
   const t = segs.reduce((s, x) => s + x.v, 0); if (!t) return null;
@@ -154,9 +154,3 @@ export function SquadInputSection({ label, icon, field, placeholder, rows, draft
     </div>
   );
 }
-
-/* ═══════════════════════════════════════════════════════════════
-   SECTION 8: TIMER ZONE
-   FIX: advanceBlock is now defined in App and passed via props
-   FIX: currentBlockIdx syncs with elapsed time
-   ═══════════════════════════════════════════════════════════════ */

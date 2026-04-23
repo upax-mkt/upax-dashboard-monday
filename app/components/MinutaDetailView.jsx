@@ -1,7 +1,7 @@
 'use client'
 import React, { useState } from 'react'
 import { SQUADS, STORE_KEY, PERSONAS, TODAY } from '../lib/constants'
-import { WEEK, shortName, pctColor, parseTL, daysDiff, normalizeSquad, overlapsThisWeek, copyToClipboard, downloadTextFile } from '../lib/utils'
+import { WEEK, shortName, parseTL, daysDiff, normalizeSquad, copyToClipboard } from '../lib/utils'
 import { storeSet } from '../lib/storage'
 import { generateMinuta } from '../lib/minuta'
 

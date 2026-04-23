@@ -1,7 +1,7 @@
 'use client'
 import React, { useState } from 'react'
 // components/TabAgenda.jsx
-import { AGENDA, SQUADS, PERSONAS } from '../lib/constants'
+import { AGENDA, SQUADS } from '../lib/constants'
 import { Alerta, PersonSelect } from './ui'
 
 const TabAgenda = React.memo(function TabAgenda({ wd, setWd, save, currentIdx, blockTimes, onJumpToBlock }) {

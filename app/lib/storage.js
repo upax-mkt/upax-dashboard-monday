@@ -50,19 +50,3 @@ export async function storeList(prefix) {
   }))
   return results.filter(Boolean)
 }
-export async function storeGetRaw(key) {
-  try {
-    const r = await fetch(`/api/storage?action=get&key=${encodeURIComponent(key)}`)
-    const d = await r.json()
-    return d.value ? (typeof d.value === 'string' ? d.value : JSON.stringify(d.value)) : null
-  } catch { return null }
-}
-export async function storeSetRaw(key, val) {
-  try {
-    await fetch('/api/storage', {
-      method: 'POST',
-      headers: authHeaders(),
-      body: JSON.stringify({ action: 'set', key, value: val }),
-    })
-  } catch {}
-}

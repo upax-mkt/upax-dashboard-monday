@@ -1,10 +1,10 @@
 'use client'
 import React, { useState } from 'react'
 // components/TabHome.jsx — Tab Home + CargaRow + OverdueSection
-import { PERSONAS, SQUADS, TODAY, TODAY_STR, PHASES } from '../lib/constants'
-import { WEEK, PREV_WEEK, parseTL, daysDiff, pctColor, shortName, normalizeSquad, isActive, isOverdue, overlapsThisWeek } from '../lib/utils'
+import { PERSONAS, SQUADS, TODAY, PHASES } from '../lib/constants'
+import { WEEK, PREV_WEEK, parseTL, daysDiff, shortName, normalizeSquad, isActive, isOverdue } from '../lib/utils'
 import { storeSet } from '../lib/storage'
-import { Chip, Card, Alerta, NumInput } from './ui'
+import { Chip, Card, NumInput } from './ui'
 
 export function OverdueSection({ overdue }) {
   const [showAll, setShowAll] = useState(false);

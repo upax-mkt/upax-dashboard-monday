@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react'
 // components/TabMinutas.jsx — Lista de minutas (TabMinutasInline)
 import { STORE_KEY, WEEKLY_MAR23 } from '../lib/constants'
 import { copyToClipboard } from '../lib/utils'
-import { storeGet, storeSet, storeDel, storeList } from '../lib/storage'
+import { storeGet, storeDel, storeList } from '../lib/storage'
 import { generateMinuta } from '../lib/minuta'
 import { Alerta } from './ui'
 

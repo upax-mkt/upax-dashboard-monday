@@ -1,7 +1,7 @@
 'use client'
 // lib/utils.js — funciones puras de fecha, analisis y helpers
 // Fuente canonica para TODAS las funciones utilitarias. constants.js solo tiene datos.
-import { TODAY_STR, TODAY, PERSONAS, SQUADS, SQUAD_ALIASES, PHASES } from './constants'
+import { TODAY_STR, TODAY, PERSONAS, SQUAD_ALIASES } from './constants'
 
 // Re-export normalizeSquad de constants.js (vive ahi porque depende de SQUAD_ALIASES)
 export { normalizeSquad } from './constants'

@@ -1,6 +1,6 @@
 'use client'
 // lib/minuta.js — generador de texto plano de la minuta
-import { TODAY_STR, TODAY, SQUADS } from './constants'
+import { TODAY_STR, SQUADS } from './constants'
 import { WEEK, shortName, normalizeSquad } from './utils'
 
 export function generateMinuta(wd, analysis, gddData, blockTimes) {
