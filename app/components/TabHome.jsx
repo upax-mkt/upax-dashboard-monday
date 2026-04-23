@@ -117,6 +117,32 @@ export const CargaRow = React.memo(function CargaRow({ person, d, rank, maxVal, 
   );
 });
 
+// MqlChannelList — subcomponente con "ver más" para la lista de canales MQL
+function MqlChannelList({ channels, maxCount, showMax, needsMore }) {
+  const [showAll, setShowAll] = useState(false);
+  const visible = showAll ? channels : channels.slice(0, showMax);
+  const channelColors = ["var(--blue)", "var(--purple)", "var(--green)", "var(--yellow)", "var(--red)", "#FF6B6B", "#4ECDC4", "#45B7D1"];
+  return (
+    <div>
+      {visible.map((ch, i) => (
+        <div key={ch.origen} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: i < visible.length - 1 ? "1px solid var(--bg3)" : "none" }}>
+          <span style={{ fontSize: 12, color: "var(--tx2)", flex: "0 0 100px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ch.origen}</span>
+          <div style={{ flex: 1, height: 14, background: "var(--bg3)", borderRadius: 4, overflow: "hidden" }}>
+            <div style={{ width: Math.max((ch.count / maxCount) * 100, 4) + "%", height: "100%", background: channelColors[i % channelColors.length], borderRadius: 4, transition: "width .4s ease" }} />
+          </div>
+          <span style={{ fontFamily: "var(--mono)", fontSize: 13, fontWeight: 700, color: "var(--tx)", minWidth: 28, textAlign: "right" }}>{ch.count}</span>
+          <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--tx3)", minWidth: 32, textAlign: "right" }}>{ch.pct}%</span>
+        </div>
+      ))}
+      {needsMore && (
+        <button onClick={() => setShowAll(!showAll)} style={{ fontSize: 10, color: "var(--blue)", background: "none", border: "none", cursor: "pointer", fontWeight: 600, marginTop: 6, padding: 0 }}>
+          {showAll ? "Ver menos ↑" : `+${channels.length - showMax} más ↓`}
+        </button>
+      )}
+    </div>
+  );
+}
+
 const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts, gddData: propGddData, setGddData: propSetGddData, mqlBreakdown, gddHistory, setGddHistory, gddLoading }) {
   const [alertGroupsExpanded, setAlertGroupsExpanded] = useState({});
   const [expandedPerson, setExpandedPerson] = useState(null);
@@ -237,6 +263,126 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
             </div>
             {gddData?.lastUpdate && <div style={{ fontSize: 10, color: "var(--tx3)", textAlign: "right" }}>Actualizado: {gddData.lastUpdate}</div>}
           </div>
+        );
+      })()}
+
+      {/* MQLs por Canal — desglose desde HubSpot */}
+      {(() => {
+        if (gddLoading) {
+          return (
+            <Card style={{ marginBottom: 12 }}>
+              <div style={{ fontSize: 12, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 12 }}>📊 MQLs por Canal</div>
+              {[1,2,3,4].map(i => (
+                <div key={i} style={{ height: 28, background: "var(--bg3)", borderRadius: 6, marginBottom: 6, animation: "pulse 1.5s ease-in-out infinite", opacity: 0.5 }} />
+              ))}
+            </Card>
+          );
+        }
+        if (!mqlBreakdown || !mqlBreakdown.por_origen || mqlBreakdown.por_origen.length === 0) return null;
+        const { total, por_origen, breakdown_macro } = mqlBreakdown;
+        const inb = breakdown_macro?.inbound || 0;
+        const outb = breakdown_macro?.outbound || 0;
+        const unk = breakdown_macro?.unknown || 0;
+        const macroTotal = inb + outb + unk || 1;
+        const maxCount = por_origen[0]?.count || 1;
+        const showMax = 8;
+        const needsMore = por_origen.length > showMax;
+        return (
+          <Card style={{ marginBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <span style={{ fontSize: 12, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                📊 MQLs por Canal
+              </span>
+              <span style={{ fontFamily: "var(--mono)", fontSize: 18, fontWeight: 800, color: "var(--purple)" }}>{total}</span>
+            </div>
+            {/* Barra macro Inbound / Outbound */}
+            <div style={{ marginBottom: 12 }}>
+              <div style={{ display: "flex", height: 22, borderRadius: 6, overflow: "hidden", background: "var(--bg3)" }}>
+                {inb > 0 && (
+                  <div style={{ width: (inb / macroTotal * 100) + "%", background: "var(--green)", display: "flex", alignItems: "center", justifyContent: "center", transition: "width .4s ease" }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "#fff", whiteSpace: "nowrap" }}>{inb} Inbound</span>
+                  </div>
+                )}
+                {outb > 0 && (
+                  <div style={{ width: (outb / macroTotal * 100) + "%", background: "var(--blue)", display: "flex", alignItems: "center", justifyContent: "center", transition: "width .4s ease" }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "#fff", whiteSpace: "nowrap" }}>{outb} Outbound</span>
+                  </div>
+                )}
+                {unk > 0 && (
+                  <div style={{ width: (unk / macroTotal * 100) + "%", background: "var(--tx3)", display: "flex", alignItems: "center", justifyContent: "center", transition: "width .4s ease" }}>
+                    <span style={{ fontSize: 10, fontWeight: 700, color: "#fff", whiteSpace: "nowrap" }}>{unk}</span>
+                  </div>
+                )}
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4, fontSize: 10, color: "var(--tx3)" }}>
+                <span><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: "var(--green)", marginRight: 4, verticalAlign: "middle" }} />Inbound {Math.round(inb / macroTotal * 100)}%</span>
+                <span><span style={{ display: "inline-block", width: 8, height: 8, borderRadius: 2, background: "var(--blue)", marginRight: 4, verticalAlign: "middle" }} />Outbound {Math.round(outb / macroTotal * 100)}%</span>
+              </div>
+            </div>
+            {/* Lista de canales */}
+            <MqlChannelList channels={por_origen} maxCount={maxCount} showMax={showMax} needsMore={needsMore} />
+          </Card>
+        );
+      })()}
+
+      {/* Tendencia Semanal GDD */}
+      {(() => {
+        if (gddLoading || !gddHistory || gddHistory.length === 0) return null;
+        const weeks = gddHistory.slice(0, 6);
+        const metrics = ["leads", "mqls", "sqls", "opps"];
+        const labels = { leads: "Leads", mqls: "MQLs", sqls: "SQLs", opps: "Opps" };
+        const fmtDate = (s) => {
+          if (!s) return "";
+          const d = new Date(s + "T12:00:00");
+          return isNaN(d) ? s : d.toLocaleDateString("es-MX", { day: "numeric", month: "short" });
+        };
+        const arrow = (cur, prev) => {
+          if (prev === undefined || prev === null) return null;
+          if (cur > prev) return { symbol: "▲", color: "var(--green)" };
+          if (cur < prev) return { symbol: "▼", color: "var(--red)" };
+          return { symbol: "–", color: "var(--tx3)" };
+        };
+        return (
+          <Card style={{ marginBottom: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>
+              📈 Tendencia Semanal
+            </div>
+            <div style={{ overflowX: "auto" }}>
+              <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12, fontFamily: "var(--mono)" }}>
+                <thead>
+                  <tr>
+                    <th style={{ textAlign: "left", padding: "6px 8px", fontSize: 10, color: "var(--tx3)", fontWeight: 700, borderBottom: "1px solid var(--bg4)" }}>Semana</th>
+                    {metrics.map(m => (
+                      <th key={m} style={{ textAlign: "right", padding: "6px 8px", fontSize: 10, color: "var(--tx3)", fontWeight: 700, borderBottom: "1px solid var(--bg4)" }}>{labels[m]}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {weeks.map((w, i) => {
+                    const isFirst = i === 0;
+                    const prev = weeks[i + 1];
+                    return (
+                      <tr key={w.id || i} style={{ background: isFirst ? "rgba(0,122,255,.06)" : "transparent" }}>
+                        <td style={{ padding: "6px 8px", fontSize: 11, color: isFirst ? "var(--blue)" : "var(--tx2)", fontWeight: isFirst ? 700 : 400, borderBottom: "1px solid var(--bg4)", whiteSpace: "nowrap" }}>
+                          {fmtDate(w.semana_desde)}{isFirst && <span style={{ fontSize: 9, marginLeft: 4, color: "var(--blue)", fontWeight: 700 }}>actual</span>}
+                        </td>
+                        {metrics.map(m => {
+                          const val = w[m] || 0;
+                          const a = prev ? arrow(val, prev[m] || 0) : null;
+                          return (
+                            <td key={m} style={{ textAlign: "right", padding: "6px 8px", borderBottom: "1px solid var(--bg4)", fontWeight: isFirst ? 700 : 400, color: isFirst ? "var(--tx)" : "var(--tx2)" }}>
+                              {val.toLocaleString()}
+                              {a && <span style={{ fontSize: 9, marginLeft: 3, color: a.color, fontWeight: 700 }}>{a.symbol}</span>}
+                            </td>
+                          );
+                        })}
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </Card>
         );
       })()}
 
