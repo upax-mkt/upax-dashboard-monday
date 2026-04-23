@@ -13,7 +13,7 @@ import {
   overlapsThisWeek, copyToClipboard,
 } from "./lib/utils";
 import { storeGet, storeSet, storeDel } from "./lib/storage";
-import { fetchAllItems, sendToSlack } from "./lib/api";
+import { fetchAllItems, sendToSlack, authHeaders } from "./lib/api";
 import { generateMinuta } from "./lib/minuta";
 import { CSS } from "./lib/css";
 import { useGDDData } from "./hooks/useGDDData";
@@ -366,11 +366,6 @@ export default function App() {
   const emptyAnalysis = { byPhase: {}, byPhaseWeek: {}, bySquad: {}, bySquadWeek: {}, byPerson: {}, byPersonWeek: {}, overdue: [], noResp: [], noCrono: [], stoppedWeek: [], backlogWithDates: [], doneLastWeek: [], doneThisWeek: [], overdueThisWeek: [], overdueLastWeek: [], stoppedLastWeek: [], velocity: { active: 0, done: 0, overdue: 0 }, semaphore: "yellow", doneTotal: 0 };
   const an = analysis || emptyAnalysis;
 
-  const _authHeaders = () => ({
-    'Content-Type': 'application/json',
-    ...(process.env.NEXT_PUBLIC_API_SECRET ? { 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_API_SECRET}` } : {}),
-  });
-
   const tabs = [
     { id: "home",        icon: "🏠", label: "Home",         color: "var(--blue)" },
     { id: "agenda",      icon: "⏱",  label: "Agenda",       color: "var(--purple)" },
@@ -414,7 +409,7 @@ export default function App() {
               <button onClick={async () => {
                 setErr("Verificando conexion...");
                 try {
-                  const resp = await fetch("/api/monday", { cache: "no-store" });
+                  const resp = await fetch("/api/monday", { cache: "no-store", headers: authHeaders() });
                   const data = await resp.json();
                   setErr(resp.ok ? `Monday OK -- ${data.total || 0} items` : `Error: ${data.error || resp.status}`);
                 } catch(e) { setErr("Error: " + e.message); }

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { validateAuth } from '../_auth'
 
 const SHEET_NAME = process.env.SHEETS_GDD_TAB_NAME || 'KPIs_Weekly'
 
@@ -155,7 +156,10 @@ async function getGoogleAccessTokenCached() {
   return token
 }
 
-export async function GET() {
+export async function GET(request) {
+  const authErr = validateAuth(request)
+  if (authErr) return authErr
+
   try {
     const SPREADSHEET_ID = process.env.SHEETS_GDD_SPREADSHEET_ID
     if (!SPREADSHEET_ID) {

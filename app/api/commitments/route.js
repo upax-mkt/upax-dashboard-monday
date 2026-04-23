@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { validateAuth } from '../_auth'
 
 // Commitments route — Upstash REST directo, sin dependencias externas
 const COMMITMENTS_KEY = 'upax_commitments'
@@ -17,7 +18,10 @@ async function upstash(command, ...args) {
   return data.result ?? null
 }
 
-export async function GET() {
+export async function GET(request) {
+  const authErr = validateAuth(request)
+  if (authErr) return authErr
+
   try {
     const data = await upstash('GET', COMMITMENTS_KEY)
     const commitments = data
@@ -30,6 +34,9 @@ export async function GET() {
 }
 
 export async function POST(request) {
+  const authErr = validateAuth(request)
+  if (authErr) return authErr
+
   try {
     const { commitments } = await request.json()
     await upstash('SET', COMMITMENTS_KEY, JSON.stringify(commitments), 'EX', String(60 * 60 * 24 * 365))

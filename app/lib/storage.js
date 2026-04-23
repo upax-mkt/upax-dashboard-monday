@@ -8,9 +8,13 @@ const authHeaders = () => ({
   ...(process.env.NEXT_PUBLIC_API_SECRET ? { 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_API_SECRET}` } : {}),
 })
 
+const authHeadersGet = () => ({
+  ...(process.env.NEXT_PUBLIC_API_SECRET ? { 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_API_SECRET}` } : {}),
+})
+
 export async function storeGet(key) {
   try {
-    const r = await fetch(`/api/storage?action=get&key=${encodeURIComponent(key)}`)
+    const r = await fetch(`/api/storage?action=get&key=${encodeURIComponent(key)}`, { headers: authHeadersGet() })
     const d = await r.json()
     if (!d.value) return null
     return typeof d.value === 'string' ? JSON.parse(d.value) : d.value
@@ -36,7 +40,7 @@ export async function storeDel(key) {
 }
 export async function storeList(prefix) {
   try {
-    const r = await fetch(`/api/storage?action=list&prefix=${encodeURIComponent(prefix)}`)
+    const r = await fetch(`/api/storage?action=list&prefix=${encodeURIComponent(prefix)}`, { headers: authHeadersGet() })
     const d = await r.json()
     if (d.keys?.length > 0) return d.keys
   } catch {}

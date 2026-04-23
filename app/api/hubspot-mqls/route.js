@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { validateAuth } from '../_auth'
 
 export const dynamic = 'force-dynamic'
 
@@ -145,6 +146,9 @@ function aggregateByOrigin(contacts) {
 }
 
 export async function GET(request) {
+  const authErr = validateAuth(request)
+  if (authErr) return authErr
+
   const token = process.env.HUBSPOT_PRIVATE_APP_TOKEN
   const { searchParams } = new URL(request.url)
   const semana_desde = searchParams.get('semana_desde')

@@ -5,6 +5,10 @@ import { storeGet } from '../lib/storage'
 const GDD_HISTORY_KEY = 'gdd_history'
 const GDD_MANUAL_KEY = 'config:gdd-metrics'
 
+const authHeadersGet = () => ({
+  ...(process.env.NEXT_PUBLIC_API_SECRET ? { 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_API_SECRET}` } : {}),
+})
+
 // Helper: fetch con timeout
 async function fetchWithTimeout(url, opts = {}, timeoutMs = 10000) {
   const controller = new AbortController()
@@ -60,7 +64,7 @@ export function useGDDData() {
       // 1. Fetch Google Sheets — fuente autoritativa para Leads, SQLs, OPPs
       let sheetsData = null
       try {
-        const res = await fetchWithTimeout('/api/gdd', {}, 10000)
+        const res = await fetchWithTimeout('/api/gdd', { headers: authHeadersGet() }, 10000)
         if (res.ok) {
           const data = await res.json()
           const hasData = !data.error && (
@@ -95,7 +99,7 @@ export function useGDDData() {
         try {
           const mqlRes = await fetchWithTimeout(
             `/api/hubspot-mqls?semana_desde=${encodeURIComponent(sd)}&semana_hasta=${encodeURIComponent(sh)}`,
-            {}, 10000
+            { headers: authHeadersGet() }, 10000
           )
           if (mqlRes.ok) {
             const mqlData = await mqlRes.json()

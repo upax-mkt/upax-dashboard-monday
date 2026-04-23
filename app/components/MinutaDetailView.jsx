@@ -3,6 +3,7 @@ import React, { useState } from 'react'
 import { SQUADS, STORE_KEY, PERSONAS, TODAY } from '../lib/constants'
 import { WEEK, shortName, parseTL, daysDiff, normalizeSquad, copyToClipboard } from '../lib/utils'
 import { storeSet } from '../lib/storage'
+import { authHeaders } from '../lib/api'
 import { generateMinuta } from '../lib/minuta'
 
 function parseWhoWhen(text) {
@@ -506,10 +507,9 @@ function SlackButton({ text }) {
   async function handleSend() {
     setSending(true); setErr(false);
     try {
-      const _ah = { 'Content-Type': 'application/json', ...(process.env.NEXT_PUBLIC_API_SECRET ? { 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_API_SECRET}` } : {}) };
       const res = await fetch("/api/slack", {
         method: "POST",
-        headers: _ah,
+        headers: authHeaders(),
         body: JSON.stringify({ text }),
       });
       const d = await res.json();

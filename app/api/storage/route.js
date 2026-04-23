@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { validateAuth } from '../_auth'
 
 // Upstash REST API — usa las variables que Vercel inyecta automáticamente
 // al conectar Upstash desde el Marketplace:
@@ -22,6 +23,9 @@ async function upstash(command, ...args) {
 }
 
 export async function GET(request) {
+  const authErr = validateAuth(request)
+  if (authErr) return authErr
+
   const { searchParams } = new URL(request.url)
   const action = searchParams.get('action')
   const key = searchParams.get('key')

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { validateAuth } from '../_auth'
 
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
@@ -44,7 +45,10 @@ async function mondayQuery(apiKey, query, timeoutMs = 15000) {
   }
 }
 
-export async function GET() {
+export async function GET(request) {
+  const authErr = validateAuth(request)
+  if (authErr) return authErr
+
   try {
     const apiKey = process.env.MONDAY_API_KEY
     if (!apiKey) return NextResponse.json({ error: 'MONDAY_API_KEY no configurada' }, { status: 500 })

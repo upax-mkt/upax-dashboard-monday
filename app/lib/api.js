@@ -2,14 +2,18 @@
 // lib/api.js — data layer hacia Next.js API routes
 // MONDAY_USERS se resuelve server-side en /api/monday-write
 
-const authHeaders = () => ({
+export const authHeaders = () => ({
   'Content-Type': 'application/json',
+  ...(process.env.NEXT_PUBLIC_API_SECRET ? { 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_API_SECRET}` } : {}),
+})
+
+const authHeadersGet = () => ({
   ...(process.env.NEXT_PUBLIC_API_SECRET ? { 'Authorization': `Bearer ${process.env.NEXT_PUBLIC_API_SECRET}` } : {}),
 })
 
 export async function fetchAllItems() {
   try {
-    const res = await fetch('/api/monday', { cache: 'no-store' })
+    const res = await fetch('/api/monday', { cache: 'no-store', headers: authHeadersGet() })
     if (!res.ok) throw new Error(`HTTP ${res.status}`)
     const data = await res.json()
     if (data.error) throw new Error(data.error)
