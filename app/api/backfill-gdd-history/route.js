@@ -36,6 +36,8 @@ export async function GET(request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
+  const internalAuth = process.env.API_SECRET ? { 'Authorization': `Bearer ${process.env.API_SECRET}` } : {}
+
   try {
     const history = (await upstashGet(GDD_HISTORY_KEY)) || []
     if (!Array.isArray(history) || history.length === 0) {
@@ -63,7 +65,7 @@ export async function GET(request) {
       try {
         const mqlRes = await fetch(
           new URL(`/api/hubspot-mqls?semana_desde=${sd}&semana_hasta=${sh}`, request.url).toString(),
-          { cache: 'no-store' }
+          { cache: 'no-store', headers: internalAuth }
         )
         if (mqlRes.ok) {
           const mqlData = await mqlRes.json()
