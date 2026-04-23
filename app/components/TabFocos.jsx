@@ -1,7 +1,7 @@
 'use client'
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 // components/TabFocos.jsx
-import { SQUADS, PHASES } from '../lib/constants'
+import { SQUADS, PHASES, TODAY } from '../lib/constants'
 import { parseTL, daysDiff, shortName, normalizeSquad, isActive, isOverdue, overlapsThisWeek } from '../lib/utils'
 import { Chip, Card, SquadInputSection } from './ui'
 

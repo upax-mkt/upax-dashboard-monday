@@ -8,7 +8,7 @@ export const CSS = `
   --tx:#1D1D1F;--tx2:#3A3A3C;--tx3:#6E6E73;--border:#D1D1D6;
   --red:#FF3B30;--green:#34C759;--yellow:#FF9F0A;--orange:#FF9500;--blue:#007AFF;--purple:#AF52DE;--cyan:#5AC8FA;--pink:#FF2D55;
   --shadow:0 1px 3px rgba(0,0,0,.06),0 2px 8px rgba(0,0,0,.04);
-  --mono:'JetBrains Mono',monospace;--sans:'Inter',-apple-system,BlinkMacSystemFont,sans-serif;
+  --mono:var(--font-mono,'JetBrains Mono',monospace);--sans:var(--font-sans,'Inter',-apple-system,BlinkMacSystemFont,sans-serif);
   --r:14px;--r-sm:10px;--r-md:14px;--r-lg:18px;
 }
 body{background:var(--bg);font-family:var(--sans);color:var(--tx);-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.5}
@@ -40,6 +40,9 @@ select{-webkit-appearance:auto}
   .mobile-hide{display:none!important}
   .mobile-full{width:100%!important;min-width:0!important}
   .kpi-grid-mobile{grid-template-columns:repeat(2,1fr)!important}
+  .compromisos-row{grid-template-columns:26px 1fr 110px 50px!important}
+  .compromisos-row>*:nth-child(4){display:none!important}
+  .compromisos-row>*:nth-child(6){display:none!important}
 }
 @media(max-width:480px){
   .mobile-xs-hide{display:none!important}

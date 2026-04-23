@@ -425,7 +425,7 @@ export default function App() {
               }} style={{ background: presenterMode ? "var(--tx)" : "var(--bg2)", color: presenterMode ? "#fff" : "var(--tx3)", border: presenterMode ? "none" : "1px solid var(--bg4)", borderRadius: "var(--r-sm)", padding: "3px 10px", fontSize: 10, fontWeight: 500, cursor: "pointer" }} title="Pantalla completa">{presenterMode ? "📺 ON" : "📺"}</button>
             </div>
           </div>
-          <div style={{ display: "flex", gap: 4 }}>
+          <div style={{ display: "flex", gap: 4, flexWrap: "wrap" }}>
             {[
               { l: "BKL", tooltip: "Backlog", v: an.byPhase["⏳Backlog"] || 0, c: "var(--tx3)", bg: "transparent", border: "var(--bg4)", ph: "⏳Backlog", its: items.filter(it => it.column_values?.color_mkz09na === "⏳Backlog") },
               { l: "SPR", tooltip: "Sprint", v: an.byPhase["🚧 Sprint"] || 0, c: "var(--yellow)", bg: "rgba(245,158,11,.06)", border: "rgba(245,158,11,.25)", ph: "🚧 Sprint", its: items.filter(it => it.column_values?.color_mkz09na === "🚧 Sprint") },

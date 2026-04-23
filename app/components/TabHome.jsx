@@ -200,7 +200,7 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
                 {gddEditing ? "💾 Guardar" : "✏️ Editar"}
               </button>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 4 }}>
+            <div className="kpi-grid-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 4 }}>
               {metrics.map((m) => {
                 const cur = d.semana?.[m] || 0, prev = d.anterior?.[m] || 0, ytd = d.ytd?.[m] || 0;
                 const pct = pctChange(cur, prev);
@@ -279,7 +279,7 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
         );
 
         return (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 16 }}>
+          <div className="kpi-grid-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 16 }}>
             {KPIop(
               "Esta semana",
               activeWeek,
@@ -349,6 +349,7 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
                   key={p} person={p} d={d} rank={i + 1} maxVal={maxVal}
                   isExpanded={expandedPerson === p}
                   onClick={() => setExpandedPerson(expandedPerson === p ? null : p)}
+                  items={items}
                 />
               ))}
             </div>

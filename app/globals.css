@@ -1,16 +1,6 @@
-/* Tailwind eliminado — dashboard usa CSS-in-JS (const CSS en page.js) */
+/* Tailwind eliminado — dashboard usa CSS-in-JS (const CSS en lib/css.js) */
 
 * { box-sizing: border-box; }
-body { background: #0A0A0F; }
-
-::-webkit-scrollbar { width: 4px; height: 4px; }
-::-webkit-scrollbar-track { background: #111118; }
-::-webkit-scrollbar-thumb { background: #3A3A4A; border-radius: 2px; }
-
-.tab-active {
-  background: linear-gradient(135deg, #6C63FF20, #6C63FF10);
-  border-color: #6C63FF60;
-}
 
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; }
