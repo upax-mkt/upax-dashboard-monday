@@ -42,7 +42,7 @@ export async function GET(request) {
   try {
     // 1. Obtener datos GDD actuales
     const internalAuth = process.env.API_SECRET ? { 'Authorization': `Bearer ${process.env.API_SECRET}` } : {}
-    const gddRes = await fetch(new URL('/api/gdd', request.url).toString(), {
+    const gddRes = await fetch(new URL('/api/gdd-hubspot', request.url).toString(), {
       cache: 'no-store',
       headers: internalAuth,
     })

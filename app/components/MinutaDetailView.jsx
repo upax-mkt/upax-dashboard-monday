@@ -68,8 +68,7 @@ function renderMinutaVisual(text, wd2, an, gdd2) {
     </div>
   );
 
-  const gddFallback = { semana:{leads:1186,mqls:30,sqls:10,opps:22,pipeline_mkt:58938625,pipeline_com:100372995}, anterior:{leads:1554,mqls:53,sqls:12,opps:20}, ytd:{leads:14636,mqls:957,sqls:225,opps:330}, fechas:{semana_desde:"16 mar",semana_hasta:"22 mar"} };
-  const gdd = gdd2 || gddFallback;
+  const gdd = gdd2 || { semana: {}, anterior: {}, ytd: {}, fechas: {} };
   const s = gdd.semana || {}, a = gdd.anterior || {}, y = gdd.ytd || {}, f = gdd.fechas || {};
   const pctChg = (cur, prev) => (!prev) ? null : Math.round(((cur-prev)/prev)*100);
   const fmtM = (v) => v >= 1000000 ? "$"+(v/1000000).toFixed(1)+"M" : v >= 1000 ? "$"+(v/1000).toFixed(0)+"K" : "$"+(v||0);

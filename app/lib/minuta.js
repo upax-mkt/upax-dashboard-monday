@@ -15,7 +15,7 @@ export function generateMinuta(wd, analysis, gddData, blockTimes) {
 
   // 1. GENERACIÓN DE DEMANDA
   {
-    const gdd = gddData || { semana: { leads:1186,mqls:30,sqls:10,opps:22,pipeline_mkt:58938625,pipeline_com:100372995 }, anterior: { leads:1554,mqls:53,sqls:12,opps:20 }, ytd: { leads:14636,mqls:957,sqls:225,opps:330 }, fechas: { semana_desde:"16 mar",semana_hasta:"22 mar" } };
+    const gdd = gddData || { semana: {}, anterior: {}, ytd: {}, fechas: {} };
     const s = gdd.semana || {}, a = gdd.anterior || {}, y = gdd.ytd || {}, f = gdd.fechas || {};
     const pTotal = (s.pipeline_mkt||0) + (s.pipeline_com||0);
     const hasData = s.leads || s.mqls || s.sqls || s.opps;

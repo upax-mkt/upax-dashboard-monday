@@ -1,7 +1,7 @@
 'use client'
 import React, { useState, useEffect } from 'react'
 // components/TabMinutas.jsx — Lista de minutas (TabMinutasInline)
-import { STORE_KEY, WEEKLY_MAR23 } from '../lib/constants'
+import { STORE_KEY } from '../lib/constants'
 import { copyToClipboard } from '../lib/utils'
 import { storeGet, storeDel, storeList } from '../lib/storage'
 import { generateMinuta } from '../lib/minuta'
@@ -16,24 +16,21 @@ const TabMinutasInline = React.memo(function TabMinutasInline({ wd, analysis, gd
   useEffect(() => {
     (async () => {
       const allKeys = await storeList("weekly:");
-      const mar23 = "weekly:2026-03-23";
-      const merged = [...new Set([STORE_KEY, ...allKeys, mar23])].sort().reverse();
+      const merged = [...new Set([STORE_KEY, ...allKeys])].sort().reverse();
       setKeys(merged);
       setLoading(false);
     })();
   }, []);
 
   async function openMinuta(k) {
-    let d = await storeGet(k);
-    if (!d && k === "weekly:2026-03-23") d = WEEKLY_MAR23;
+    const d = await storeGet(k);
     document.body.style.overflow = "hidden";
     onOpenMinuta(k, d);
   }
 
   async function copyMinuta(k, e) {
     e.stopPropagation();
-    let d = await storeGet(k);
-    if (!d && k === "weekly:2026-03-23") d = WEEKLY_MAR23;
+    const d = await storeGet(k);
     const text = d?.minutaText || generateMinuta(d, null, gddData, blockTimes);
     copyToClipboard(text);
     setCopied(k);

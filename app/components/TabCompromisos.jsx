@@ -1,7 +1,7 @@
 'use client'
 import React, { useState, useEffect } from 'react'
 // components/TabCompromisos.jsx
-import { TODAY_STR, STORE_KEY, WEEKLY_MAR23 } from '../lib/constants'
+import { TODAY_STR, STORE_KEY } from '../lib/constants'
 import { shortName, pctColor } from '../lib/utils'
 import { storeGet, storeSet, storeList } from '../lib/storage'
 import { createMondayItem } from '../lib/api'
@@ -24,7 +24,7 @@ const TabCompromisos = React.memo(function TabCompromisos({ wd, setWd, save, ana
         const dataList = await Promise.all(
           prevKeys.map(async (key) => {
             let data = await storeGet(key);
-            if (!data && key === "weekly:2026-03-23") data = WEEKLY_MAR23;
+            if (!data) return { key, data: null };
             return { key, data };
           })
         );
@@ -43,7 +43,7 @@ const TabCompromisos = React.memo(function TabCompromisos({ wd, setWd, save, ana
 
   async function updatePrevPct(weekKey, compQue, newPct) {
     let data = await storeGet(weekKey);
-    if (!data && weekKey === "weekly:2026-03-23") data = { ...WEEKLY_MAR23 };
+    if (!data) return;
     if (!data?.compromisos) return;
     const idx = data.compromisos.findIndex((c) => c.que === compQue);
     if (idx < 0) return;

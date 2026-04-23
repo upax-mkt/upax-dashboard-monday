@@ -3,8 +3,7 @@ import React, { useState } from 'react'
 // components/TabHome.jsx — Tab Home + CargaRow + OverdueSection
 import { PERSONAS, SQUADS, TODAY, PHASES } from '../lib/constants'
 import { WEEK, PREV_WEEK, parseTL, daysDiff, shortName, normalizeSquad, isActive, isOverdue } from '../lib/utils'
-import { storeSet } from '../lib/storage'
-import { Chip, Card, NumInput } from './ui'
+import { Chip, Card } from './ui'
 
 export function OverdueSection({ overdue }) {
   const [showAll, setShowAll] = useState(false);
@@ -39,8 +38,6 @@ export function OverdueSection({ overdue }) {
 // CargaRow — fuera de TabHome para evitar re-creación en cada render (P3.8)
 export const CargaRow = React.memo(function CargaRow({ person, d, rank, maxVal, onClick, isExpanded, items }) {
   const pct = maxVal > 0 ? d.total / maxVal : 0;
-  // Umbral de carga: proyectos + tareas combinados
-  // >20 = rojo (sobrecargado), >10 = amarillo (carga alta), <=10 = verde (normal)
   const barColor = d.total > 20 ? "var(--red)" : d.total > 10 ? "var(--yellow)" : "var(--green)";
   const sq = PERSONAS.find((p) => p.name === person);
   const squadData = SQUADS.find((s) => s.name === sq?.squad);
@@ -53,42 +50,25 @@ export const CargaRow = React.memo(function CargaRow({ person, d, rank, maxVal, 
       onMouseEnter={e => e.currentTarget.style.background = "var(--bg3)"}
       onMouseLeave={e => e.currentTarget.style.background = "transparent"}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "8px 0" }}>
-        {/* Rank */}
         <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--tx3)", minWidth: 16, textAlign: "right", flexShrink: 0 }}>{rank}</span>
-        {/* Squad dot */}
         <span title={squadData?.name} style={{ width: 8, height: 8, borderRadius: "50%", background: squadColor, flexShrink: 0 }} />
-        {/* Nombre */}
         <span style={{ fontSize: 13, fontWeight: 600, flex: 1, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{shortName(person)}</span>
-        {/* Squad label — solo en desktop */}
         <span className="mobile-hide" style={{ fontSize: 10, color: squadColor, fontWeight: 600, background: squadColor + "15", borderRadius: 4, padding: "1px 6px", flexShrink: 0 }}>{squadShort}</span>
-        {/* Detenidos */}
         {d.stopped > 0 && <span style={{ fontSize: 10, color: "var(--red)", fontWeight: 700, flexShrink: 0 }}>{d.stopped}🚫</span>}
-        {/* Barra de progreso — relativa al máximo del equipo */}
         <div title={`${d.total} de ${maxVal} (máximo del equipo)`} style={{ width: 60, height: 4, background: "var(--bg4)", borderRadius: 3, overflow: "hidden", flexShrink: 0, cursor: "help" }}>
           <div style={{ width: Math.min(pct * 100, 100) + "%", height: "100%", background: barColor, borderRadius: 3, transition: "width .4s ease" }} />
         </div>
-        {/* Total + desglose proyectos/tareas */}
         <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", flexShrink: 0, minWidth: 60 }}>
           <span style={{ fontFamily: "var(--mono)", fontSize: 14, fontWeight: 800, color: barColor, lineHeight: 1 }}>{d.total}</span>
           {(projects > 0 || tasks > 0) && (
             <div style={{ display: "flex", gap: 4, marginTop: 2 }}>
-              {projects > 0 && (
-                <span style={{ fontSize: 10, fontWeight: 700, color: "var(--blue)", background: "rgba(0,122,255,.1)", borderRadius: 3, padding: "1px 4px", whiteSpace: "nowrap" }}>
-                  {projects}P
-                </span>
-              )}
-              {tasks > 0 && (
-                <span style={{ fontSize: 10, fontWeight: 700, color: "var(--purple)", background: "rgba(175,82,222,.1)", borderRadius: 3, padding: "1px 4px", whiteSpace: "nowrap" }}>
-                  {tasks}T
-                </span>
-              )}
+              {projects > 0 && <span style={{ fontSize: 10, fontWeight: 700, color: "var(--blue)", background: "rgba(0,122,255,.1)", borderRadius: 3, padding: "1px 4px", whiteSpace: "nowrap" }}>{projects}P</span>}
+              {tasks > 0 && <span style={{ fontSize: 10, fontWeight: 700, color: "var(--purple)", background: "rgba(175,82,222,.1)", borderRadius: 3, padding: "1px 4px", whiteSpace: "nowrap" }}>{tasks}T</span>}
             </div>
           )}
         </div>
-        {/* Chevron */}
         <span style={{ fontSize: 10, color: "var(--tx3)", transform: isExpanded ? "rotate(180deg)" : "none", transition: "transform .2s", flexShrink: 0 }}>▾</span>
       </div>
-      {/* Detalle expandido — proyectos activos de esta persona */}
       {isExpanded && (
         <div style={{ paddingLeft: 32, paddingBottom: 8 }}>
           {items
@@ -118,19 +98,22 @@ export const CargaRow = React.memo(function CargaRow({ person, d, rank, maxVal, 
 });
 
 // MqlChannelList — subcomponente con "ver más" para la lista de canales MQL
-function MqlChannelList({ channels, maxCount, showMax, needsMore }) {
+function MqlChannelList({ channels, maxCount, showMax, needsMore, compact }) {
   const [showAll, setShowAll] = useState(false);
   const visible = showAll ? channels : channels.slice(0, showMax);
   const channelColors = ["var(--blue)", "var(--purple)", "var(--green)", "var(--yellow)", "var(--red)", "#FF6B6B", "#4ECDC4", "#45B7D1"];
+  const padding = compact ? "3px 0" : "5px 0";
+  const fontSize = compact ? 11 : 12;
+  const barHeight = compact ? 10 : 14;
   return (
     <div>
       {visible.map((ch, i) => (
-        <div key={ch.origen} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", borderBottom: i < visible.length - 1 ? "1px solid var(--bg3)" : "none" }}>
-          <span style={{ fontSize: 12, color: "var(--tx2)", flex: "0 0 100px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ch.origen}</span>
-          <div style={{ flex: 1, height: 14, background: "var(--bg3)", borderRadius: 4, overflow: "hidden" }}>
+        <div key={ch.origen} style={{ display: "flex", alignItems: "center", gap: 8, padding, borderBottom: i < visible.length - 1 ? "1px solid var(--bg3)" : "none" }}>
+          <span style={{ fontSize, color: "var(--tx2)", flex: "0 0 100px", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ch.origen}</span>
+          <div style={{ flex: 1, height: barHeight, background: "var(--bg3)", borderRadius: 4, overflow: "hidden" }}>
             <div style={{ width: Math.max((ch.count / maxCount) * 100, 4) + "%", height: "100%", background: channelColors[i % channelColors.length], borderRadius: 4, transition: "width .4s ease" }} />
           </div>
-          <span style={{ fontFamily: "var(--mono)", fontSize: 13, fontWeight: 700, color: "var(--tx)", minWidth: 28, textAlign: "right" }}>{ch.count}</span>
+          <span style={{ fontFamily: "var(--mono)", fontSize: fontSize + 1, fontWeight: 700, color: "var(--tx)", minWidth: 28, textAlign: "right" }}>{ch.count}</span>
           <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--tx3)", minWidth: 32, textAlign: "right" }}>{ch.pct}%</span>
         </div>
       ))}
@@ -143,16 +126,22 @@ function MqlChannelList({ channels, maxCount, showMax, needsMore }) {
   );
 }
 
+// Helper: format date string to short Spanish
+const fmtDate = (s) => {
+  if (!s) return "";
+  const d = new Date(s + "T12:00:00");
+  return isNaN(d) ? s : d.toLocaleDateString("es-MX", { day: "numeric", month: "short" });
+};
+
 const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts, gddData: propGddData, setGddData: propSetGddData, mqlBreakdown, gddHistory, setGddHistory, gddLoading }) {
   const [alertGroupsExpanded, setAlertGroupsExpanded] = useState({});
   const [expandedPerson, setExpandedPerson] = useState(null);
   const [cargaSquad, setCargaSquad] = useState("all");
-  const [gddEditing, setGddEditing] = useState(false);
-  const GDD_KEY = "config:gdd-metrics";
+  const [mqlWeekIdx, setMqlWeekIdx] = useState(-1); // -1 = semana actual
+  const [expandedWeek, setExpandedWeek] = useState(null);
+  const [showAllWeeks, setShowAllWeeks] = useState(false);
 
-  // GDD data viene del hook useGDDData via props
   const gddData = propGddData;
-  const setGddData = propSetGddData || (() => {});
 
   if (!an) return null;
   const activeCount = (an.byPhase["🚧 Sprint"] || 0) + (an.byPhase["👀 Review"] || 0) + (an.byPhase["⚙️ Modificación"] || 0);
@@ -162,18 +151,22 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
   const stoppedSquads = SQUADS.filter((sq) => an.bySquad[sq.name]?.phases["🚫 Detenido"] > 0);
   const overdueCritical = (an.overdue || []).filter((it) => { const tl = parseTL(it.column_values?.timerange_mkzcqv0j); return tl.end && daysDiff(TODAY, tl.end) > 7; }).length;
 
-  const KPI = (label, val, color, sub, icon) => (
-    <div style={{ background: "var(--bg2)", border: "1px solid var(--bg4)", borderRadius: "var(--r)", padding: "16px 18px", flex: "1 1 120px", minWidth: 110, position: "relative", overflow: "hidden" }}>
-      {/* Accent glow top bar */}
-      <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: color, borderRadius: "var(--r) var(--r) 0 0" }} />
-      {/* Icon watermark */}
-      <div style={{ position: "absolute", top: 10, right: 14, fontSize: 22, opacity: 0.07, userSelect: "none" }}>{icon}</div>
-      <div style={{ fontSize: 10, color: "var(--tx3)", fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 10, fontFamily: "var(--mono)" }}>{label}</div>
-      <div style={{ fontFamily: "var(--mono)", fontSize: 42, fontWeight: 800, color, lineHeight: 1, letterSpacing: "-0.05em", marginBottom: 8 }}>{val}</div>
-      {sub && <div style={{ fontSize: 11, color: "var(--tx3)", lineHeight: 1.4, paddingTop: 8, borderTop: "1px solid var(--bg4)" }}>{sub}</div>}
-    </div>
-  );
+  // Derive MQL data based on selected week
+  const mqlData = (() => {
+    if (mqlWeekIdx === -1) return mqlBreakdown;
+    const entry = gddHistory?.[mqlWeekIdx];
+    if (!entry || !entry.por_origen || entry.por_origen.length === 0) return null;
+    return {
+      total: entry.por_origen.reduce((sum, o) => sum + o.count, 0),
+      por_origen: entry.por_origen,
+      breakdown_macro: entry.breakdown_macro || { inbound: 0, outbound: 0, unknown: 0 },
+    };
+  })();
 
+  // Weeks with por_origen data for the selector
+  const weeksWithBreakdown = (gddHistory || [])
+    .map((w, i) => ({ ...w, _idx: i }))
+    .filter(w => Array.isArray(w.por_origen) && w.por_origen.length > 0);
 
   return (
     <div className="fade">
@@ -197,38 +190,37 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
         </div>
       </div>
 
-      {/* GdD boxes — arriba de todo, como KPIs de generación de demanda */}
+      {/* GdD boxes — KPIs de generación de demanda */}
       {(() => {
         const d = gddData || { semana: {}, anterior: {}, ytd: {} };
         const metrics = ["leads", "mqls", "sqls", "opps"];
         const labels = { leads: "Leads", mqls: "MQLs", sqls: "SQLs", opps: "Opps" };
         const colors = { leads: "var(--blue)", mqls: "var(--purple)", sqls: "var(--green)", opps: "var(--yellow)" };
         const icons = { leads: "👤", mqls: "⭐", sqls: "🎯", opps: "💼" };
-        const updateField = (period, field, val) => setGddData((prev) => ({ ...prev, [period]: { ...(prev?.[period] || {}), [field]: val } }));
         const pctChange = (cur, prev) => (!prev || prev === 0) ? null : Math.round(((cur - prev) / prev) * 100);
+
+        // Source badge
+        const sourceBadge = (() => {
+          const src = gddData?.source;
+          if (src === "hubspot_live") return <span style={{ background: "rgba(52,199,89,.12)", border: "1px solid #34C759", color: "#34C759", borderRadius: 20, padding: "3px 10px", fontSize: 12, fontWeight: 700, letterSpacing: "0.02em", marginLeft: 6 }}>● LIVE</span>;
+          if (src === "sheets_api") return <span style={{ background: "rgba(255,159,10,.12)", border: "1px solid var(--yellow)", color: "var(--yellow)", borderRadius: 20, padding: "3px 10px", fontSize: 12, fontWeight: 700, letterSpacing: "0.02em", marginLeft: 6 }}>SHEETS</span>;
+          if (src === "empty" || !src) return <span style={{ fontSize: 9, color: "var(--red)", marginLeft: 6 }}>sin datos</span>;
+          return null;
+        })();
+
         return (
           <div style={{ marginBottom: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                📊 Generación de Demanda{gddData?.source === "sheets_api" ? <span style={{ background: "rgba(52,199,89,.12)", border: "1px solid #34C759", color: "#34C759", borderRadius: 20, padding: "3px 10px", fontSize: 12, fontWeight: 700, letterSpacing: "0.02em", marginLeft: 6 }}>● LIVE</span> : gddData?.source === "empty" ? <span style={{ fontSize: 9, color: "var(--yellow)", marginLeft: 6 }}>sin datos</span> : gddData?.source === "fallback" ? <span style={{ fontSize: 9, color: "var(--red)", marginLeft: 6 }}>⚠ sin conexión</span> : null}
+                📊 Generación de Demanda{sourceBadge}
                 {gddData?.fechas?.semana_desde && (() => {
-                  const fD = (s) => { if (!s) return ""; const d = new Date(s + "T12:00:00"); return isNaN(d) ? s : d.toLocaleDateString("es-MX",{day:"numeric",month:"short"}); };
-                  return <span style={{ fontWeight: 400, marginLeft: 6, color: "var(--tx3)", fontSize: 11 }}>{fD(gddData.fechas.semana_desde)}{gddData.fechas.semana_hasta ? " – " + fD(gddData.fechas.semana_hasta) : ""}</span>;
+                  return <span style={{ fontWeight: 400, marginLeft: 6, color: "var(--tx3)", fontSize: 11 }}>{fmtDate(gddData.fechas.semana_desde)}{gddData.fechas.semana_hasta ? " – " + fmtDate(gddData.fechas.semana_hasta) : ""}</span>;
                 })()}
               </span>
-              <button onClick={() => {
-                if (gddEditing) {
-                  const toSave = { ...gddData, lastUpdate: new Date().toLocaleDateString("es-MX", { day: "numeric", month: "short", year: "numeric" }) };
-                  setGddData(toSave); storeSet(GDD_KEY, toSave);
-                }
-                setGddEditing(!gddEditing);
-              }} style={{ background: gddEditing ? "var(--blue)" : "transparent", color: gddEditing ? "#fff" : "var(--tx3)", border: gddEditing ? "none" : "1px solid var(--bg4)", borderRadius: 6, padding: "3px 10px", fontSize: 10, fontWeight: 600, cursor: "pointer" }}>
-                {gddEditing ? "💾 Guardar" : "✏️ Editar"}
-              </button>
             </div>
             <div className="kpi-grid-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 4 }}>
               {metrics.map((m) => {
-                const cur = d.semana?.[m] || 0, prev = d.anterior?.[m] || 0, ytd = d.ytd?.[m] || 0;
+                const cur = d.semana?.[m] || 0, prev = d.anterior?.[m] || 0;
                 const pct = pctChange(cur, prev);
                 const col = colors[m];
                 const mesVal = (gddData?.mes || {})[m] || 0;
@@ -237,24 +229,16 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
                     <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: col }} />
                     <div style={{ position: "absolute", top: 8, right: 10, fontSize: 18, opacity: 0.06 }}>{icons[m]}</div>
                     <div style={{ fontSize: 10, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>{labels[m]}</div>
-                    {gddEditing
-                      ? <NumInput initial={cur} onCommit={(v) => updateField("semana", m, v)} />
-                      : <div style={{ fontFamily: "var(--mono)", fontSize: 32, fontWeight: 800, color: "var(--tx)", lineHeight: 1, letterSpacing: "-0.04em" }}>{cur.toLocaleString()}</div>}
-                    {!gddEditing && pct !== null && (
+                    <div style={{ fontFamily: "var(--mono)", fontSize: 32, fontWeight: 800, color: "var(--tx)", lineHeight: 1, letterSpacing: "-0.04em" }}>{cur.toLocaleString()}</div>
+                    {pct !== null && (
                       <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6, paddingTop: 6, borderTop: "1px solid var(--bg4)" }}>
                         <span style={{ fontSize: 11, fontWeight: 700, color: pct >= 0 ? "var(--green)" : "var(--red)" }}>{pct >= 0 ? "▲" : "▼"}{Math.abs(pct)}%</span>
                         <span style={{ fontSize: 10, color: "var(--tx3)" }}>vs sem. ant.</span>
                       </div>
                     )}
-                    {!gddEditing && mesVal > 0 && (
+                    {mesVal > 0 && (
                       <div style={{ marginTop: 5, paddingTop: 4, borderTop: "1px solid var(--bg4)", fontSize: 10, color: "var(--tx3)" }}>
                         <span style={{ color: "var(--tx2)", fontWeight: 700, fontFamily: "var(--mono)" }}>{mesVal.toLocaleString()}</span> acum. mes
-                      </div>
-                    )}
-                    {gddEditing && (
-                      <div style={{ marginTop: 6, paddingTop: 6, borderTop: "1px solid var(--bg4)" }}>
-                        <div style={{ fontSize: 9, color: "var(--tx3)", marginBottom: 2 }}>Ant: <NumInput initial={prev} onCommit={(v) => updateField("anterior", m, v)} style={{ width: 48, fontSize: 10, padding: "1px 4px" }} /></div>
-                        <div style={{ fontSize: 9, color: "var(--tx3)" }}>YTD: <NumInput initial={ytd} onCommit={(v) => updateField("ytd", m, v)} style={{ width: 48, fontSize: 10, padding: "1px 4px" }} /></div>
                       </div>
                     )}
                   </div>
@@ -266,7 +250,7 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
         );
       })()}
 
-      {/* MQLs por Canal — desglose desde HubSpot */}
+      {/* MQLs por Canal — con selector de semana */}
       {(() => {
         if (gddLoading) {
           return (
@@ -278,8 +262,8 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
             </Card>
           );
         }
-        if (!mqlBreakdown || !mqlBreakdown.por_origen || mqlBreakdown.por_origen.length === 0) return null;
-        const { total, por_origen, breakdown_macro } = mqlBreakdown;
+        if (!mqlData || !mqlData.por_origen || mqlData.por_origen.length === 0) return null;
+        const { total, por_origen, breakdown_macro } = mqlData;
         const inb = breakdown_macro?.inbound || 0;
         const outb = breakdown_macro?.outbound || 0;
         const unk = breakdown_macro?.unknown || 0;
@@ -287,13 +271,36 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
         const maxCount = por_origen[0]?.count || 1;
         const showMax = 8;
         const needsMore = por_origen.length > showMax;
+
+        // Selected week label
+        const selectedLabel = mqlWeekIdx === -1
+          ? "Semana actual"
+          : `${fmtDate(gddHistory[mqlWeekIdx]?.semana_desde)} – ${fmtDate(gddHistory[mqlWeekIdx]?.semana_hasta || gddHistory[mqlWeekIdx]?.semana_desde)}`;
+
         return (
           <Card style={{ marginBottom: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
                 📊 MQLs por Canal
               </span>
-              <span style={{ fontFamily: "var(--mono)", fontSize: 18, fontWeight: 800, color: "var(--purple)" }}>{total}</span>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                {/* Week selector */}
+                {weeksWithBreakdown.length > 0 && (
+                  <select
+                    value={mqlWeekIdx}
+                    onChange={e => setMqlWeekIdx(Number(e.target.value))}
+                    style={{ fontSize: 10, padding: "3px 6px", borderRadius: 4, border: "1px solid var(--bg4)", background: "var(--bg2)", color: "var(--tx2)", cursor: "pointer", fontFamily: "var(--mono)" }}
+                  >
+                    <option value={-1}>Semana actual</option>
+                    {weeksWithBreakdown.map(w => (
+                      <option key={w._idx} value={w._idx}>
+                        {fmtDate(w.semana_desde)} – {fmtDate(w.semana_hasta || w.semana_desde)}
+                      </option>
+                    ))}
+                  </select>
+                )}
+                <span style={{ fontFamily: "var(--mono)", fontSize: 18, fontWeight: 800, color: "var(--purple)" }}>{total}</span>
+              </div>
             </div>
             {/* Barra macro Inbound / Outbound */}
             <div style={{ marginBottom: 12 }}>
@@ -325,17 +332,14 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
         );
       })()}
 
-      {/* Tendencia Semanal GDD */}
+      {/* Tendencia Semanal GDD — filas expandibles */}
       {(() => {
         if (gddLoading || !gddHistory || gddHistory.length === 0) return null;
-        const weeks = gddHistory.slice(0, 6);
+        const maxVisible = showAllWeeks ? gddHistory.length : 12;
+        const weeks = gddHistory.slice(0, maxVisible);
+        const hasMore = gddHistory.length > 12;
         const metrics = ["leads", "mqls", "sqls", "opps"];
         const labels = { leads: "Leads", mqls: "MQLs", sqls: "SQLs", opps: "Opps" };
-        const fmtDate = (s) => {
-          if (!s) return "";
-          const d = new Date(s + "T12:00:00");
-          return isNaN(d) ? s : d.toLocaleDateString("es-MX", { day: "numeric", month: "short" });
-        };
         const arrow = (cur, prev) => {
           if (prev === undefined || prev === null) return null;
           if (cur > prev) return { symbol: "▲", color: "var(--green)" };
@@ -361,27 +365,74 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
                   {weeks.map((w, i) => {
                     const isFirst = i === 0;
                     const prev = weeks[i + 1];
+                    const isExpanded = expandedWeek === (w.id || i);
+                    const hasPorOrigen = Array.isArray(w.por_origen) && w.por_origen.length > 0;
                     return (
-                      <tr key={w.id || i} style={{ background: isFirst ? "rgba(0,122,255,.06)" : "transparent" }}>
-                        <td style={{ padding: "6px 8px", fontSize: 11, color: isFirst ? "var(--blue)" : "var(--tx2)", fontWeight: isFirst ? 700 : 400, borderBottom: "1px solid var(--bg4)", whiteSpace: "nowrap" }}>
-                          {fmtDate(w.semana_desde)}{isFirst && <span style={{ fontSize: 9, marginLeft: 4, color: "var(--blue)", fontWeight: 700 }}>actual</span>}
-                        </td>
-                        {metrics.map(m => {
-                          const val = w[m] || 0;
-                          const a = prev ? arrow(val, prev[m] || 0) : null;
-                          return (
-                            <td key={m} style={{ textAlign: "right", padding: "6px 8px", borderBottom: "1px solid var(--bg4)", fontWeight: isFirst ? 700 : 400, color: isFirst ? "var(--tx)" : "var(--tx2)" }}>
-                              {val.toLocaleString()}
-                              {a && <span style={{ fontSize: 9, marginLeft: 3, color: a.color, fontWeight: 700 }}>{a.symbol}</span>}
+                      <React.Fragment key={w.id || i}>
+                        <tr
+                          onClick={() => hasPorOrigen && setExpandedWeek(isExpanded ? null : (w.id || i))}
+                          style={{
+                            background: isFirst ? "rgba(0,122,255,.06)" : "transparent",
+                            cursor: hasPorOrigen ? "pointer" : "default",
+                            transition: "background .15s",
+                          }}
+                          onMouseEnter={e => { if (hasPorOrigen && !isFirst) e.currentTarget.style.background = "var(--bg3)" }}
+                          onMouseLeave={e => { if (!isFirst) e.currentTarget.style.background = "transparent" }}
+                        >
+                          <td style={{ padding: "6px 8px", fontSize: 11, color: isFirst ? "var(--blue)" : "var(--tx2)", fontWeight: isFirst ? 700 : 400, borderBottom: isExpanded ? "none" : "1px solid var(--bg4)", whiteSpace: "nowrap" }}>
+                            {hasPorOrigen && <span style={{ fontSize: 8, marginRight: 4, color: "var(--tx3)", display: "inline-block", transform: isExpanded ? "rotate(90deg)" : "none", transition: "transform .2s" }}>▶</span>}
+                            {fmtDate(w.semana_desde)}
+                            {isFirst && <span style={{ fontSize: 9, marginLeft: 4, color: "var(--blue)", fontWeight: 700 }}>actual</span>}
+                          </td>
+                          {metrics.map(m => {
+                            const val = w[m] || 0;
+                            const a = prev ? arrow(val, prev[m] || 0) : null;
+                            return (
+                              <td key={m} style={{ textAlign: "right", padding: "6px 8px", borderBottom: isExpanded ? "none" : "1px solid var(--bg4)", fontWeight: isFirst ? 700 : 400, color: isFirst ? "var(--tx)" : "var(--tx2)" }}>
+                                {val.toLocaleString()}
+                                {a && <span style={{ fontSize: 9, marginLeft: 3, color: a.color, fontWeight: 700 }}>{a.symbol}</span>}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                        {/* Expanded breakdown for this week */}
+                        {isExpanded && hasPorOrigen && (
+                          <tr>
+                            <td colSpan={5} style={{ padding: "0 8px 8px 24px", borderBottom: "1px solid var(--bg4)" }}>
+                              <div style={{ display: "flex", gap: 12, marginBottom: 6, fontSize: 10, color: "var(--tx3)" }}>
+                                {w.breakdown_macro && (
+                                  <>
+                                    <span><span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 2, background: "var(--green)", marginRight: 3, verticalAlign: "middle" }} />Inbound: {w.breakdown_macro.inbound || 0}</span>
+                                    <span><span style={{ display: "inline-block", width: 6, height: 6, borderRadius: 2, background: "var(--blue)", marginRight: 3, verticalAlign: "middle" }} />Outbound: {w.breakdown_macro.outbound || 0}</span>
+                                  </>
+                                )}
+                              </div>
+                              <MqlChannelList
+                                channels={w.por_origen}
+                                maxCount={w.por_origen[0]?.count || 1}
+                                showMax={5}
+                                needsMore={w.por_origen.length > 5}
+                                compact
+                              />
                             </td>
-                          );
-                        })}
-                      </tr>
+                          </tr>
+                        )}
+                      </React.Fragment>
                     );
                   })}
                 </tbody>
               </table>
             </div>
+            {hasMore && !showAllWeeks && (
+              <button onClick={() => setShowAllWeeks(true)} style={{ fontSize: 10, color: "var(--blue)", background: "none", border: "none", cursor: "pointer", fontWeight: 600, marginTop: 8, padding: 0 }}>
+                +{gddHistory.length - 12} semanas más ↓
+              </button>
+            )}
+            {showAllWeeks && hasMore && (
+              <button onClick={() => setShowAllWeeks(false)} style={{ fontSize: 10, color: "var(--blue)", background: "none", border: "none", cursor: "pointer", fontWeight: 600, marginTop: 8, padding: 0 }}>
+                Ver menos ↑
+              </button>
+            )}
           </Card>
         );
       })()}
@@ -396,7 +447,6 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
 
       {/* KPIs operativos con comparativos */}
       {(() => {
-        // Done este mes = items Done con Fecha Entrega Real en el mes actual
         const thisMonthStart = new Date(TODAY.getFullYear(), TODAY.getMonth(), 1);
         const doneThisMonth = items.filter(it => {
           const fer = it.column_values?.date_mkzchmsq;
@@ -405,8 +455,6 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
           return d >= thisMonthStart && d <= TODAY;
         }).length;
 
-        // % vs sem anterior para activos: comparar activeWeek con byPhaseWeek de prev semana
-        // No tenemos datos históricos de phases por semana, pero sí tenemos overdue y stoppedWeek
         const overdueCount = (an.overdue || []).length;
         const detCount = an.byPhase["🚫 Detenido"] || 0;
         const doneCount = (an.doneLastWeek || []).length;
@@ -426,38 +474,10 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
 
         return (
           <div className="kpi-grid-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 16 }}>
-            {KPIop(
-              "Esta semana",
-              activeWeek,
-              "var(--blue)",
-              `${activeCount} activos total`,
-              `${activeCount - activeWeek} fuera de semana`,
-              "⚡"
-            )}
-            {KPIop(
-              "Vencidos",
-              overdueCount,
-              overdueCount > 0 ? "var(--red)" : "var(--green)",
-              overdueCount > 0 ? `${overdueCritical} con más de 7 días` : "Al día ✓",
-              `${(an.backlogWithDates||[]).length} en backlog con fecha`,
-              "⏰"
-            )}
-            {KPIop(
-              "Detenidos",
-              detCount,
-              detCount > 0 ? "var(--yellow)" : "var(--green)",
-              detCount > 0 ? `${(an.stoppedWeek||[]).length} con fecha esta semana` : "Sin bloqueos ✓",
-              `${(an.noResp||[]).length} sin responsable`,
-              "🚫"
-            )}
-            {KPIop(
-              "Done sem.",
-              doneCount,
-              doneCount > 0 ? "var(--green)" : "var(--tx3)",
-              `${PREV_WEEK.start.toLocaleDateString("es-MX",{day:"numeric",month:"short"})} – ${PREV_WEEK.end.toLocaleDateString("es-MX",{day:"numeric",month:"short"})}`,
-              `${doneThisMonth} este mes · ${an.doneTotal||0} total`,
-              "✅"
-            )}
+            {KPIop("Esta semana", activeWeek, "var(--blue)", `${activeCount} activos total`, `${activeCount - activeWeek} fuera de semana`, "⚡")}
+            {KPIop("Vencidos", overdueCount, overdueCount > 0 ? "var(--red)" : "var(--green)", overdueCount > 0 ? `${overdueCritical} con más de 7 días` : "Al día ✓", `${(an.backlogWithDates||[]).length} en backlog con fecha`, "⏰")}
+            {KPIop("Detenidos", detCount, detCount > 0 ? "var(--yellow)" : "var(--green)", detCount > 0 ? `${(an.stoppedWeek||[]).length} con fecha esta semana` : "Sin bloqueos ✓", `${(an.noResp||[]).length} sin responsable`, "🚫")}
+            {KPIop("Done sem.", doneCount, doneCount > 0 ? "var(--green)" : "var(--tx3)", `${PREV_WEEK.start.toLocaleDateString("es-MX",{day:"numeric",month:"short"})} – ${PREV_WEEK.end.toLocaleDateString("es-MX",{day:"numeric",month:"short"})}`, `${doneThisMonth} este mes · ${an.doneTotal||0} total`, "✅")}
           </div>
         );
       })()}
