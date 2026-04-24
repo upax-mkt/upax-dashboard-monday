@@ -33,61 +33,44 @@ async function upstashSet(key, value, ttlSeconds) {
   } catch (e) { console.error('Cache set error:', e.message) }
 }
 
-// --- HubSpot generic paginated search ---
-async function hubspotSearchAll(token, objectType, filters, properties, sortField) {
-  const results = []
-  let after = undefined
-  const MAX_PAGES = 20
-
-  for (let page = 0; page < MAX_PAGES; page++) {
-    const body = {
-      filterGroups: [{ filters }],
-      properties,
-      limit: 100,
-    }
-    if (sortField) body.sorts = [{ propertyName: sortField, direction: 'DESCENDING' }]
-    if (after) body.after = after
-
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), 8000)
-    let res
-    try {
-      res = await fetch(`https://api.hubapi.com/crm/v3/objects/${objectType}/search`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-        body: JSON.stringify(body),
-        cache: 'no-store',
-        signal: controller.signal,
-      })
-    } catch (fetchErr) {
-      clearTimeout(timer)
-      if (fetchErr.name === 'AbortError') throw new Error(`HubSpot ${objectType} timeout (8s)`)
-      throw fetchErr
-    }
-    clearTimeout(timer)
-
-    if (!res.ok) {
-      const text = await res.text()
-      throw new Error(`HS ${objectType} ${res.status}: ${text.slice(0, 120)}`)
-    }
-
-    const data = await res.json()
-    results.push(...(data.results || []))
-
-    if (data.paging?.next?.after) {
-      after = data.paging.next.after
-    } else {
-      break
-    }
+// --- HubSpot count-only search (single request, no pagination) ---
+async function hubspotCount(token, objectType, filters) {
+  const body = {
+    filterGroups: [{ filters }],
+    properties: [],
+    limit: 1,
   }
 
-  return results
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), 10000)
+  let res
+  try {
+    res = await fetch(`https://api.hubapi.com/crm/v3/objects/${objectType}/search`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+      cache: 'no-store',
+      signal: controller.signal,
+    })
+  } catch (fetchErr) {
+    clearTimeout(timer)
+    if (fetchErr.name === 'AbortError') throw new Error(`HS ${objectType} timeout`)
+    throw fetchErr
+  }
+  clearTimeout(timer)
+
+  if (!res.ok) {
+    const text = await res.text()
+    throw new Error(`HS ${objectType} ${res.status}: ${text.slice(0, 120)}`)
+  }
+
+  const data = await res.json()
+  return data.total || 0
 }
 
 // --- Date range calculation (Mexico City timezone) ---
 function getDateRanges() {
   const now = new Date()
-  // Approximate Mexico City offset (UTC-6 standard, UTC-5 DST)
   const mxOffset = -6 * 60
   const localOffset = now.getTimezoneOffset()
   const mxNow = new Date(now.getTime() + (localOffset + mxOffset) * 60000)
@@ -95,8 +78,7 @@ function getDateRanges() {
   const year = mxNow.getFullYear()
   const month = mxNow.getMonth()
 
-  // ISO week: Monday to Sunday
-  const dayOfWeek = mxNow.getDay() || 7 // Sunday = 7
+  const dayOfWeek = mxNow.getDay() || 7
   const monday = new Date(mxNow)
   monday.setDate(mxNow.getDate() - (dayOfWeek - 1))
   monday.setHours(0, 0, 0, 0)
@@ -135,21 +117,6 @@ function getDateRanges() {
   }
 }
 
-// Filter results by date range using a date property
-function filterByRange(results, dateField, desde, hasta) {
-  const desdeMs = desde.getTime()
-  const hastaMs = hasta.getTime()
-  return results.filter(r => {
-    const val = r.properties?.[dateField]
-    if (!val) return false
-    const ms = new Date(val).getTime()
-    return ms >= desdeMs && ms <= hastaMs
-  })
-}
-
-// Excluded UDNs
-const EXCLUDED_UDNS = new Set(['', 'Interno', 'CF'])
-
 export async function GET(request) {
   const authErr = validateAuth(request)
   if (authErr) return authErr
@@ -173,62 +140,102 @@ export async function GET(request) {
     }
   }
 
-  try {
-    // YTD range for all queries
-    const ytdDesdeMs = String(ranges.ytd.desde.getTime())
-    const ytdHastaMs = String(ranges.ytd.hasta.getTime())
+  // Build date range filters for each period
+  const periods = {
+    semana:   { desde: ranges.semana.desde,   hasta: ranges.semana.hasta },
+    anterior: { desde: ranges.anterior.desde, hasta: ranges.anterior.hasta },
+    mes:      { desde: ranges.mes.desde,      hasta: ranges.mes.hasta },
+    ytd:      { desde: ranges.ytd.desde,      hasta: ranges.ytd.hasta },
+  }
 
-    // 4 queries in parallel — allSettled so one failure doesn't kill the rest
-    const [leadsResult, mqlsResult, sqlsResult, oppsResult] = await Promise.allSettled([
-      // LEADS: contacts with fecha_lead
-      hubspotSearchAll(hsToken, 'contacts', [
-        { propertyName: 'fecha_lead', operator: 'GTE', value: ytdDesdeMs },
-        { propertyName: 'fecha_lead', operator: 'LTE', value: ytdHastaMs },
-      ], ['fecha_lead', 'udn'], 'fecha_lead'),
-
-      // MQLs: contacts with fecha_mql + lifecyclestage
-      hubspotSearchAll(hsToken, 'contacts', [
+  // Metric definitions: each has base filters + date field + object type
+  const metricDefs = {
+    leads: {
+      objectType: 'contacts',
+      dateField: 'fecha_lead',
+      baseFilters: [
+        { propertyName: 'udn', operator: 'HAS_PROPERTY' },
+        { propertyName: 'udn', operator: 'NEQ', value: 'Interno' },
+        { propertyName: 'udn', operator: 'NEQ', value: 'CF' },
+      ],
+    },
+    mqls: {
+      objectType: 'contacts',
+      dateField: 'fecha_mql',
+      baseFilters: [
         { propertyName: 'lifecyclestage', operator: 'EQ', value: 'marketingqualifiedlead' },
-        { propertyName: 'fecha_mql', operator: 'GTE', value: ytdDesdeMs },
-        { propertyName: 'fecha_mql', operator: 'LTE', value: ytdHastaMs },
-      ], ['fecha_mql'], 'fecha_mql'),
-
-      // SQLs: meetings (Credenciales + COMPLETED)
-      hubspotSearchAll(hsToken, 'meetings', [
+      ],
+    },
+    sqls: {
+      objectType: 'meetings',
+      dateField: 'hs_timestamp',
+      baseFilters: [
         { propertyName: 'hs_activity_type', operator: 'EQ', value: 'Credenciales' },
         { propertyName: 'hs_meeting_outcome', operator: 'EQ', value: 'COMPLETED' },
-        { propertyName: 'hs_timestamp', operator: 'GTE', value: ytdDesdeMs },
-        { propertyName: 'hs_timestamp', operator: 'LTE', value: ytdHastaMs },
-      ], ['hs_timestamp', 'udn', 'contactos_asociados', 'hs_activity_type', 'hs_meeting_outcome'], 'hs_timestamp'),
-
-      // OPPs: deals (Venta Externa + pipeline UDNs)
-      hubspotSearchAll(hsToken, 'deals', [
+        { propertyName: 'contactos_asociados', operator: 'EQ', value: '1' },
+      ],
+    },
+    opps: {
+      objectType: 'deals',
+      dateField: 'createdate',
+      baseFilters: [
         { propertyName: 'tipo_de_venta', operator: 'EQ', value: 'Venta Externa' },
-        { propertyName: 'createdate', operator: 'GTE', value: ytdDesdeMs },
-        { propertyName: 'createdate', operator: 'LTE', value: ytdHastaMs },
         { propertyName: 'pipeline', operator: 'IN', values: [
           '646364160', '31468827', '79805840', '53534318',
           '53534328', '53652407', '31419220', '646793827',
         ]},
-      ], ['createdate', 'pipeline', 'amount', 'dealstage'], 'createdate'),
-    ])
+      ],
+    },
+  }
 
-    // Extract results — default to empty array on failure
-    const leadsRaw = leadsResult.status === 'fulfilled' ? leadsResult.value : []
-    const mqlsRaw = mqlsResult.status === 'fulfilled' ? mqlsResult.value : []
-    const sqlsRaw = sqlsResult.status === 'fulfilled' ? sqlsResult.value : []
-    const oppsRaw = oppsResult.status === 'fulfilled' ? oppsResult.value : []
+  const metrics = ['leads', 'mqls', 'sqls', 'opps']
+  const periodNames = ['semana', 'anterior', 'mes', 'ytd']
 
-    // Track per-query errors for diagnostics
+  try {
+    // Build all 16 count queries (4 metrics × 4 periods)
+    const queries = []
+    for (const metric of metrics) {
+      const def = metricDefs[metric]
+      for (const period of periodNames) {
+        const { desde, hasta } = periods[period]
+        const dateFilters = [
+          { propertyName: def.dateField, operator: 'GTE', value: String(desde.getTime()) },
+          { propertyName: def.dateField, operator: 'LTE', value: String(hasta.getTime()) },
+        ]
+        queries.push({
+          metric,
+          period,
+          promise: hubspotCount(hsToken, def.objectType, [...def.baseFilters, ...dateFilters]),
+        })
+      }
+    }
+
+    // Run all queries with allSettled — max 16 simple requests (no pagination)
+    const results = await Promise.allSettled(queries.map(q => q.promise))
+
+    // Collect results and errors
+    const counts = { semana: {}, anterior: {}, mes: {}, ytd: {} }
     const errors = []
-    if (leadsResult.status === 'rejected') errors.push(`leads: ${leadsResult.reason?.message || leadsResult.reason}`)
-    if (mqlsResult.status === 'rejected') errors.push(`mqls: ${mqlsResult.reason?.message || mqlsResult.reason}`)
-    if (sqlsResult.status === 'rejected') errors.push(`sqls: ${sqlsResult.reason?.message || sqlsResult.reason}`)
-    if (oppsResult.status === 'rejected') errors.push(`opps: ${oppsResult.reason?.message || oppsResult.reason}`)
+
+    results.forEach((r, i) => {
+      const { metric, period } = queries[i]
+      if (r.status === 'fulfilled') {
+        counts[period][metric] = r.value
+      } else {
+        counts[period][metric] = 0
+        const errMsg = `${metric}/${period}: ${r.reason?.message || r.reason}`
+        // Only log unique metric errors (not all 4 periods of same failure)
+        if (!errors.some(e => e.startsWith(`${metric}/`))) {
+          errors.push(errMsg)
+        }
+      }
+    })
+
     errors.forEach(e => console.error('GDD query error:', e))
 
-    // If ALL 4 failed, return 503
-    if (errors.length === 4) {
+    // Check if ALL metrics failed (all 16 queries)
+    const allFailed = results.every(r => r.status === 'rejected')
+    if (allFailed) {
       return NextResponse.json({
         error: 'All HubSpot queries failed',
         errors,
@@ -236,69 +243,18 @@ export async function GET(request) {
       }, { status: 503 })
     }
 
-    // Post-filter: Leads exclude bad UDNs
-    const leads = leadsRaw.filter(c => {
-      const udn = (c.properties?.udn || '').trim()
-      return !EXCLUDED_UDNS.has(udn)
-    })
-
-    // Post-filter: SQLs must have valid UDN + exactly 1 associated contact
-    const sqls = sqlsRaw.filter(m => {
-      const props = m.properties || {}
-      const udn = (props.udn || '').trim()
-      return !EXCLUDED_UDNS.has(udn) && props.contactos_asociados === '1'
-    })
-
-    // MQLs and OPPs need no post-filtering
-    const mqls = mqlsRaw
-    const opps = oppsRaw
-
-    // Count by period
-    const countByPeriod = (items, dateField) => {
-      const semana   = filterByRange(items, dateField, ranges.semana.desde, ranges.semana.hasta).length
-      const anterior = filterByRange(items, dateField, ranges.anterior.desde, ranges.anterior.hasta).length
-      const mes      = filterByRange(items, dateField, ranges.mes.desde, ranges.mes.hasta).length
-      const ytd      = items.length // already filtered to YTD
-      return { semana, anterior, mes, ytd }
-    }
-
-    const leadsCount = countByPeriod(leads, 'fecha_lead')
-    const mqlsCount  = countByPeriod(mqls, 'fecha_mql')
-    const sqlsCount  = countByPeriod(sqls, 'hs_timestamp')
-    const oppsCount  = countByPeriod(opps, 'createdate')
-
     const result = {
-      semana: {
-        leads: leadsCount.semana,
-        mqls:  mqlsCount.semana,
-        sqls:  sqlsCount.semana,
-        opps:  oppsCount.semana,
-      },
-      anterior: {
-        leads: leadsCount.anterior,
-        mqls:  mqlsCount.anterior,
-        sqls:  sqlsCount.anterior,
-        opps:  oppsCount.anterior,
-      },
-      mes: {
-        leads: leadsCount.mes,
-        mqls:  mqlsCount.mes,
-        sqls:  sqlsCount.mes,
-        opps:  oppsCount.mes,
-      },
-      ytd: {
-        leads: leadsCount.ytd,
-        mqls:  mqlsCount.ytd,
-        sqls:  sqlsCount.ytd,
-        opps:  oppsCount.ytd,
-      },
-      fechas: ranges.formatted,
-      source: errors.length > 0 ? 'hubspot_partial' : 'hubspot_live',
-      errors: errors.length > 0 ? errors : undefined,
+      semana:   counts.semana,
+      anterior: counts.anterior,
+      mes:      counts.mes,
+      ytd:      counts.ytd,
+      fechas:   ranges.formatted,
+      source:   errors.length > 0 ? 'hubspot_partial' : 'hubspot_live',
+      errors:   errors.length > 0 ? errors : undefined,
       lastUpdate: new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }),
     }
 
-    // Only cache if all queries succeeded (don't cache partial data)
+    // Only cache if all queries succeeded
     if (errors.length === 0) {
       await upstashSet(cacheKey, result, 900)
     }
