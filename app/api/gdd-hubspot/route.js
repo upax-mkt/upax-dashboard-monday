@@ -197,7 +197,7 @@ export async function GET(request) {
     const errors = []
 
     for (let mi = 0; mi < metrics.length; mi++) {
-      if (mi > 0) await new Promise(r => setTimeout(r, 300))
+      if (mi > 0) await new Promise(r => setTimeout(r, 1100))
       const metric = metrics[mi]
       const def = metricDefs[metric]
       const batch = periodNames.map(period => {
