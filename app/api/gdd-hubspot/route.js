@@ -68,7 +68,7 @@ async function hubspotSearchAll(token, objectType, filters, properties, sortFiel
 
     if (!res.ok) {
       const text = await res.text()
-      throw new Error(`HubSpot ${objectType} ${res.status}: ${text.slice(0, 300)}`)
+      throw new Error(`HS ${objectType} ${res.status}: ${text.slice(0, 120)}`)
     }
 
     const data = await res.json()
