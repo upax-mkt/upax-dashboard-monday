@@ -196,7 +196,9 @@ export async function GET(request) {
     const counts = { semana: {}, anterior: {}, mes: {}, ytd: {} }
     const errors = []
 
-    for (const metric of metrics) {
+    for (let mi = 0; mi < metrics.length; mi++) {
+      if (mi > 0) await new Promise(r => setTimeout(r, 300))
+      const metric = metrics[mi]
       const def = metricDefs[metric]
       const batch = periodNames.map(period => {
         const { desde, hasta } = periods[period]
