@@ -395,7 +395,7 @@ export default function App() {
         {/* Header */}
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 20, flexWrap: "wrap", gap: 10 }}>
           <div>
-            <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0, letterSpacing: "-0.04em", lineHeight: 1.2 }}>
+            <h1 style={{ fontSize: "clamp(18px, 4.5vw, 22px)", fontWeight: 700, margin: 0, letterSpacing: "-0.04em", lineHeight: 1.2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
               ⚡ Weekly <span style={{ color: "var(--tx3)", fontWeight: 500 }}>Mkt Corp</span>
             </h1>
             <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 6, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>

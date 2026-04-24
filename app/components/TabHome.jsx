@@ -137,6 +137,7 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
   const [alertGroupsExpanded, setAlertGroupsExpanded] = useState({});
   const [expandedPerson, setExpandedPerson] = useState(null);
   const [cargaSquad, setCargaSquad] = useState("all");
+  const [showAllCarga, setShowAllCarga] = useState(false);
   const [mqlWeekIdx, setMqlWeekIdx] = useState(-1); // -1 = semana actual
   const [expandedWeek, setExpandedWeek] = useState(null);
   const [showAllWeeks, setShowAllWeeks] = useState(false);
@@ -171,11 +172,16 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
   return (
     <div className="fade">
       {elapsed === 0 && (
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12, padding: "32px 0 36px" }}>
-          <button onClick={onStart} style={{ background: "linear-gradient(135deg,#34C759,#30B350)", color: "#fff", border: "none", borderRadius: "var(--r-sm)", padding: "12px 36px", fontSize: 14, fontWeight: 700, cursor: "pointer", fontFamily: "var(--sans)", boxShadow: "0 2px 8px rgba(52,199,89,.25)" }}>
-            ▶  Iniciar Weekly
+        <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 100 }}>
+          <button onClick={onStart} style={{
+            background: "linear-gradient(135deg,#34C759,#30B350)",
+            color: "#fff", border: "none", borderRadius: 28,
+            padding: "14px 28px", fontSize: 13, fontWeight: 700,
+            cursor: "pointer", fontFamily: "var(--sans)",
+            boxShadow: "0 4px 16px rgba(52,199,89,.35)"
+          }}>
+            ▶ Iniciar Weekly
           </button>
-          <div style={{ fontSize: 14, color: "var(--tx3)", marginTop: 14 }}>{TODAY.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}</div>
         </div>
       )}
 
@@ -189,6 +195,46 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
           <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>{activeWeek} en sprint esta semana · {(an.velocity || {}).done || 0} completados sem. anterior · {(an.velocity || {}).overdue || 0} vencidos</div>
         </div>
       </div>
+
+      {/* Alertas compactas */}
+      {(() => {
+        const alertGroups = [
+          { items: [...(an.overdue || [])].sort((a, b) => (parseTL(a.column_values?.timerange_mkzcqv0j).end || TODAY) - (parseTL(b.column_values?.timerange_mkzcqv0j).end || TODAY)), icon: "🔴", label: "Vencidos", color: "var(--red)", extra: (it) => { const d = parseTL(it.column_values?.timerange_mkzcqv0j).end ? daysDiff(TODAY, parseTL(it.column_values?.timerange_mkzcqv0j).end) : 0; return <span style={{ fontFamily: "var(--mono)", color: "var(--red)", fontWeight: 700, fontSize: 10, minWidth: 28 }}>-{d}d</span>; } },
+          { items: an.stoppedWeek || [], icon: "🚫", label: "Detenidos", color: "var(--red)" },
+          { items: an.noCrono || [], icon: "📅", label: "Sin Fecha", color: "var(--yellow)" },
+          { items: an.backlogWithDates || [], icon: "⚠️", label: "Backlog c/fecha", color: "var(--yellow)" },
+        ].filter((g) => g.items.length > 0);
+        if (alertGroups.length === 0) return <Card style={{ textAlign: "center", padding: 24, marginBottom: 12 }}><div style={{ fontSize: 28, marginBottom: 4 }}>✅</div><div style={{ color: "var(--green)", fontSize: 14, fontWeight: 600 }}>Sin alertas críticas</div></Card>;
+        return (
+          <Card style={{ marginBottom: 12 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
+              <span style={{ fontSize: 14, fontWeight: 700 }}>⚡ Alertas Ejecutivas</span>
+              <button onClick={onViewAlerts} style={{ background: "var(--bg3)", color: "var(--blue)", border: "none", borderRadius: "var(--r-sm)", padding: "4px 12px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Ver alertas →</button>
+            </div>
+            {alertGroups.map((g, gi) => (
+              <div key={gi} style={{ marginBottom: gi < alertGroups.length - 1 ? 10 : 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                  <span style={{ fontSize: 12 }}>{g.icon}</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: g.color }}>{g.label}</span>
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 14, fontWeight: 700, color: g.color }}>{g.items.length}</span>
+                </div>
+                {(alertGroupsExpanded[(["overdue","stopped","noCrono","backlog","noResp"][gi] || gi)] ? g.items : g.items.slice(0, 4)).map((it) => {
+                  const sq = SQUADS.find((s) => s.name === normalizeSquad(it.column_values?.color_mkz0s203));
+                  return (
+                    <div key={it.id} style={{ display: "flex", gap: 5, alignItems: "center", padding: "3px 0 3px 20px", fontSize: 12 }}>
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: sq?.color || "var(--tx3)", flexShrink: 0 }} />
+                      {g.extra && g.extra(it)}
+                      <span style={{ flex: 1, color: "var(--tx2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.name}</span>
+                      <span style={{ color: "var(--tx3)", fontSize: 10 }}>{shortName(it.column_values?.person)}</span>
+                    </div>
+                  );
+                })}
+                {g.items.length > 4 && <div style={{ fontSize: 10, color: "var(--tx3)", paddingLeft: 20, marginTop: 2 }}>+{g.items.length - 4} más</div>}
+              </div>
+            ))}
+          </Card>
+        );
+      })()}
 
       {/* GdD boxes — KPIs de generación de demanda */}
       {(() => {
@@ -221,16 +267,20 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
             </div>
             <div className="kpi-grid-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 4 }}>
               {metrics.map((m) => {
-                const cur = d.semana?.[m] || 0, prev = d.anterior?.[m] || 0;
+                const rawCur = d.semana?.[m];
+                const isNoData = rawCur === null || rawCur === undefined;
+                const cur = rawCur || 0;
+                const prev = d.anterior?.[m] || 0;
                 const pct = pctChange(cur, prev);
                 const col = colors[m];
                 const mesVal = (gddData?.mes || {})[m] || 0;
                 return (
                   <div key={m} style={{ background: "var(--bg2)", border: "1px solid var(--bg4)", borderRadius: "var(--r)", padding: "12px 14px", position: "relative", overflow: "hidden" }}>
-                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: col }} />
+                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: 3, background: isNoData ? "var(--bg4)" : (pct !== null && pct < 0) ? "var(--red)" : (pct !== null && pct >= 0) ? "var(--green)" : col }} />
                     <div style={{ position: "absolute", top: 8, right: 10, fontSize: 18, opacity: 0.06 }}>{icons[m]}</div>
                     <div style={{ fontSize: 10, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>{labels[m]}</div>
-                    <div style={{ fontFamily: "var(--mono)", fontSize: 32, fontWeight: 800, color: "var(--tx)", lineHeight: 1, letterSpacing: "-0.04em" }}>{cur.toLocaleString()}</div>
+                    <div style={{ fontFamily: "var(--mono)", fontSize: 32, fontWeight: 800, color: isNoData ? "var(--tx3)" : "var(--tx)", opacity: isNoData ? 0.4 : 1, lineHeight: 1, letterSpacing: "-0.04em" }}>{cur.toLocaleString()}</div>
+                    {isNoData && <div style={{ fontSize: 9, color: "var(--tx3)", marginTop: 2, fontStyle: "italic" }}>sin datos</div>}
                     {pct !== null && (
                       <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6, paddingTop: 6, borderTop: "1px solid var(--bg4)" }}>
                         <span style={{ fontSize: 11, fontWeight: 700, color: pct >= 0 ? "var(--green)" : "var(--red)" }}>{pct >= 0 ? "▲" : "▼"}{Math.abs(pct)}%</span>
@@ -246,6 +296,22 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
                 );
               })}
             </div>
+            {(() => {
+              const ytd = gddData?.ytd || {};
+              const rates = [
+                { label: "Lead→MQL", from: ytd.leads, to: ytd.mqls },
+                { label: "MQL→SQL", from: ytd.mqls, to: ytd.sqls },
+                { label: "SQL→OPP", from: ytd.sqls, to: ytd.opps },
+              ].map(r => ({ ...r, pct: r.from > 0 ? ((r.to / r.from) * 100).toFixed(1) : null }));
+              if (rates.every(r => r.pct === null)) return null;
+              return (
+                <div style={{ display: "flex", gap: 16, justifyContent: "center", padding: "8px 0 4px", fontSize: 11, fontFamily: "var(--mono)", color: "var(--tx3)" }}>
+                  {rates.filter(r => r.pct !== null).map(r => (
+                    <span key={r.label}>{r.label}: <span style={{ fontWeight: 700, color: "var(--tx2)" }}>{r.pct}%</span></span>
+                  ))}
+                </div>
+              );
+            })()}
             {gddData?.lastUpdate && <div style={{ fontSize: 10, color: "var(--tx3)", textAlign: "right" }}>Actualizado: {gddData.lastUpdate}</div>}
           </div>
         );
@@ -290,7 +356,7 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
                   <select
                     value={mqlWeekIdx}
                     onChange={e => setMqlWeekIdx(Number(e.target.value))}
-                    style={{ fontSize: 10, padding: "3px 6px", borderRadius: 4, border: "1px solid var(--bg4)", background: "var(--bg2)", color: "var(--tx2)", cursor: "pointer", fontFamily: "var(--mono)" }}
+                    style={{ fontSize: 10, padding: "3px 6px", borderRadius: 4, border: "1px solid var(--bg4)", background: "var(--bg2)", color: "var(--tx2)", cursor: "pointer", fontFamily: "var(--sans)" }}
                   >
                     <option value={-1}>Semana actual</option>
                     {weeksWithBreakdown.map(w => (
@@ -509,9 +575,11 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
           });
           const maxVal = filtered.length > 0 ? filtered[0][1].total : 1;
           if (!filtered.length) return <div style={{ textAlign: "center", padding: "16px 0", color: "var(--tx3)", fontSize: 12 }}>Sin tareas esta semana</div>;
+          const MAX_CARGA = 5;
+          const visiblePeople = showAllCarga ? filtered : filtered.slice(0, MAX_CARGA);
           return (
             <div>
-              {filtered.map(([p, d], i) => (
+              {visiblePeople.map(([p, d], i) => (
                 <CargaRow
                   key={p} person={p} d={d} rank={i + 1} maxVal={maxVal}
                   isExpanded={expandedPerson === p}
@@ -519,51 +587,19 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
                   items={items}
                 />
               ))}
+              {filtered.length > MAX_CARGA && (
+                <button onClick={() => setShowAllCarga(!showAllCarga)}
+                  style={{ fontSize: 11, color: "var(--blue)", background: "none", border: "none",
+                  cursor: "pointer", fontWeight: 600, marginTop: 8, padding: 0, width: "100%", textAlign: "center" }}>
+                  {showAllCarga ? "Ver menos ↑" : `Ver los ${filtered.length} →`}
+                </button>
+              )}
             </div>
           );
         })()}
         {(an.noCrono || []).length > 0 && <div style={{ marginTop: 8, padding: "5px 10px", borderRadius: 6, background: "rgba(245,158,11,.06)", fontSize: 10, color: "var(--yellow)" }}>⚠️ {(an.noCrono || []).length} en Sprint sin Fecha</div>}
       </Card>
 
-      {/* Alertas compactas */}
-      {(() => {
-    const alertGroups = [
-          { items: [...(an.overdue || [])].sort((a, b) => (parseTL(a.column_values?.timerange_mkzcqv0j).end || TODAY) - (parseTL(b.column_values?.timerange_mkzcqv0j).end || TODAY)), icon: "🔴", label: "Vencidos", color: "var(--red)", extra: (it) => { const d = parseTL(it.column_values?.timerange_mkzcqv0j).end ? daysDiff(TODAY, parseTL(it.column_values?.timerange_mkzcqv0j).end) : 0; return <span style={{ fontFamily: "var(--mono)", color: "var(--red)", fontWeight: 700, fontSize: 10, minWidth: 28 }}>-{d}d</span>; } },
-          { items: an.stoppedWeek || [], icon: "🚫", label: "Detenidos", color: "var(--red)" },
-          { items: an.noCrono || [], icon: "📅", label: "Sin Fecha", color: "var(--yellow)" },
-          { items: an.backlogWithDates || [], icon: "⚠️", label: "Backlog c/fecha", color: "var(--yellow)" },
-        ].filter((g) => g.items.length > 0);
-        if (alertGroups.length === 0) return <Card style={{ textAlign: "center", padding: 24 }}><div style={{ fontSize: 28, marginBottom: 4 }}>✅</div><div style={{ color: "var(--green)", fontSize: 14, fontWeight: 600 }}>Sin alertas críticas</div></Card>;
-        return (
-          <Card>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <span style={{ fontSize: 14, fontWeight: 700 }}>⚡ Alertas Ejecutivas</span>
-              <button onClick={onViewAlerts} style={{ background: "var(--bg3)", color: "var(--blue)", border: "none", borderRadius: "var(--r-sm)", padding: "4px 12px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Ver alertas →</button>
-            </div>
-            {alertGroups.map((g, gi) => (
-              <div key={gi} style={{ marginBottom: gi < alertGroups.length - 1 ? 10 : 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                  <span style={{ fontSize: 12 }}>{g.icon}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: g.color }}>{g.label}</span>
-                  <span style={{ fontFamily: "var(--mono)", fontSize: 14, fontWeight: 700, color: g.color }}>{g.items.length}</span>
-                </div>
-                {(alertGroupsExpanded[(["overdue","stopped","noCrono","backlog","noResp"][gi] || gi)] ? g.items : g.items.slice(0, 4)).map((it) => {
-                  const sq = SQUADS.find((s) => s.name === normalizeSquad(it.column_values?.color_mkz0s203));
-                  return (
-                    <div key={it.id} style={{ display: "flex", gap: 5, alignItems: "center", padding: "3px 0 3px 20px", fontSize: 12 }}>
-                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: sq?.color || "var(--tx3)", flexShrink: 0 }} />
-                      {g.extra && g.extra(it)}
-                      <span style={{ flex: 1, color: "var(--tx2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.name}</span>
-                      <span style={{ color: "var(--tx3)", fontSize: 10 }}>{shortName(it.column_values?.person)}</span>
-                    </div>
-                  );
-                })}
-                {g.items.length > 4 && <div style={{ fontSize: 10, color: "var(--tx3)", paddingLeft: 20, marginTop: 2 }}>+{g.items.length - 4} más</div>}
-              </div>
-            ))}
-          </Card>
-        );
-      })()}
     </div>
   );
 });
