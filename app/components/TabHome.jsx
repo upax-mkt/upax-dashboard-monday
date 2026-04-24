@@ -209,7 +209,7 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
           <Card style={{ marginBottom: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <span style={{ fontSize: 14, fontWeight: 700 }}>⚡ Alertas Ejecutivas</span>
-              <button onClick={onViewAlerts} style={{ background: "var(--bg3)", color: "var(--blue)", border: "none", borderRadius: "var(--r-sm)", padding: "4px 12px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Ver alertas →</button>
+              <button onClick={onViewAlerts} style={{ background: "var(--bg3)", color: "var(--blue)", border: "none", borderRadius: "var(--r-sm)", padding: "4px 12px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Ver las {alertGroups.reduce((s, g) => s + g.items.length, 0)} alertas →</button>
             </div>
             {alertGroups.map((g, gi) => (
               <div key={gi} style={{ marginBottom: gi < alertGroups.length - 1 ? 10 : 0 }}>
@@ -220,9 +220,15 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
                 </div>
                 {(alertGroupsExpanded[(["overdue","stopped","noCrono","backlog","noResp"][gi] || gi)] ? g.items : g.items.slice(0, 4)).map((it) => {
                   const sq = SQUADS.find((s) => s.name === normalizeSquad(it.column_values?.color_mkz0s203));
+                  // For overdue items, color dot by severity (days overdue) instead of squad
+                  const overdueEnd = parseTL(it.column_values?.timerange_mkzcqv0j).end;
+                  const overdueDays = overdueEnd ? daysDiff(TODAY, overdueEnd) : 0;
+                  const dotBg = g.label === "Vencidos"
+                    ? (overdueDays >= 14 ? "var(--red)" : overdueDays >= 7 ? "var(--orange)" : overdueDays >= 3 ? "var(--yellow)" : "var(--tx3)")
+                    : (sq?.color || "var(--tx3)");
                   return (
                     <div key={it.id} style={{ display: "flex", gap: 5, alignItems: "center", padding: "3px 0 3px 20px", fontSize: 12 }}>
-                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: sq?.color || "var(--tx3)", flexShrink: 0 }} />
+                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: dotBg, flexShrink: 0 }} />
                       {g.extra && g.extra(it)}
                       <span style={{ flex: 1, color: "var(--tx2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.name}</span>
                       <span style={{ color: "var(--tx3)", fontSize: 10 }}>{shortName(it.column_values?.person)}</span>
@@ -298,16 +304,17 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
             </div>
             {(() => {
               const ytd = gddData?.ytd || {};
+              const sem = d.semana || {};
               const rates = [
-                { label: "Lead→MQL", from: ytd.leads, to: ytd.mqls },
-                { label: "MQL→SQL", from: ytd.mqls, to: ytd.sqls },
-                { label: "SQL→OPP", from: ytd.sqls, to: ytd.opps },
-              ].map(r => ({ ...r, pct: r.from > 0 ? ((r.to / r.from) * 100).toFixed(1) : null }));
+                { label: "Lead→MQL", from: sem.leads ?? ytd.leads, to: sem.mqls ?? ytd.mqls },
+                { label: "MQL→SQL", from: sem.mqls ?? ytd.mqls, to: sem.sqls ?? ytd.sqls },
+                { label: "SQL→OPP", from: sem.sqls ?? ytd.sqls, to: sem.opps ?? ytd.opps },
+              ].map(r => ({ ...r, pct: r.from > 0 ? ((r.to / r.from) * 100).toFixed(1) : null, warn: r.from > 0 && r.to > r.from }));
               if (rates.every(r => r.pct === null)) return null;
               return (
                 <div style={{ display: "flex", gap: 16, justifyContent: "center", padding: "8px 0 4px", fontSize: 11, fontFamily: "var(--mono)", color: "var(--tx3)" }}>
                   {rates.filter(r => r.pct !== null).map(r => (
-                    <span key={r.label}>{r.label}: <span style={{ fontWeight: 700, color: "var(--tx2)" }}>{r.pct}%</span></span>
+                    <span key={r.label}>{r.label}: <span style={{ fontWeight: 700, color: r.warn ? "var(--yellow)" : "var(--tx2)" }}>{r.pct}%{r.warn ? " ⚠" : ""}</span></span>
                   ))}
                 </div>
               );
@@ -356,7 +363,7 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
                   <select
                     value={mqlWeekIdx}
                     onChange={e => setMqlWeekIdx(Number(e.target.value))}
-                    style={{ fontSize: 10, padding: "3px 6px", borderRadius: 4, border: "1px solid var(--bg4)", background: "var(--bg2)", color: "var(--tx2)", cursor: "pointer", fontFamily: "var(--sans)" }}
+                    style={{ fontSize: 10, padding: "3px 6px", borderRadius: 4, border: "1px solid var(--bg4)", background: "var(--bg2)", color: "var(--tx2)", cursor: "pointer", fontFamily: "inherit" }}
                   >
                     <option value={-1}>Semana actual</option>
                     {weeksWithBreakdown.map(w => (
