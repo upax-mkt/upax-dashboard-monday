@@ -192,49 +192,44 @@ export async function GET(request) {
   const periodNames = ['semana', 'anterior', 'mes', 'ytd']
 
   try {
-    // Build all 16 count queries (4 metrics × 4 periods)
-    const queries = []
+    // Run queries in batches of 4 (one metric at a time) to avoid HubSpot rate limits
+    const counts = { semana: {}, anterior: {}, mes: {}, ytd: {} }
+    const errors = []
+
     for (const metric of metrics) {
       const def = metricDefs[metric]
-      for (const period of periodNames) {
+      const batch = periodNames.map(period => {
         const { desde, hasta } = periods[period]
         const dateFilters = [
           { propertyName: def.dateField, operator: 'GTE', value: String(desde.getTime()) },
           { propertyName: def.dateField, operator: 'LTE', value: String(hasta.getTime()) },
         ]
-        queries.push({
-          metric,
+        return {
           period,
           promise: hubspotCount(hsToken, def.objectType, [...def.baseFilters, ...dateFilters]),
-        })
-      }
-    }
-
-    // Run all queries with allSettled — max 16 simple requests (no pagination)
-    const results = await Promise.allSettled(queries.map(q => q.promise))
-
-    // Collect results and errors
-    const counts = { semana: {}, anterior: {}, mes: {}, ytd: {} }
-    const errors = []
-
-    results.forEach((r, i) => {
-      const { metric, period } = queries[i]
-      if (r.status === 'fulfilled') {
-        counts[period][metric] = r.value
-      } else {
-        counts[period][metric] = 0
-        const errMsg = `${metric}/${period}: ${r.reason?.message || r.reason}`
-        // Only log unique metric errors (not all 4 periods of same failure)
-        if (!errors.some(e => e.startsWith(`${metric}/`))) {
-          errors.push(errMsg)
         }
-      }
-    })
+      })
+
+      const batchResults = await Promise.allSettled(batch.map(b => b.promise))
+
+      batchResults.forEach((r, i) => {
+        const { period } = batch[i]
+        if (r.status === 'fulfilled') {
+          counts[period][metric] = r.value
+        } else {
+          counts[period][metric] = 0
+          const errMsg = `${metric}/${period}: ${r.reason?.message || r.reason}`
+          if (!errors.some(e => e.startsWith(`${metric}/`))) {
+            errors.push(errMsg)
+          }
+        }
+      })
+    }
 
     errors.forEach(e => console.error('GDD query error:', e))
 
-    // Check if ALL metrics failed (all 16 queries)
-    const allFailed = results.every(r => r.status === 'rejected')
+    // Check if ALL metrics failed
+    const allFailed = errors.length >= metrics.length
     if (allFailed) {
       return NextResponse.json({
         error: 'All HubSpot queries failed',
