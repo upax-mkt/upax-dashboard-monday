@@ -203,6 +203,7 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
         const sourceBadge = (() => {
           const src = gddData?.source;
           if (src === "hubspot_live") return <span style={{ background: "rgba(52,199,89,.12)", border: "1px solid #34C759", color: "#34C759", borderRadius: 20, padding: "3px 10px", fontSize: 12, fontWeight: 700, letterSpacing: "0.02em", marginLeft: 6 }}>● LIVE</span>;
+          if (src === "hubspot_partial") return <span style={{ background: "rgba(255,159,10,.12)", border: "1px solid var(--yellow)", color: "var(--yellow)", borderRadius: 20, padding: "3px 10px", fontSize: 12, fontWeight: 700, letterSpacing: "0.02em", marginLeft: 6 }}>PARCIAL</span>;
           if (src === "sheets_api") return <span style={{ background: "rgba(255,159,10,.12)", border: "1px solid var(--yellow)", color: "var(--yellow)", borderRadius: 20, padding: "3px 10px", fontSize: 12, fontWeight: 700, letterSpacing: "0.02em", marginLeft: 6 }}>SHEETS</span>;
           if (src === "empty" || !src) return <span style={{ fontSize: 9, color: "var(--red)", marginLeft: 6 }}>sin datos</span>;
           return null;

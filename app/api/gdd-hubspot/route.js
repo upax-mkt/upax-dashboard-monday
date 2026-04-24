@@ -178,8 +178,8 @@ export async function GET(request) {
     const ytdDesdeMs = String(ranges.ytd.desde.getTime())
     const ytdHastaMs = String(ranges.ytd.hasta.getTime())
 
-    // 4 queries in parallel, each with YTD range
-    const [leadsRaw, mqlsRaw, sqlsRaw, oppsRaw] = await Promise.all([
+    // 4 queries in parallel — allSettled so one failure doesn't kill the rest
+    const [leadsResult, mqlsResult, sqlsResult, oppsResult] = await Promise.allSettled([
       // LEADS: contacts with fecha_lead
       hubspotSearchAll(hsToken, 'contacts', [
         { propertyName: 'fecha_lead', operator: 'GTE', value: ytdDesdeMs },
@@ -212,6 +212,29 @@ export async function GET(request) {
         ]},
       ], ['createdate', 'pipeline', 'amount', 'dealstage'], 'createdate'),
     ])
+
+    // Extract results — default to empty array on failure
+    const leadsRaw = leadsResult.status === 'fulfilled' ? leadsResult.value : []
+    const mqlsRaw = mqlsResult.status === 'fulfilled' ? mqlsResult.value : []
+    const sqlsRaw = sqlsResult.status === 'fulfilled' ? sqlsResult.value : []
+    const oppsRaw = oppsResult.status === 'fulfilled' ? oppsResult.value : []
+
+    // Track per-query errors for diagnostics
+    const errors = []
+    if (leadsResult.status === 'rejected') errors.push(`leads: ${leadsResult.reason?.message || leadsResult.reason}`)
+    if (mqlsResult.status === 'rejected') errors.push(`mqls: ${mqlsResult.reason?.message || mqlsResult.reason}`)
+    if (sqlsResult.status === 'rejected') errors.push(`sqls: ${sqlsResult.reason?.message || sqlsResult.reason}`)
+    if (oppsResult.status === 'rejected') errors.push(`opps: ${oppsResult.reason?.message || oppsResult.reason}`)
+    errors.forEach(e => console.error('GDD query error:', e))
+
+    // If ALL 4 failed, return 503
+    if (errors.length === 4) {
+      return NextResponse.json({
+        error: 'All HubSpot queries failed',
+        errors,
+        source: 'error',
+      }, { status: 503 })
+    }
 
     // Post-filter: Leads exclude bad UDNs
     const leads = leadsRaw.filter(c => {
@@ -270,12 +293,15 @@ export async function GET(request) {
         opps:  oppsCount.ytd,
       },
       fechas: ranges.formatted,
-      source: 'hubspot_live',
+      source: errors.length > 0 ? 'hubspot_partial' : 'hubspot_live',
+      errors: errors.length > 0 ? errors : undefined,
       lastUpdate: new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }),
     }
 
-    // Cache 15 min
-    await upstashSet(cacheKey, result, 900)
+    // Only cache if all queries succeeded (don't cache partial data)
+    if (errors.length === 0) {
+      await upstashSet(cacheKey, result, 900)
+    }
 
     return NextResponse.json(result)
   } catch (error) {
