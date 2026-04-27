@@ -63,7 +63,7 @@ export default function App() {
   const intRef = useRef(null), startRef = useRef(null), elRef = useRef(0);
 
   // Hook unificado para datos GDD (Sheets + HubSpot + historial)
-  const { gddData: hookGddData, mqlBreakdown, history: gddHistory, setHistory: setGddHistory, loading: gddLoading, refetch: refetchGdd } = useGDDData();
+  const { gddData: hookGddData, mqlBreakdown, mqlBreakdownPrev, history: gddHistory, setHistory: setGddHistory, loading: gddLoading, refetch: refetchGdd } = useGDDData();
   // appGddData: alias directo de hookGddData (eliminado estado espejo innecesario)
   const appGddData = hookGddData;
   const setAppGddData = () => {}; // no-op — mantener compatibilidad con props existentes
@@ -501,7 +501,7 @@ export default function App() {
         <div style={{ height: 20 }} />
 
         <ErrorBoundary>
-        {tab === "home"        && <TabHome analysis={an} items={items} elapsed={elapsed} onStart={startTimer} onViewAlerts={() => { setTab("panorama"); try { sessionStorage.setItem("panorama-tab","alertas"); } catch {} }} gddData={appGddData} setGddData={setAppGddData} mqlBreakdown={mqlBreakdown} gddHistory={gddHistory} setGddHistory={setGddHistory} gddLoading={gddLoading} />}
+        {tab === "home"        && <TabHome analysis={an} items={items} elapsed={elapsed} onStart={startTimer} onViewAlerts={() => { setTab("panorama"); try { sessionStorage.setItem("panorama-tab","alertas"); } catch {} }} gddData={appGddData} setGddData={setAppGddData} mqlBreakdown={mqlBreakdown} mqlBreakdownPrev={mqlBreakdownPrev} gddHistory={gddHistory} setGddHistory={setGddHistory} gddLoading={gddLoading} />}
         {tab === "agenda"      && <TabAgenda wd={wd} setWd={setWd} save={saveFn} currentIdx={currentBlockIdx} blockTimes={blockTimes} onJumpToBlock={jumpToBlock} />}
         {tab === "panorama"    && <TabPanorama analysis={an} items={items} />}
         {tab === "focos"       && <TabFocos items={items} wd={wd} setWd={setWd} save={saveFn} activeSquad={activeSquad} setActiveSquad={setActiveSquad} />}

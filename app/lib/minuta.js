@@ -17,20 +17,22 @@ export function generateMinuta(wd, analysis, gddData, blockTimes) {
   {
     const gdd = gddData || { semana: {}, anterior: {}, ytd: {}, fechas: {} };
     const s = gdd.semana || {}, a = gdd.anterior || {}, y = gdd.ytd || {}, f = gdd.fechas || {};
-    const pTotal = (s.pipeline_mkt||0) + (s.pipeline_com||0);
+    const pTotal = s.pipeline_total || ((s.pipeline_mkt||0) + (s.pipeline_com||0));
     const hasData = s.leads || s.mqls || s.sqls || s.opps;
     t += `1. GENERACIÓN DE DEMANDA`;
     if (f.semana_desde) t += ` (${f.semana_desde}${f.semana_hasta ? " al "+f.semana_hasta : ""})`;
     t += `\n`;
     if (hasData) {
-      const fmt4 = (label, cur, prev) => {
+      const fmt4 = (label, cur, prev, mktVal, comVal) => {
         const pct = arrow(cur, prev);
-        return `   · ${label.padEnd(8)} ${String(cur.toLocaleString()).padStart(6)}${pct ? "  "+pct : ""}\n`;
+        let line = `   · ${label.padEnd(8)} ${String(cur.toLocaleString()).padStart(6)}${pct ? "  "+pct : ""}`;
+        if (mktVal != null && comVal != null) line += `  (Mkt: ${mktVal} | Com: ${comVal})`;
+        return line + '\n';
       };
-      t += fmt4("Leads", s.leads||0, a.leads||0);
-      t += fmt4("MQLs",  s.mqls||0,  a.mqls||0);
-      t += fmt4("SQLs",  s.sqls||0,  a.sqls||0);
-      t += fmt4("Opps",  s.opps||0,  a.opps||0);
+      t += fmt4("Leads", s.leads||0, a.leads||0, s.leads_mkt, s.leads_com);
+      t += fmt4("MQLs",  s.mqls||0,  a.mqls||0,  s.mqls_mkt,  s.mqls_com);
+      t += fmt4("SQLs",  s.sqls||0,  a.sqls||0,  s.sqls_mkt,  s.sqls_com);
+      t += fmt4("Opps",  s.opps||0,  a.opps||0,  s.opps_mkt,  s.opps_com);
       if (pTotal > 0) t += `   · Pipeline  ${fmtM(pTotal)}  (Mkt ${fmtM(s.pipeline_mkt||0)} | Com ${fmtM(s.pipeline_com||0)})\n`;
       if (y.leads) t += `   · YTD: Leads ${y.leads.toLocaleString()} · MQLs ${y.mqls||0} · SQLs ${y.sqls||0} · Opps ${y.opps||0}\n`;
     } else {

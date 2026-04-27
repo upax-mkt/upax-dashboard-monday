@@ -4,39 +4,82 @@ import { upstashGet, upstashSet } from '../../lib/upstash-server'
 
 export const dynamic = 'force-dynamic'
 
-// --- HubSpot count-only search (single request, no pagination) ---
-async function hubspotCount(token, objectType, filters) {
-  const body = {
-    filterGroups: [{ filters }],
-    properties: [],
-    limit: 1,
-  }
+const MAX_PAGES = 20
 
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), 10000)
-  let res
-  try {
-    res = await fetch(`https://api.hubapi.com/crm/v3/objects/${objectType}/search`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify(body),
-      cache: 'no-store',
-      signal: controller.signal,
-    })
-  } catch (fetchErr) {
+// --- HubSpot search with pagination — returns { total, mkt, com, amount_total, amount_mkt, amount_com } ---
+async function hubspotSearchSplit(token, objectType, filters, splitProp, properties, sumField) {
+  let total = 0, mkt = 0, com = 0
+  let amountTotal = 0, amountMkt = 0, amountCom = 0
+  let after = undefined
+
+  const propsToFetch = [...new Set([splitProp, ...(sumField ? [sumField] : []), ...properties])]
+
+  for (let page = 0; page < MAX_PAGES; page++) {
+    const body = {
+      filterGroups: [{ filters }],
+      properties: propsToFetch,
+      limit: 100,
+    }
+    if (after) body.after = after
+
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), 10000)
+    let res
+    try {
+      res = await fetch(`https://api.hubapi.com/crm/v3/objects/${objectType}/search`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify(body),
+        cache: 'no-store',
+        signal: controller.signal,
+      })
+    } catch (fetchErr) {
+      clearTimeout(timer)
+      if (fetchErr.name === 'AbortError') throw new Error(`HS ${objectType} timeout`)
+      throw fetchErr
+    }
     clearTimeout(timer)
-    if (fetchErr.name === 'AbortError') throw new Error(`HS ${objectType} timeout`)
-    throw fetchErr
-  }
-  clearTimeout(timer)
 
-  if (!res.ok) {
-    const text = await res.text()
-    throw new Error(`HS ${objectType} ${res.status}: ${text.slice(0, 120)}`)
+    if (!res.ok) {
+      const text = await res.text()
+      throw new Error(`HS ${objectType} ${res.status}: ${text.slice(0, 120)}`)
+    }
+
+    const data = await res.json()
+    const results = data.results || []
+
+    for (const item of results) {
+      total++
+      const props = item.properties || {}
+      const splitVal = props[splitProp]
+      const isMkt = splitVal === 'true' || splitVal === true
+      const isCom = splitVal === 'false' || splitVal === false
+
+      if (isMkt) mkt++
+      else if (isCom) com++
+
+      if (sumField) {
+        const amt = parseFloat(props[sumField]) || 0
+        amountTotal += amt
+        if (isMkt) amountMkt += amt
+        else if (isCom) amountCom += amt
+      }
+    }
+
+    if (data.paging?.next?.after) {
+      after = data.paging.next.after
+    } else {
+      break
+    }
   }
 
-  const data = await res.json()
-  return data.total || 0
+  const result = { total, mkt, com }
+  if (sumField) {
+    result.amount_total = amountTotal
+    result.amount_mkt = amountMkt
+    result.amount_com = amountCom
+  }
+  return result
 }
 
 // --- Date range calculation (Mexico City timezone) ---
@@ -88,6 +131,13 @@ function getDateRanges() {
   }
 }
 
+// UDN exclusion filters shared by multiple metrics
+const UDN_FILTERS = [
+  { propertyName: 'udn', operator: 'HAS_PROPERTY' },
+  { propertyName: 'udn', operator: 'NEQ', value: 'Interno' },
+  { propertyName: 'udn', operator: 'NEQ', value: 'CF' },
+]
+
 export async function GET(request) {
   const authErr = validateAuth(request)
   if (authErr) return authErr
@@ -103,7 +153,7 @@ export async function GET(request) {
   const ranges = getDateRanges()
 
   // Check cache
-  const cacheKey = `gdd-hubspot-${ranges.formatted.semana_desde}`
+  const cacheKey = `gdd-hubspot-v2-${ranges.formatted.semana_desde}`
   if (!noCache) {
     const cached = await upstashGet(cacheKey)
     if (cached) {
@@ -119,36 +169,39 @@ export async function GET(request) {
     ytd:      { desde: ranges.ytd.desde,      hasta: ranges.ytd.hasta },
   }
 
-  // Metric definitions: each has base filters + date field + object type
+  // Metric definitions with split properties
   const metricDefs = {
     leads: {
       objectType: 'contacts',
       dateField: 'fecha_lead',
-      baseFilters: [
-        { propertyName: 'udn', operator: 'HAS_PROPERTY' },
-        { propertyName: 'udn', operator: 'NEQ', value: 'Interno' },
-        { propertyName: 'udn', operator: 'NEQ', value: 'CF' },
-      ],
+      splitProp: 'contacto_marketing',
+      baseFilters: [...UDN_FILTERS],
     },
     mqls: {
       objectType: 'contacts',
       dateField: 'fecha_mql',
+      splitProp: 'conversion',
       baseFilters: [
         { propertyName: 'lifecyclestage', operator: 'EQ', value: 'marketingqualifiedlead' },
+        ...UDN_FILTERS,
       ],
     },
     sqls: {
       objectType: 'meetings',
       dateField: 'hs_timestamp',
+      splitProp: 'reunion_generado_por',
       baseFilters: [
         { propertyName: 'hs_activity_type', operator: 'EQ', value: 'Credenciales' },
         { propertyName: 'hs_meeting_outcome', operator: 'EQ', value: 'COMPLETED' },
         { propertyName: 'contactos_asociados', operator: 'EQ', value: '1' },
+        ...UDN_FILTERS,
       ],
     },
     opps: {
       objectType: 'deals',
       dateField: 'createdate',
+      splitProp: 'negocio_marketing',
+      sumField: 'amount',
       baseFilters: [
         { propertyName: 'tipo_de_venta', operator: 'EQ', value: 'Venta Externa' },
         { propertyName: 'pipeline', operator: 'IN', values: [
@@ -163,7 +216,6 @@ export async function GET(request) {
   const periodNames = ['semana', 'anterior', 'mes', 'ytd']
 
   try {
-    // Run queries in batches of 4 (one metric at a time) to avoid HubSpot rate limits
     const counts = { semana: {}, anterior: {}, mes: {}, ytd: {} }
     const errors = []
 
@@ -179,7 +231,14 @@ export async function GET(request) {
         ]
         return {
           period,
-          promise: hubspotCount(hsToken, def.objectType, [...def.baseFilters, ...dateFilters]),
+          promise: hubspotSearchSplit(
+            hsToken,
+            def.objectType,
+            [...def.baseFilters, ...dateFilters],
+            def.splitProp,
+            [],
+            def.sumField || null,
+          ),
         }
       })
 
@@ -188,9 +247,19 @@ export async function GET(request) {
       batchResults.forEach((r, i) => {
         const { period } = batch[i]
         if (r.status === 'fulfilled') {
-          counts[period][metric] = r.value
+          const v = r.value
+          counts[period][metric] = v.total
+          counts[period][`${metric}_mkt`] = v.mkt
+          counts[period][`${metric}_com`] = v.com
+          if (v.amount_total !== undefined) {
+            counts[period].pipeline_total = v.amount_total
+            counts[period].pipeline_mkt = v.amount_mkt
+            counts[period].pipeline_com = v.amount_com
+          }
         } else {
           counts[period][metric] = 0
+          counts[period][`${metric}_mkt`] = 0
+          counts[period][`${metric}_com`] = 0
           const errMsg = `${metric}/${period}: ${r.reason?.message || r.reason}`
           if (!errors.some(e => e.startsWith(`${metric}/`))) {
             errors.push(errMsg)
@@ -201,7 +270,6 @@ export async function GET(request) {
 
     errors.forEach(e => console.error('GDD query error:', e))
 
-    // Check if ALL metrics failed
     const allFailed = errors.length >= metrics.length
     if (allFailed) {
       return NextResponse.json({
@@ -222,7 +290,6 @@ export async function GET(request) {
       lastUpdate: new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }),
     }
 
-    // Only cache if all queries succeeded
     if (errors.length === 0) {
       await upstashSet(cacheKey, result, 900)
     }

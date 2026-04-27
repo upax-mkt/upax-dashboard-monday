@@ -76,6 +76,7 @@ async function hubspotSearchAll(token, filters, properties) {
 function aggregateByOrigin(contacts) {
   const counts = {}
   const macroInbound = { inbound: 0, outbound: 0, unknown: 0 }
+  let mktCount = 0, comCount = 0
 
   for (const c of contacts) {
     const props = c.properties || {}
@@ -85,6 +86,11 @@ function aggregateByOrigin(contacts) {
     if (macro === 'inbound') macroInbound.inbound++
     else if (macro === 'outbound') macroInbound.outbound++
     else macroInbound.unknown++
+
+    // Mkt/Com split via conversion property
+    const conv = props.conversion
+    if (conv === 'true' || conv === true) mktCount++
+    else if (conv === 'false' || conv === false) comCount++
 
     // GRANULAR: fuente_conversion primero, fallback a hs_analytics_source
     let label
@@ -111,6 +117,8 @@ function aggregateByOrigin(contacts) {
     total,
     por_origen,
     breakdown_macro: macroInbound,
+    mkt_count: mktCount,
+    com_count: comCount,
     fuente_campo: 'fuente_conversion',
   }
 }
@@ -156,8 +164,11 @@ export async function GET(request) {
         { propertyName: 'lifecyclestage', operator: 'EQ', value: 'marketingqualifiedlead' },
         { propertyName: 'fecha_mql', operator: 'GTE', value: String(desdeMs) },
         { propertyName: 'fecha_mql', operator: 'LTE', value: String(hastaMs) },
+        { propertyName: 'udn', operator: 'HAS_PROPERTY' },
+        { propertyName: 'udn', operator: 'NEQ', value: 'Interno' },
+        { propertyName: 'udn', operator: 'NEQ', value: 'CF' },
       ],
-      ['fecha_mql', 'hs_analytics_source', 'fuente_mql', 'fuente_conversion', 'hubspot_owner_id']
+      ['fecha_mql', 'hs_analytics_source', 'fuente_mql', 'fuente_conversion', 'hubspot_owner_id', 'conversion']
     )
 
     const result = {

@@ -133,7 +133,7 @@ const fmtDate = (s) => {
   return isNaN(d) ? s : d.toLocaleDateString("es-MX", { day: "numeric", month: "short" });
 };
 
-const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts, gddData: propGddData, setGddData: propSetGddData, mqlBreakdown, gddHistory, setGddHistory, gddLoading }) {
+const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts, gddData: propGddData, setGddData: propSetGddData, mqlBreakdown, mqlBreakdownPrev, gddHistory, setGddHistory, gddLoading }) {
   const [alertGroupsExpanded, setAlertGroupsExpanded] = useState({});
   const [expandedPerson, setExpandedPerson] = useState(null);
   const [cargaSquad, setCargaSquad] = useState("all");
@@ -154,9 +154,12 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
   const stoppedSquads = SQUADS.filter((sq) => an.bySquad[sq.name]?.phases["🚫 Detenido"] > 0);
   const overdueCritical = (an.overdue || []).filter((it) => { const tl = parseTL(it.column_values?.timerange_mkzcqv0j); return tl.end && daysDiff(TODAY, tl.end) > 7; }).length;
 
-  // Derive MQL data based on selected week
+  // Derive MQL data based on selected week + gddWeekView sync
   const mqlData = (() => {
-    if (mqlWeekIdx === -1) return mqlBreakdown;
+    if (mqlWeekIdx === -1) {
+      // Sync with GdD week toggle: prev week uses mqlBreakdownPrev
+      return gddWeekView === "prev" ? (mqlBreakdownPrev || mqlBreakdown) : mqlBreakdown;
+    }
     const entry = gddHistory?.[mqlWeekIdx];
     if (!entry || !entry.por_origen || entry.por_origen.length === 0) return null;
     return {
@@ -263,7 +266,7 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
           const src = gddData?.source;
           if (src === "hubspot_live") return <span style={{ background: "rgba(52,199,89,.12)", border: "1px solid #34C759", color: "#34C759", borderRadius: 20, padding: "3px 10px", fontSize: 12, fontWeight: 700, letterSpacing: "0.02em", marginLeft: 6 }}>● LIVE</span>;
           if (src === "hubspot_partial") return <span style={{ background: "rgba(255,159,10,.12)", border: "1px solid var(--yellow)", color: "var(--yellow)", borderRadius: 20, padding: "3px 10px", fontSize: 12, fontWeight: 700, letterSpacing: "0.02em", marginLeft: 6 }}>PARCIAL</span>;
-          if (src === "sheets_api") return <span style={{ background: "rgba(255,159,10,.12)", border: "1px solid var(--yellow)", color: "var(--yellow)", borderRadius: 20, padding: "3px 10px", fontSize: 12, fontWeight: 700, letterSpacing: "0.02em", marginLeft: 6 }}>SHEETS</span>;
+
           if (src === "empty" || !src) return <span style={{ fontSize: 9, color: "var(--red)", marginLeft: 6 }}>sin datos</span>;
           return null;
         })();
@@ -308,6 +311,12 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
                     <div style={{ position: "absolute", top: 8, right: 10, fontSize: 18, opacity: 0.06 }}>{icons[m]}</div>
                     <div style={{ fontSize: 10, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>{labels[m]}</div>
                     <div style={{ fontFamily: "var(--mono)", fontSize: 32, fontWeight: 800, color: isNoData ? "var(--tx3)" : "var(--tx)", opacity: isNoData ? 0.4 : 1, lineHeight: 1, letterSpacing: "-0.04em" }}>{cur.toLocaleString()}</div>
+                    {d.semana?.[`${m}_mkt`] != null && d.semana?.[`${m}_com`] != null && (
+                      <div style={{ fontSize: 10, marginTop: 3, color: "var(--tx3)", fontFamily: "var(--mono)" }}>
+                        <span style={{ color: "var(--blue)" }}>Mkt:{d.semana[`${m}_mkt`]}</span>{" | "}
+                        <span style={{ color: "var(--purple)" }}>Com:{d.semana[`${m}_com`]}</span>
+                      </div>
+                    )}
                     {isNoData && <div style={{ fontSize: 9, color: "var(--tx3)", marginTop: 2, fontStyle: "italic" }}>sin datos</div>}
                     {pct !== null && !showingPrev && (
                       <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6, paddingTop: 6, borderTop: "1px solid var(--bg4)" }}>
@@ -324,6 +333,24 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
                 );
               })}
             </div>
+            {(() => {
+              const pt = d.semana?.pipeline_total || 0;
+              const pm = d.semana?.pipeline_mkt || 0;
+              const pc = d.semana?.pipeline_com || 0;
+              if (pt <= 0) return null;
+              const fmtM = (v) => v >= 1000000 ? `$${(v/1000000).toFixed(1)}M` : v >= 1000 ? `$${(v/1000).toFixed(0)}K` : `$${v}`;
+              return (
+                <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 14px", background: "var(--bg2)", border: "1px solid var(--bg4)", borderRadius: "var(--r)", marginTop: 4, marginBottom: 4 }}>
+                  <span style={{ fontSize: 16 }}>🏦</span>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "var(--tx2)" }}>Pipeline</span>
+                  <span style={{ fontFamily: "var(--mono)", fontSize: 18, fontWeight: 800, color: "var(--tx)" }}>{fmtM(pt)}</span>
+                  <span style={{ fontSize: 10, color: "var(--tx3)", fontFamily: "var(--mono)" }}>
+                    <span style={{ color: "var(--blue)" }}>Mkt {fmtM(pm)}</span>{" | "}
+                    <span style={{ color: "var(--purple)" }}>Com {fmtM(pc)}</span>
+                  </span>
+                </div>
+              );
+            })()}
             {(() => {
               const ytd = gddData?.ytd || {};
               const sem = d.semana || {};

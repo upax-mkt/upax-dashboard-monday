@@ -94,7 +94,7 @@ function renderMinutaVisual(text, wd2, an, gdd2) {
     { label: "SQLs",  cur: s.sqls||0,  prev: a.sqls||0,  mes: mes.sqls||0,  ytd: y.sqls||0,  color: "var(--green)" },
     { label: "Opps",  cur: s.opps||0,  prev: a.opps||0,  mes: mes.opps||0,  ytd: y.opps||0,  color: "var(--yellow)" },
   ];
-  const pTotal = (s.pipeline_mkt||0)+(s.pipeline_com||0);
+  const pTotal = s.pipeline_total || ((s.pipeline_mkt||0)+(s.pipeline_com||0));
   const fmtDateDMY = (dateStr) => {
     if (!dateStr) return "";
     const d = new Date(dateStr + (dateStr.includes("-") ? "T12:00:00" : ", 2026"));
@@ -386,7 +386,7 @@ function PdfButton({ text, dateStr, wd, analysis, gddData }) {
   function handlePdf() {
     const gdd = gddData || {};
     const s = gdd.semana || {}, a = gdd.anterior || {}, mes = gdd.mes || {}, y = gdd.ytd || {}, f = gdd.fechas || {};
-    const pTotal = (s.pipeline_mkt||0)+(s.pipeline_com||0);
+    const pTotal = s.pipeline_total || ((s.pipeline_mkt||0)+(s.pipeline_com||0));
     const fmtN = (v) => (v||0).toLocaleString("es-MX");
     const fmtM = (v) => v >= 1000000 ? "$"+(v/1000000).toFixed(1)+"M" : v >= 1000 ? "$"+(v/1000).toFixed(0)+"K" : "$"+(v||0);
     const pct = (cur, prev) => { if (!prev) return ""; const p = Math.round(((cur-prev)/prev)*100); return `<span style="color:${p>=0?"#16a34a":"#dc2626"};font-weight:700">${p>=0?"▲":"▼"}${Math.abs(p)}%</span>`; };
