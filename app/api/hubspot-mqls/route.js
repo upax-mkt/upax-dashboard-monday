@@ -165,7 +165,6 @@ export async function GET(request) {
         { propertyName: 'fecha_mql', operator: 'GTE', value: String(desdeMs) },
         { propertyName: 'fecha_mql', operator: 'LTE', value: String(hastaMs) },
         { propertyName: 'udn', operator: 'HAS_PROPERTY' },
-        { propertyName: 'udn', operator: 'NEQ', value: '' },
         { propertyName: 'udn', operator: 'NEQ', value: 'Interno' },
         { propertyName: 'udn', operator: 'NEQ', value: 'CF' },
       ],

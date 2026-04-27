@@ -154,7 +154,6 @@ function getDateRanges() {
 // UDN exclusion filters shared by multiple metrics
 const UDN_FILTERS = [
   { propertyName: 'udn', operator: 'HAS_PROPERTY' },
-  { propertyName: 'udn', operator: 'NEQ', value: '' },
   { propertyName: 'udn', operator: 'NEQ', value: 'Interno' },
   { propertyName: 'udn', operator: 'NEQ', value: 'CF' },
 ]
