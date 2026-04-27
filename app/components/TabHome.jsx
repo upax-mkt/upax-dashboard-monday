@@ -141,6 +141,8 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
   const [mqlWeekIdx, setMqlWeekIdx] = useState(-1); // -1 = semana actual
   const [expandedWeek, setExpandedWeek] = useState(null);
   const [showAllWeeks, setShowAllWeeks] = useState(false);
+  // On Mondays (weekly meeting day), default to showing last week's data
+  const [gddWeekView, setGddWeekView] = useState(() => new Date().getDay() === 1 ? "prev" : "current");
 
   const gddData = propGddData;
 
@@ -244,7 +246,12 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
 
       {/* GdD boxes — KPIs de generación de demanda */}
       {(() => {
-        const d = gddData || { semana: {}, anterior: {}, ytd: {} };
+        const raw = gddData || { semana: {}, anterior: {}, ytd: {} };
+        // When viewing prev week, swap semana/anterior so the KPIs show last week
+        const showingPrev = gddWeekView === "prev";
+        const d = showingPrev
+          ? { ...raw, semana: raw.anterior, anterior: raw.semana }
+          : raw;
         const metrics = ["leads", "mqls", "sqls", "opps"];
         const labels = { leads: "Leads", mqls: "MQLs", sqls: "SQLs", opps: "Opps" };
         const colors = { leads: "var(--blue)", mqls: "var(--purple)", sqls: "var(--green)", opps: "var(--yellow)" };
@@ -261,15 +268,30 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
           return null;
         })();
 
+        // Week date label — show correct range based on toggle
+        const weekLabel = (() => {
+          if (!gddData?.fechas?.semana_desde) return null;
+          if (showingPrev) {
+            // Calculate prev week dates from semana_desde
+            const desde = new Date(gddData.fechas.semana_desde + "T12:00:00");
+            const prevDesde = new Date(desde); prevDesde.setDate(desde.getDate() - 7);
+            const prevHasta = new Date(desde); prevHasta.setDate(desde.getDate() - 1);
+            return `${fmtDate(prevDesde.toISOString().slice(0,10))} – ${fmtDate(prevHasta.toISOString().slice(0,10))}`;
+          }
+          return `${fmtDate(gddData.fechas.semana_desde)}${gddData.fechas.semana_hasta ? " – " + fmtDate(gddData.fechas.semana_hasta) : ""}`;
+        })();
+
         return (
           <div style={{ marginBottom: 12 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
                 📊 Generación de Demanda{sourceBadge}
-                {gddData?.fechas?.semana_desde && (() => {
-                  return <span style={{ fontWeight: 400, marginLeft: 6, color: "var(--tx3)", fontSize: 11 }}>{fmtDate(gddData.fechas.semana_desde)}{gddData.fechas.semana_hasta ? " – " + fmtDate(gddData.fechas.semana_hasta) : ""}</span>;
-                })()}
+                {weekLabel && <span style={{ fontWeight: 400, marginLeft: 6, color: "var(--tx3)", fontSize: 11 }}>{weekLabel}</span>}
               </span>
+              <div style={{ display: "flex", gap: 0, border: "1px solid var(--bg4)", borderRadius: 6, overflow: "hidden" }}>
+                <button onClick={() => setGddWeekView("prev")} style={{ fontSize: 10, padding: "3px 8px", background: showingPrev ? "var(--blue)" : "var(--bg2)", color: showingPrev ? "#fff" : "var(--tx3)", border: "none", cursor: "pointer", fontWeight: 600, fontFamily: "inherit" }}>Sem. anterior</button>
+                <button onClick={() => setGddWeekView("current")} style={{ fontSize: 10, padding: "3px 8px", background: !showingPrev ? "var(--blue)" : "var(--bg2)", color: !showingPrev ? "#fff" : "var(--tx3)", border: "none", cursor: "pointer", fontWeight: 600, fontFamily: "inherit" }}>Esta semana</button>
+              </div>
             </div>
             <div className="kpi-grid-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 4 }}>
               {metrics.map((m) => {
@@ -287,7 +309,7 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
                     <div style={{ fontSize: 10, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: "0.1em", marginBottom: 6 }}>{labels[m]}</div>
                     <div style={{ fontFamily: "var(--mono)", fontSize: 32, fontWeight: 800, color: isNoData ? "var(--tx3)" : "var(--tx)", opacity: isNoData ? 0.4 : 1, lineHeight: 1, letterSpacing: "-0.04em" }}>{cur.toLocaleString()}</div>
                     {isNoData && <div style={{ fontSize: 9, color: "var(--tx3)", marginTop: 2, fontStyle: "italic" }}>sin datos</div>}
-                    {pct !== null && (
+                    {pct !== null && !showingPrev && (
                       <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 6, paddingTop: 6, borderTop: "1px solid var(--bg4)" }}>
                         <span style={{ fontSize: 11, fontWeight: 700, color: pct >= 0 ? "var(--green)" : "var(--red)" }}>{pct >= 0 ? "▲" : "▼"}{Math.abs(pct)}%</span>
                         <span style={{ fontSize: 10, color: "var(--tx3)" }}>vs sem. ant.</span>
