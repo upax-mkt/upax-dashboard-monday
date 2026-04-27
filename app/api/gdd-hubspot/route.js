@@ -281,10 +281,7 @@ export async function GET(request) {
           counts[period][metric] = 0
           counts[period][`${metric}_mkt`] = 0
           counts[period][`${metric}_com`] = 0
-          const errMsg = `${metric}/${period}: ${r.reason?.message || r.reason}`
-          if (!errors.some(e => e.startsWith(`${metric}/`))) {
-            errors.push(errMsg)
-          }
+          errors.push(`${metric}/${period}: ${r.reason?.message || r.reason}`)
         }
       })
     }
@@ -309,6 +306,7 @@ export async function GET(request) {
       fechas:   ranges.formatted,
       source:   errors.length > 0 ? 'hubspot_partial' : 'hubspot_live',
       errors:   errors.length > 0 ? errors : undefined,
+      _debug:   { mxNow: getMexicoNow().toISOString(), ranges: ranges.formatted, errCount: errors.length },
       lastUpdate: new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }),
     }
 

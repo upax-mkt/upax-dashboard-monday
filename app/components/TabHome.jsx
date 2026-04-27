@@ -505,7 +505,7 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
                 </thead>
                 <tbody>
                   {weeks.map((w, i) => {
-                    const isFirst = i === 0;
+                    const isFirst = w.semana_desde === gddData?.fechas?.semana_desde;
                     const prev = weeks[i + 1];
                     const isExpanded = expandedWeek === (w.id || i);
                     const hasPorOrigen = Array.isArray(w.por_origen) && w.por_origen.length > 0;

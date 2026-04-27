@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { storeGet } from '../lib/storage'
+import { storeGet, storeSet } from '../lib/storage'
 
 const GDD_HISTORY_KEY = 'gdd_history'
 
@@ -136,7 +136,57 @@ export function useGDDData() {
           .then(d => d && !d.error ? d : null),
       ])
 
-      setHistory(histResult.status === 'fulfilled' && Array.isArray(histResult.value) ? histResult.value : [])
+      const currentHistory = histResult.status === 'fulfilled' && Array.isArray(histResult.value) ? histResult.value : []
+
+      // Auto-save current + previous week to history if HubSpot returned data
+      if (hubspotData && hubspotData.fechas?.semana_desde && hubspotData.source !== 'empty') {
+        const prevWeek = getPrevWeekDates(hubspotData.fechas.semana_desde)
+        const weeksToSave = [
+          { wsd: hubspotData.fechas.semana_desde, wsh: hubspotData.fechas.semana_hasta, sem: hubspotData.semana },
+          { wsd: prevWeek.semana_desde, wsh: prevWeek.semana_hasta, sem: hubspotData.anterior },
+        ]
+        let historyChanged = false
+
+        for (const { wsd, wsh, sem } of weeksToSave) {
+          if (!wsd || !sem) continue
+          const hasData = (sem.leads || 0) + (sem.mqls || 0) + (sem.sqls || 0) + (sem.opps || 0) > 0
+          if (!hasData) continue
+
+          const makeFields = () => ({
+            leads: sem.leads || 0, mqls: sem.mqls || 0, sqls: sem.sqls || 0, opps: sem.opps || 0,
+            leads_mkt: sem.leads_mkt || 0, leads_com: sem.leads_com || 0,
+            mqls_mkt: sem.mqls_mkt || 0, mqls_com: sem.mqls_com || 0,
+            sqls_mkt: sem.sqls_mkt || 0, sqls_com: sem.sqls_com || 0,
+            opps_mkt: sem.opps_mkt || 0, opps_com: sem.opps_com || 0,
+            pipeline_total: sem.pipeline_total || 0, pipeline_mkt: sem.pipeline_mkt || 0, pipeline_com: sem.pipeline_com || 0,
+            guardado_en: new Date().toISOString(), auto: true,
+          })
+
+          const existing = currentHistory.find(h => h.semana_desde === wsd || h.id === wsd)
+          if (!existing) {
+            currentHistory.push({ id: wsd, semana_desde: wsd, semana_hasta: wsh || wsd, ...makeFields() })
+            historyChanged = true
+          } else {
+            const changed = ['leads', 'mqls', 'sqls', 'opps'].some(m => {
+              const ov = existing[m] || 0, nv = sem[m] || 0
+              if (ov === 0 && nv === 0) return false
+              if (ov === 0) return true
+              return Math.abs((nv - ov) / ov) > 0.05
+            })
+            if (changed) {
+              Object.assign(existing, makeFields())
+              historyChanged = true
+            }
+          }
+        }
+
+        if (historyChanged) {
+          currentHistory.sort((a, b) => (b.id || b.semana_desde).localeCompare(a.id || a.semana_desde))
+          try { await storeSet(GDD_HISTORY_KEY, currentHistory) } catch {}
+        }
+      }
+
+      setHistory(currentHistory)
       if (targetsResult.status === 'fulfilled' && targetsResult.value) {
         setTargets(targetsResult.value)
       }
