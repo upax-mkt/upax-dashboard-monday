@@ -149,9 +149,6 @@ export default function App() {
   const wdRef = useRef(null);
   const analysisRef = useRef(null);
   const blockTimesRef = useRef(null);
-  useEffect(() => { wdRef.current = wd; }, [wd]);
-  useEffect(() => { analysisRef.current = analysis; }, [analysis]);
-  useEffect(() => { blockTimesRef.current = blockTimes; }, [blockTimes]);
 
   useEffect(() => {
     if (finished && !minutaDraft) {
@@ -354,6 +351,11 @@ export default function App() {
 
     return { byPhase, byPhaseWeek, bySquad, bySquadWeek, byPerson, byPersonWeek, overdue, noResp, noCrono, stoppedWeek, backlogWithDates, doneLastWeek, doneThisWeek, overdueThisWeek: overdueThisWeekArr, overdueLastWeek: overdueLastWeekArr, stoppedLastWeek: stoppedLastWeekArr, velocity, semaphore, doneTotal };
   }, [items, itemsFingerprint]);
+
+  // Sync refs AFTER analysis is defined (avoid TDZ)
+  useEffect(() => { wdRef.current = wd; }, [wd]);
+  useEffect(() => { analysisRef.current = analysis; }, [analysis]);
+  useEffect(() => { blockTimesRef.current = blockTimes; }, [blockTimes]);
 
   // ── Audit Log helper ──────────────────────────────────────────
   const AUDIT_LOG_KEY = "audit_log";
