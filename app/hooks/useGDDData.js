@@ -22,15 +22,26 @@ async function fetchWithTimeout(url, opts = {}, timeoutMs = 10000) {
   }
 }
 
-// Calculate current ISO week dates (Monday-Sunday) locally
+// Calculate current ISO week dates (Monday-Sunday) in Mexico City timezone
 function getCurrentWeekDates() {
   const now = new Date()
-  const dayOfWeek = now.getDay() || 7
-  const monday = new Date(now)
-  monday.setDate(now.getDate() - (dayOfWeek - 1))
+  const mxStr = now.toLocaleString('en-CA', {
+    timeZone: 'America/Mexico_City',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  })
+  const mxNow = new Date(mxStr.replace(',', ''))
+  const dayOfWeek = mxNow.getDay() || 7
+  const monday = new Date(mxNow)
+  monday.setDate(mxNow.getDate() - (dayOfWeek - 1))
   const sunday = new Date(monday)
   sunday.setDate(monday.getDate() + 6)
-  const fmt = (d) => d.toISOString().slice(0, 10)
+  const fmt = (d) => {
+    const y = d.getFullYear()
+    const m = String(d.getMonth() + 1).padStart(2, '0')
+    const day = String(d.getDate()).padStart(2, '0')
+    return `${y}-${m}-${day}`
+  }
   return { semana_desde: fmt(monday), semana_hasta: fmt(sunday) }
 }
 
@@ -65,6 +76,7 @@ export function useGDDData() {
   const [gddData, setGddData] = useState(null)
   const [mqlBreakdown, setMqlBreakdown] = useState(null)
   const [mqlBreakdownPrev, setMqlBreakdownPrev] = useState(null)
+  const [targets, setTargets] = useState(null)
   const [history, setHistory] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
@@ -116,12 +128,17 @@ export function useGDDData() {
         setMqlBreakdownPrev(mqlPrev.value)
       }
 
-      // 3. Fetch historial desde Upstash
-      try {
-        const hist = await storeGet(GDD_HISTORY_KEY)
-        setHistory(Array.isArray(hist) ? hist : [])
-      } catch {
-        setHistory([])
+      // 3. Fetch historial + targets in parallel
+      const [histResult, targetsResult] = await Promise.allSettled([
+        storeGet(GDD_HISTORY_KEY),
+        fetchWithTimeout('/api/gdd-targets', { headers: authHeadersGet() }, 10000)
+          .then(r => r.ok ? r.json() : null)
+          .then(d => d && !d.error ? d : null),
+      ])
+
+      setHistory(histResult.status === 'fulfilled' && Array.isArray(histResult.value) ? histResult.value : [])
+      if (targetsResult.status === 'fulfilled' && targetsResult.value) {
+        setTargets(targetsResult.value)
       }
 
     } catch (err) {
@@ -143,6 +160,7 @@ export function useGDDData() {
     gddData,
     mqlBreakdown,
     mqlBreakdownPrev,
+    targets,
     history,
     setHistory,
     loading,

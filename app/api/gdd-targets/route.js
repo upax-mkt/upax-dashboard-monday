@@ -4,12 +4,18 @@ import { upstashGet, upstashSet } from '../../lib/upstash-server'
 
 export const dynamic = 'force-dynamic'
 
-const TARGETS_CACHE_KEY = 'gdd-targets-v1'
+const _now = new Date()
+const TARGETS_CACHE_KEY = `gdd-targets-v1-${_now.getFullYear()}-${_now.getMonth()}`
 const TARGETS_TTL = 86400 // 24h
 
 // Genera un JWT para autenticarse con Google APIs usando la Service Account
 async function getGoogleAccessToken() {
-  const credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '{}')
+  let credentials
+  try {
+    credentials = JSON.parse(process.env.GOOGLE_SERVICE_ACCOUNT_JSON || '{}')
+  } catch (e) {
+    throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON es JSON invalido: ' + e.message)
+  }
   if (!credentials.private_key || !credentials.client_email) {
     throw new Error('GOOGLE_SERVICE_ACCOUNT_JSON no configurado')
   }

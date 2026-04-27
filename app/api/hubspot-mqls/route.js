@@ -87,10 +87,10 @@ function aggregateByOrigin(contacts) {
     else if (macro === 'outbound') macroInbound.outbound++
     else macroInbound.unknown++
 
-    // Mkt/Com split via conversion property
-    const conv = props.conversion
-    if (conv === 'true' || conv === true) mktCount++
-    else if (conv === 'false' || conv === false) comCount++
+    // Mkt/Com split via conversion property (normalized)
+    const convStr = String(props.conversion ?? '').toLowerCase().trim()
+    if (convStr === 'true' || convStr === '1' || convStr === 'yes') mktCount++
+    else if (convStr === 'false' || convStr === '0' || convStr === 'no') comCount++
 
     // GRANULAR: fuente_conversion primero, fallback a hs_analytics_source
     let label
@@ -165,6 +165,7 @@ export async function GET(request) {
         { propertyName: 'fecha_mql', operator: 'GTE', value: String(desdeMs) },
         { propertyName: 'fecha_mql', operator: 'LTE', value: String(hastaMs) },
         { propertyName: 'udn', operator: 'HAS_PROPERTY' },
+        { propertyName: 'udn', operator: 'NEQ', value: '' },
         { propertyName: 'udn', operator: 'NEQ', value: 'Interno' },
         { propertyName: 'udn', operator: 'NEQ', value: 'CF' },
       ],

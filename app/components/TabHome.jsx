@@ -133,7 +133,7 @@ const fmtDate = (s) => {
   return isNaN(d) ? s : d.toLocaleDateString("es-MX", { day: "numeric", month: "short" });
 };
 
-const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts, gddData: propGddData, setGddData: propSetGddData, mqlBreakdown, mqlBreakdownPrev, gddHistory, setGddHistory, gddLoading }) {
+const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts, gddData: propGddData, setGddData: propSetGddData, mqlBreakdown, mqlBreakdownPrev, gddTargets, gddHistory, setGddHistory, gddLoading }) {
   const [alertGroupsExpanded, setAlertGroupsExpanded] = useState({});
   const [expandedPerson, setExpandedPerson] = useState(null);
   const [cargaSquad, setCargaSquad] = useState("all");
@@ -329,6 +329,22 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
                         <span style={{ color: "var(--tx2)", fontWeight: 700, fontFamily: "var(--mono)" }}>{mesVal.toLocaleString()}</span> acum. mes
                       </div>
                     )}
+                    {(() => {
+                      const target = gddTargets?.targets?.[m] || 0;
+                      if (target <= 0) return null;
+                      const pctTarget = Math.min((mesVal / target) * 100, 100);
+                      const targetColor = pctTarget >= 90 ? "var(--green)" : pctTarget >= 60 ? "var(--yellow)" : "var(--red)";
+                      return (
+                        <div style={{ marginTop: 4 }}>
+                          <div style={{ height: 2, background: "var(--bg4)", borderRadius: 1, overflow: "hidden" }}>
+                            <div style={{ width: pctTarget + "%", height: "100%", background: targetColor, borderRadius: 1, transition: "width .4s ease" }} />
+                          </div>
+                          <div style={{ fontSize: 9, color: "var(--tx3)", marginTop: 2, fontFamily: "var(--mono)" }}>
+                            {mesVal}/{target} meta mes
+                          </div>
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })}
@@ -405,6 +421,9 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
               <span style={{ fontSize: 12, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
                 📊 MQLs por Canal
+                {mqlWeekIdx === -1 && gddWeekView === "prev" && !mqlBreakdownPrev && mqlBreakdown && (
+                  <span style={{ fontSize: 9, color: "var(--yellow)", fontWeight: 600, marginLeft: 6, textTransform: "none", letterSpacing: 0 }}>(datos sem. actual)</span>
+                )}
               </span>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 {/* Week selector */}

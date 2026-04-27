@@ -55,6 +55,9 @@ export async function GET(request) {
 
       enriched.push({ ...entry, por_origen, breakdown_macro })
       updated++
+
+      // Rate limit delay between HubSpot requests
+      await new Promise(r => setTimeout(r, 1200))
     }
 
     // Save updated history

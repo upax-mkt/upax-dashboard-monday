@@ -40,6 +40,13 @@ async function hubspotSearchSplit(token, objectType, filters, splitProp, propert
     }
     clearTimeout(timer)
 
+    if (res.status === 429) {
+      const retryAfter = Math.min(parseInt(res.headers.get('Retry-After') || '10', 10), 30) * 1000
+      await new Promise(r => setTimeout(r, retryAfter))
+      page-- // retry same page
+      continue
+    }
+
     if (!res.ok) {
       const text = await res.text()
       throw new Error(`HS ${objectType} ${res.status}: ${text.slice(0, 120)}`)
@@ -51,9 +58,9 @@ async function hubspotSearchSplit(token, objectType, filters, splitProp, propert
     for (const item of results) {
       total++
       const props = item.properties || {}
-      const splitVal = props[splitProp]
-      const isMkt = splitVal === 'true' || splitVal === true
-      const isCom = splitVal === 'false' || splitVal === false
+      const splitStr = String(props[splitProp] ?? '').toLowerCase().trim()
+      const isMkt = splitStr === 'true' || splitStr === '1' || splitStr === 'yes'
+      const isCom = splitStr === 'false' || splitStr === '0' || splitStr === 'no'
 
       if (isMkt) mkt++
       else if (isCom) com++
@@ -71,6 +78,11 @@ async function hubspotSearchSplit(token, objectType, filters, splitProp, propert
     } else {
       break
     }
+
+    // Truncation warning on last allowed page
+    if (page === MAX_PAGES - 1 && data.paging?.next?.after) {
+      console.warn(`HS ${objectType} TRUNCATED at ${MAX_PAGES} pages (${total} records)`)
+    }
   }
 
   const result = { total, mkt, com }
@@ -82,12 +94,20 @@ async function hubspotSearchSplit(token, objectType, filters, splitProp, propert
   return result
 }
 
+// --- Mexico City timezone helper (DST-aware) ---
+function getMexicoNow() {
+  const now = new Date()
+  const mxStr = now.toLocaleString('en-CA', {
+    timeZone: 'America/Mexico_City',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  })
+  return new Date(mxStr.replace(',', ''))
+}
+
 // --- Date range calculation (Mexico City timezone) ---
 function getDateRanges() {
-  const now = new Date()
-  const mxOffset = -6 * 60
-  const localOffset = now.getTimezoneOffset()
-  const mxNow = new Date(now.getTime() + (localOffset + mxOffset) * 60000)
+  const mxNow = getMexicoNow()
 
   const year = mxNow.getFullYear()
   const month = mxNow.getMonth()
@@ -134,6 +154,7 @@ function getDateRanges() {
 // UDN exclusion filters shared by multiple metrics
 const UDN_FILTERS = [
   { propertyName: 'udn', operator: 'HAS_PROPERTY' },
+  { propertyName: 'udn', operator: 'NEQ', value: '' },
   { propertyName: 'udn', operator: 'NEQ', value: 'Interno' },
   { propertyName: 'udn', operator: 'NEQ', value: 'CF' },
 ]
@@ -270,7 +291,8 @@ export async function GET(request) {
 
     errors.forEach(e => console.error('GDD query error:', e))
 
-    const allFailed = errors.length >= metrics.length
+    const hasAnyData = Object.values(counts.semana).some(v => v > 0)
+    const allFailed = !hasAnyData && errors.length > 0
     if (allFailed) {
       return NextResponse.json({
         error: 'All HubSpot queries failed',
@@ -290,8 +312,9 @@ export async function GET(request) {
       lastUpdate: new Date().toLocaleDateString('es-MX', { day: 'numeric', month: 'short', year: 'numeric' }),
     }
 
-    if (errors.length === 0) {
-      await upstashSet(cacheKey, result, 900)
+    if (!allFailed) {
+      const ttl = errors.length > 0 ? 300 : 900
+      await upstashSet(cacheKey, result, ttl)
     }
 
     return NextResponse.json(result)
