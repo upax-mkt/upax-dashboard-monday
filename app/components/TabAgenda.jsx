@@ -56,7 +56,7 @@ const TabAgenda = React.memo(function TabAgenda({ wd, setWd, save, currentIdx, b
 });
 
 /* ═══════════════════════════════════════════════════════════════
-   SECTION 11: TAB PANORAMA
+   TAB AGENDA
    ═══════════════════════════════════════════════════════════════ */
 
 export { TabAgenda }

@@ -41,7 +41,9 @@ export function isTeamMember(name) { return PERSON_NAMES.includes(normalizePerso
 export function parseTL(t) {
   if (!t || typeof t !== "string") return { start: null, end: null };
   const p = t.split(" - ");
-  return { start: p[0] ? new Date(p[0]) : null, end: p[1] ? new Date(p[1]) : null };
+  const s = p[0] ? new Date(p[0]) : null;
+  const e = p[1] ? new Date(p[1]) : null;
+  return { start: s && !isNaN(s.getTime()) ? s : null, end: e && !isNaN(e.getTime()) ? e : null };
 }
 
 export function addDays(dateStr, n) {

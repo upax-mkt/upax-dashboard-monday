@@ -1,5 +1,6 @@
 .env.local
 .env*.local
+.env.prod*
 node_modules/
 .next/
 out/

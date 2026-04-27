@@ -1,32 +1,9 @@
 import { NextResponse } from 'next/server'
+import { upstashGet, upstashSet } from '../../lib/upstash-server'
 
 export const dynamic = 'force-dynamic'
 
 const GDD_HISTORY_KEY = 'gdd_history'
-
-async function upstash(command, ...args) {
-  const url   = process.env.KV_REST_API_URL   || process.env.UPSTASH_REDIS_REST_URL
-  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN
-  if (!url || !token) throw new Error('Upstash no configurado')
-  const encoded = args.map(a => encodeURIComponent(String(a)))
-  const res = await fetch(`${url}/${[command, ...encoded].join('/')}`, {
-    headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
-  })
-  if (!res.ok) throw new Error(`Upstash ${res.status}`)
-  const data = await res.json()
-  return data.result ?? null
-}
-
-async function upstashGet(key) {
-  const raw = await upstash('GET', key)
-  if (!raw) return null
-  try { return typeof raw === 'string' ? JSON.parse(raw) : raw } catch { return null }
-}
-
-async function upstashSet(key, value) {
-  const serialized = typeof value === 'string' ? value : JSON.stringify(value)
-  await upstash('SET', key, serialized, 'EX', String(60 * 60 * 24 * 365))
-}
 
 export async function GET(request) {
   // Proteger endpoint — requiere CRON_SECRET (mismo esquema que gdd-weekly-save)
@@ -82,7 +59,7 @@ export async function GET(request) {
 
     // Save updated history
     const sorted = enriched.sort((a, b) => b.id.localeCompare(a.id))
-    await upstashSet(GDD_HISTORY_KEY, sorted)
+    await upstashSet(GDD_HISTORY_KEY, sorted, 60 * 60 * 24 * 365)
 
     return NextResponse.json({ ok: true, updated, skipped, total: enriched.length })
 

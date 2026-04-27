@@ -144,6 +144,3 @@ export function generateMinuta(wd, analysis, gddData, blockTimes) {
   t += `${LINE}\nWeekly Mkt Corp · ${new Date().toLocaleTimeString("es-MX",{hour:"2-digit",minute:"2-digit"})}\n`;
   return t;
 }
-/* ═══════════════════════════════════════════════════════════════
-   SECTION 6: CSS
-   ═══════════════════════════════════════════════════════════════ */

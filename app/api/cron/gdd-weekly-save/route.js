@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { upstashGet, upstashSet } from '../../../lib/upstash-server'
 
 // Cron dominical: guarda automáticamente los datos GDD de la semana actual en Upstash
 // Schedule: todos los domingos a las 18:00 UTC (12:00 PM CDMX)
@@ -6,30 +7,6 @@ import { NextResponse } from 'next/server'
 
 const GDD_HISTORY_KEY = 'gdd_history'
 const AUDIT_LOG_KEY   = 'audit_log'
-
-async function upstash(command, ...args) {
-  const url   = process.env.KV_REST_API_URL   || process.env.UPSTASH_REDIS_REST_URL
-  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN
-  if (!url || !token) throw new Error('Upstash no configurado')
-  const encoded = args.map(a => encodeURIComponent(String(a)))
-  const res = await fetch(`${url}/${[command, ...encoded].join('/')}`, {
-    headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
-  })
-  if (!res.ok) throw new Error(`Upstash ${res.status}`)
-  const data = await res.json()
-  return data.result ?? null
-}
-
-async function upstashGet(key) {
-  const raw = await upstash('GET', key)
-  if (!raw) return null
-  try { return typeof raw === 'string' ? JSON.parse(raw) : raw } catch { return null }
-}
-
-async function upstashSet(key, value) {
-  const serialized = typeof value === 'string' ? value : JSON.stringify(value)
-  await upstash('SET', key, serialized, 'EX', String(60 * 60 * 24 * 365))
-}
 
 export async function GET(request) {
   // Verificar autorización
@@ -116,7 +93,7 @@ export async function GET(request) {
     }
 
     const updatedHistory = [entry, ...history.filter((h) => h.semana_desde !== semana_desde)].sort((a, b) => b.id.localeCompare(a.id))
-    await upstashSet(GDD_HISTORY_KEY, updatedHistory)
+    await upstashSet(GDD_HISTORY_KEY, updatedHistory, 60 * 60 * 24 * 365)
 
     // 5. Audit log
     const auditLog = (await upstashGet(AUDIT_LOG_KEY)) || []
@@ -129,7 +106,7 @@ export async function GET(request) {
       origen:       'cron',
     }
     const updatedLog = [auditEntry, ...auditLog].slice(0, 500)
-    await upstashSet(AUDIT_LOG_KEY, updatedLog)
+    await upstashSet(AUDIT_LOG_KEY, updatedLog, 60 * 60 * 24 * 365)
 
     return NextResponse.json({ ok: true, saved: true, week: semana_desde, entry })
 

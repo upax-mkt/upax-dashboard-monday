@@ -5,6 +5,23 @@ import { SQUADS, PHASES, TODAY, PERSONAS } from '../lib/constants'
 import { WEEK, parseTL, daysDiff, shortName, normalizeSquad, getPersonDetail } from '../lib/utils'
 import { Bar, Card, Chip, PersonDetailView } from './ui'
 
+function PanoramaPersonRow({ p, d, rank, items, expandedPerson, setExpandedPerson }) {
+  const open = expandedPerson === p;
+  const detail = open ? getPersonDetail(p, items) : null;
+  return (
+    <div>
+      <div onClick={() => setExpandedPerson(open ? null : p)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: "var(--r-sm)", marginBottom: 2, cursor: "pointer", background: open ? "var(--bg3)" : d.total > 8 ? "rgba(239,68,68,.06)" : "var(--bg2)", border: `1px solid ${open ? "var(--border)" : d.total > 8 ? "rgba(239,68,68,.2)" : "transparent"}` }}>
+        <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--tx3)", minWidth: 16 }}>{rank}</span>
+        <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{shortName(p)} {d.total > 8 && "⚠️"}</span>
+        <span style={{ fontFamily: "var(--mono)", fontSize: 16, fontWeight: 700, color: d.total > 8 ? "var(--red)" : "var(--tx)", minWidth: 24, textAlign: "right" }}>{d.total}</span>
+        {d.stopped > 0 ? <span style={{ fontSize: 10, color: "var(--tx3)" }}><span style={{ color: "var(--tx2)" }}>{d.items} act</span> + <span style={{ color: "var(--red)" }}>{d.stopped} 🚫</span></span> : <span style={{ fontSize: 10, color: "var(--tx3)" }}>tareas</span>}
+        <span style={{ fontSize: 10, color: "var(--tx3)", transform: open ? "rotate(180deg)" : "none", transition: "transform .2s" }}>▾</span>
+      </div>
+      {open && detail && <PersonDetailView detail={detail} />}
+    </div>
+  );
+}
+
 const TabPanorama = React.memo(function TabPanorama({ analysis: an, items }) {
   const [sec, setSec] = useState(() => {
     try { return sessionStorage.getItem("panorama-tab") || "kanban"; } catch { return "kanban"; }
@@ -14,23 +31,6 @@ const TabPanorama = React.memo(function TabPanorama({ analysis: an, items }) {
     try { sessionStorage.setItem("panorama-tab", s); } catch {}
   };
   const [expandedPerson, setExpandedPerson] = useState(null);
-
-  const PanoramaPersonRow = ({ p, d, rank }) => {
-    const open = expandedPerson === p;
-    const detail = open ? getPersonDetail(p, items) : null;
-    return (
-      <div>
-        <div onClick={() => setExpandedPerson(open ? null : p)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: "var(--r-sm)", marginBottom: 2, cursor: "pointer", background: open ? "var(--bg3)" : d.total > 8 ? "rgba(239,68,68,.06)" : "var(--bg2)", border: `1px solid ${open ? "var(--border)" : d.total > 8 ? "rgba(239,68,68,.2)" : "transparent"}` }}>
-          <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--tx3)", minWidth: 16 }}>{rank}</span>
-          <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{shortName(p)} {d.total > 8 && "⚠️"}</span>
-          <span style={{ fontFamily: "var(--mono)", fontSize: 16, fontWeight: 700, color: d.total > 8 ? "var(--red)" : "var(--tx)", minWidth: 24, textAlign: "right" }}>{d.total}</span>
-          {d.stopped > 0 ? <span style={{ fontSize: 10, color: "var(--tx3)" }}><span style={{ color: "var(--tx2)" }}>{d.items} act</span> + <span style={{ color: "var(--red)" }}>{d.stopped} 🚫</span></span> : <span style={{ fontSize: 10, color: "var(--tx3)" }}>tareas</span>}
-          <span style={{ fontSize: 10, color: "var(--tx3)", transform: open ? "rotate(180deg)" : "none", transition: "transform .2s" }}>▾</span>
-        </div>
-        {open && detail && <PersonDetailView detail={detail} />}
-      </div>
-    );
-  };
 
   return (
     <div className="fade">
@@ -112,7 +112,7 @@ const TabPanorama = React.memo(function TabPanorama({ analysis: an, items }) {
             <span>Tareas por persona esta semana</span>
             <span>{WEEK.start.toLocaleDateString("es-MX", { day: "numeric", month: "short" })} – {WEEK.end.toLocaleDateString("es-MX", { day: "numeric", month: "short" })}</span>
           </div>
-          {Object.entries(an.byPersonWeek).filter(([name]) => PERSONAS.some((p) => p.name === name)).sort((a, b) => b[1].total - a[1].total).map(([p, d], i) => <PanoramaPersonRow key={p} p={p} d={d} rank={i + 1} />)}
+          {Object.entries(an.byPersonWeek).filter(([name]) => PERSONAS.some((p) => p.name === name)).sort((a, b) => b[1].total - a[1].total).map(([p, d], i) => <PanoramaPersonRow key={p} p={p} d={d} rank={i + 1} items={items} expandedPerson={expandedPerson} setExpandedPerson={setExpandedPerson} />)}
           {Object.keys(an.byPersonWeek).length === 0 && <div style={{ textAlign: "center", padding: "20px 0", color: "var(--tx3)", fontSize: 12 }}>No hay items con Fecha Definida esta semana</div>}
         </div>
       )}
@@ -158,7 +158,7 @@ const TabPanorama = React.memo(function TabPanorama({ analysis: an, items }) {
 });
 
 /* ═══════════════════════════════════════════════════════════════
-   SECTION 13: TAB FOCOS
+   TAB PANORAMA
    ═══════════════════════════════════════════════════════════════ */
 
 export { TabPanorama }

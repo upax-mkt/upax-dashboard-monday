@@ -62,7 +62,15 @@ export function CopyModal({ text, onClose }) {
           <button onClick={onClose} style={{ background: "var(--bg3)", border: "none", width: 30, height: 30, borderRadius: 15, fontSize: 14, cursor: "pointer", color: "var(--tx3)" }}>✕</button>
         </div>
         <textarea ref={ref} readOnly value={text} style={{ width: "100%", height: 320, background: "var(--bg3)", color: "var(--tx)", border: "none", borderRadius: "var(--r)", padding: 16, fontSize: 12, fontFamily: "var(--mono)", resize: "vertical", outline: "none", lineHeight: 1.7 }} />
-        <button onClick={() => { if (ref.current) { ref.current.select(); document.execCommand("copy"); } }} style={{ marginTop: 12, background: "var(--blue)", color: "#fff", border: "none", borderRadius: "var(--r-sm)", padding: "12px 28px", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
+        <button onClick={async () => {
+          if (!ref.current) return;
+          const text = ref.current.value;
+          if (navigator.clipboard?.writeText) {
+            try { await navigator.clipboard.writeText(text); return; } catch {}
+          }
+          ref.current.select();
+          try { document.execCommand("copy"); } catch {}
+        }} style={{ marginTop: 12, background: "var(--blue)", color: "#fff", border: "none", borderRadius: "var(--r-sm)", padding: "12px 28px", fontSize: 14, fontWeight: 600, cursor: "pointer" }}>
           Copiar al portapapeles
         </button>
       </div>

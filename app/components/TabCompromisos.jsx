@@ -47,9 +47,10 @@ const TabCompromisos = React.memo(function TabCompromisos({ wd, setWd, save, ana
     if (!data?.compromisos) return;
     const idx = data.compromisos.findIndex((c) => c.que === compQue);
     if (idx < 0) return;
-    data.compromisos[idx].pct = newPct;
-    if (newPct >= 100) data.compromisos[idx].status = "done";
-    await storeSet(weekKey, data);
+    const updated = { ...data, compromisos: data.compromisos.map((c, i) =>
+      i === idx ? { ...c, pct: newPct, ...(newPct >= 100 ? { status: "done" } : {}) } : c
+    )};
+    await storeSet(weekKey, updated);
     setPrevComps((prev) => prev.map((c) => c.weekKey === weekKey && c.que === compQue ? { ...c, pct: newPct, status: newPct >= 100 ? "done" : c.status } : c));
   }
 

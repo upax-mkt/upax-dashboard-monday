@@ -28,6 +28,7 @@ import { TabMinutasInline } from "./components/TabMinutas";
 import { AuditLogPanel } from "./components/AuditLogPanel";
 import { PhaseModal } from "./components/PhaseModal";
 import { MinutaLightbox } from "./components/MinutaLightbox";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 /* ═══════════════════════════════════════════════════════════════
    MAIN APP — Orquestador principal
@@ -63,11 +64,9 @@ export default function App() {
 
   // Hook unificado para datos GDD (Sheets + HubSpot + historial)
   const { gddData: hookGddData, mqlBreakdown, history: gddHistory, setHistory: setGddHistory, loading: gddLoading, refetch: refetchGdd } = useGDDData();
-  // appGddData: datos GDD para minuta y compromisos
-  const [appGddData, setAppGddData] = useState(null);
-  useEffect(() => {
-    if (hookGddData) setAppGddData(hookGddData);
-  }, [hookGddData]);
+  // appGddData: alias directo de hookGddData (eliminado estado espejo innecesario)
+  const appGddData = hookGddData;
+  const setAppGddData = () => {}; // no-op — mantener compatibilidad con props existentes
 
   const saveFn = useCallback(async (d) => { await storeSet(STORE_KEY, d); }, []);
 
@@ -100,18 +99,22 @@ export default function App() {
     });
   }, []);
 
+  const currentBlockIdxRef = useRef(currentBlockIdx);
+  useEffect(() => { currentBlockIdxRef.current = currentBlockIdx; }, [currentBlockIdx]);
+
   const jumpToBlock = useCallback((idx) => {
     if (idx < 0 || idx >= AGENDA.length) return;
     if (blockStartRef.current) {
+      const prevIdx = currentBlockIdxRef.current;
       const spent = Math.round((Date.now() - blockStartRef.current) / 1000);
-      setBlockTimes((bt) => ({ ...bt, [AGENDA[currentBlockIdx].id]: (bt[AGENDA[currentBlockIdx].id] || 0) + spent }));
+      setBlockTimes((bt) => ({ ...bt, [AGENDA[prevIdx].id]: (bt[AGENDA[prevIdx].id] || 0) + spent }));
     }
     blockStartRef.current = Date.now();
     setCurrentBlockIdx(idx);
     const b = AGENDA[idx];
     setTab(b.tab);
     if (b.sq && b.sq !== "cross") setActiveSquad(b.sq);
-  }, [currentBlockIdx]);
+  }, []);
 
   const startTimer = useCallback(() => {
     startRef.current = Date.now();
@@ -143,13 +146,20 @@ export default function App() {
     setMinutaSaved(false);
   }, [block]);
 
+  const wdRef = useRef(null);
+  const analysisRef = useRef(null);
+  const blockTimesRef = useRef(null);
+  useEffect(() => { wdRef.current = wd; }, [wd]);
+  useEffect(() => { analysisRef.current = analysis; }, [analysis]);
+  useEffect(() => { blockTimesRef.current = blockTimes; }, [blockTimes]);
+
   useEffect(() => {
     if (finished && !minutaDraft) {
-      const draft = generateMinuta(wd, analysis, appGddData, blockTimes);
+      const draft = generateMinuta(wdRef.current, analysisRef.current, appGddData, blockTimesRef.current);
       setMinutaDraft(draft);
-      storeSet(STORE_KEY, { ...wd, minutaText: draft });
+      storeSet(STORE_KEY, { ...wdRef.current, minutaText: draft });
     }
-  }, [finished]);
+  }, [finished, appGddData]);
 
   useEffect(() => {
     if (running) {
@@ -192,7 +202,9 @@ export default function App() {
         await storeSet(CACHE_KEY, { items: fresh, ts: new Date().toISOString(), doneCount: fresh._doneCount || 0 });
         setLastUpdate(new Date().toISOString());
       }
-    } catch {}
+    } catch (e) {
+      setErr('Error al sincronizar: ' + (e?.message || 'desconocido'));
+    }
     setRefreshing(false);
   }, []);
 
@@ -351,7 +363,7 @@ export default function App() {
       const log = Array.isArray(current) ? current : [];
       const entry = { id: Date.now().toString() + Math.random().toString(36).slice(2, 6), ts: new Date().toISOString(), tipo, descripcion, datos, origen };
       await storeSet(AUDIT_LOG_KEY, [entry, ...log].slice(0, 500));
-    } catch (e) { console.warn("Audit log failed:", e?.message); }
+    } catch (e) { if (process.env.NODE_ENV !== 'production') console.warn("Audit log failed:", e?.message); }
   }, []);
 
   // ── Loading screen ──────────────────────────────────────────
@@ -486,12 +498,14 @@ export default function App() {
         </div>
         <div style={{ height: 20 }} />
 
+        <ErrorBoundary>
         {tab === "home"        && <TabHome analysis={an} items={items} elapsed={elapsed} onStart={startTimer} onViewAlerts={() => { setTab("panorama"); try { sessionStorage.setItem("panorama-tab","alertas"); } catch {} }} gddData={appGddData} setGddData={setAppGddData} mqlBreakdown={mqlBreakdown} gddHistory={gddHistory} setGddHistory={setGddHistory} gddLoading={gddLoading} />}
         {tab === "agenda"      && <TabAgenda wd={wd} setWd={setWd} save={saveFn} currentIdx={currentBlockIdx} blockTimes={blockTimes} onJumpToBlock={jumpToBlock} />}
         {tab === "panorama"    && <TabPanorama analysis={an} items={items} />}
         {tab === "focos"       && <TabFocos items={items} wd={wd} setWd={setWd} save={saveFn} activeSquad={activeSquad} setActiveSquad={setActiveSquad} />}
         {tab === "compromisos" && <TabCompromisos wd={wd} setWd={setWd} save={saveFn} analysis={an} onCopy={handleCopy} gddData={appGddData} />}
         {tab === "minutas"     && <TabMinutasInline wd={wd} analysis={an} gddData={appGddData} blockTimes={blockTimes} onOpenMinuta={(key, data) => setMinutaLightbox({ key, data })} />}
+        </ErrorBoundary>
 
         {/* Footer */}
         <div style={{ marginTop: 32, padding: "12px 0", borderTop: "1px solid var(--bg4)" }}>

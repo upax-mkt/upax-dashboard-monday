@@ -1,37 +1,8 @@
 import { NextResponse } from 'next/server'
 import { validateAuth } from '../_auth'
+import { upstashGet, upstashSet } from '../../lib/upstash-server'
 
 export const dynamic = 'force-dynamic'
-
-// --- Upstash cache helpers ---
-async function upstashGet(key) {
-  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL
-  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN
-  if (!url || !token) return null
-  try {
-    const res = await fetch(`${url}/get/${encodeURIComponent(key)}`, {
-      headers: { Authorization: `Bearer ${token}` }, cache: 'no-store',
-    })
-    if (!res.ok) return null
-    const data = await res.json()
-    const raw = data.result
-    if (!raw) return null
-    return typeof raw === 'string' ? JSON.parse(raw) : raw
-  } catch { return null }
-}
-
-async function upstashSet(key, value, ttlSeconds) {
-  const url = process.env.KV_REST_API_URL || process.env.UPSTASH_REDIS_REST_URL
-  const token = process.env.KV_REST_API_TOKEN || process.env.UPSTASH_REDIS_REST_TOKEN
-  if (!url || !token) return
-  try {
-    const serialized = JSON.stringify(value)
-    await fetch(
-      `${url}/set/${encodeURIComponent(key)}/${encodeURIComponent(serialized)}/ex/${ttlSeconds}`,
-      { headers: { Authorization: `Bearer ${token}` }, cache: 'no-store' }
-    )
-  } catch (e) { console.error('Cache set error:', e.message) }
-}
 
 // --- HubSpot count-only search (single request, no pagination) ---
 async function hubspotCount(token, objectType, filters) {
