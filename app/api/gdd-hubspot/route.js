@@ -214,7 +214,6 @@ export async function GET(request) {
         { propertyName: 'hs_activity_type', operator: 'EQ', value: 'Credenciales' },
         { propertyName: 'hs_meeting_outcome', operator: 'EQ', value: 'COMPLETED' },
         { propertyName: 'contactos_asociados', operator: 'EQ', value: '1' },
-        ...UDN_FILTERS,
       ],
     },
     opps: {
