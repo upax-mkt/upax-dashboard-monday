@@ -176,19 +176,6 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
 
   return (
     <div className="fade">
-      {elapsed === 0 && (
-        <div style={{ position: "fixed", bottom: 24, right: 24, zIndex: 100 }}>
-          <button onClick={onStart} style={{
-            background: "linear-gradient(135deg,#34C759,#30B350)",
-            color: "#fff", border: "none", borderRadius: 28,
-            padding: "14px 28px", fontSize: 13, fontWeight: 700,
-            cursor: "pointer", fontFamily: "var(--sans)",
-            boxShadow: "0 4px 16px rgba(52,199,89,.35)"
-          }}>
-            ▶ Iniciar Weekly
-          </button>
-        </div>
-      )}
 
       {/* Semaphore */}
       <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 16px", marginBottom: 12, borderRadius: "var(--r)", background: (an.semaphore || "yellow") === "red" ? "rgba(255,59,48,.08)" : (an.semaphore || "yellow") === "yellow" ? "rgba(255,159,10,.08)" : "rgba(52,199,89,.08)", border: `1px solid ${(an.semaphore || "yellow") === "red" ? "rgba(255,59,48,.2)" : (an.semaphore || "yellow") === "yellow" ? "rgba(255,159,10,.2)" : "rgba(52,199,89,.2)"}` }}>
