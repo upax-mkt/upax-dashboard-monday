@@ -145,22 +145,6 @@ export function useGDDData() {
           { wsd: hubspotData.fechas.semana_desde, wsh: hubspotData.fechas.semana_hasta, sem: hubspotData.semana },
           { wsd: prevWeek.semana_desde, wsh: prevWeek.semana_hasta, sem: hubspotData.anterior },
         ]
-
-        // Fetch MQL breakdown por canal en paralelo para ambas semanas
-        const mqlBreakdownMap = {}
-        try {
-          const mqlFetches = weeksToSave
-            .filter(({ wsd }) => wsd)
-            .map(({ wsd, wsh }) =>
-              fetchWithTimeout(`/api/hubspot-mqls?semana_desde=${wsd}&semana_hasta=${wsh || wsd}`,
-                { headers: authHeadersGet() }, 15000)
-                .then(r => r.ok ? r.json() : null)
-                .catch(() => null)
-                .then(d => { if (d && !d.mock && d.por_origen) mqlBreakdownMap[wsd] = d })
-            )
-          await Promise.allSettled(mqlFetches)
-        } catch {}
-
         let historyChanged = false
 
         for (const { wsd, wsh, sem } of weeksToSave) {
@@ -168,7 +152,6 @@ export function useGDDData() {
           const hasData = (sem.leads || 0) + (sem.mqls || 0) + (sem.sqls || 0) + (sem.opps || 0) > 0
           if (!hasData) continue
 
-          const mqlData = mqlBreakdownMap[wsd]
           const makeFields = () => ({
             leads: sem.leads || 0, mqls: sem.mqls || 0, sqls: sem.sqls || 0, opps: sem.opps || 0,
             leads_mkt: sem.leads_mkt || 0, leads_com: sem.leads_com || 0,
@@ -176,8 +159,6 @@ export function useGDDData() {
             sqls_mkt: sem.sqls_mkt || 0, sqls_com: sem.sqls_com || 0,
             opps_mkt: sem.opps_mkt || 0, opps_com: sem.opps_com || 0,
             pipeline_total: sem.pipeline_total || 0, pipeline_mkt: sem.pipeline_mkt || 0, pipeline_com: sem.pipeline_com || 0,
-            por_origen: mqlData?.por_origen || [],
-            breakdown_macro: mqlData?.breakdown_macro || { inbound: 0, outbound: 0, unknown: 0 },
             guardado_en: new Date().toISOString(), auto: true,
           })
 
@@ -192,7 +173,7 @@ export function useGDDData() {
               if (ov === 0) return true
               return Math.abs((nv - ov) / ov) > 0.05
             })
-            if (changed || (mqlData?.por_origen?.length && !existing.por_origen?.length)) {
+            if (changed) {
               Object.assign(existing, makeFields())
               historyChanged = true
             }
