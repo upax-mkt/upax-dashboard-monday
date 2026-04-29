@@ -1,9 +1,9 @@
 'use client'
 import React, { useState } from 'react'
 // components/TabHome.jsx — Tab Home + CargaRow + OverdueSection
-import { PERSONAS, SQUADS, TODAY, PHASES } from '../lib/constants'
-import { WEEK, PREV_WEEK, parseTL, daysDiff, shortName, normalizeSquad, isActive, isOverdue } from '../lib/utils'
-import { Chip, Card } from './ui'
+import { PERSONAS, SQUADS, TODAY } from '../lib/constants'
+import { WEEK, PREV_WEEK, parseTL, daysDiff, shortName, normalizeSquad, isActive, getPersonDetail } from '../lib/utils'
+import { Chip, Card, PersonDetailView } from './ui'
 
 export function OverdueSection({ overdue }) {
   const [showAll, setShowAll] = useState(false);
@@ -69,30 +69,7 @@ export const CargaRow = React.memo(function CargaRow({ person, d, rank, maxVal, 
         </div>
         <span style={{ fontSize: 10, color: "var(--tx3)", transform: isExpanded ? "rotate(180deg)" : "none", transition: "transform .2s", flexShrink: 0 }}>▾</span>
       </div>
-      {isExpanded && (
-        <div style={{ paddingLeft: 32, paddingBottom: 8 }}>
-          {items
-            .filter(it => {
-              const ph = it.column_values?.color_mkz09na;
-              if (!isActive(ph)) return false;
-              const person_val = it.column_values?.person || "";
-              return person_val.toLowerCase().includes(person.split(" ")[0].toLowerCase());
-            })
-            .slice(0, 6)
-            .map((it, i) => {
-              const ph = it.column_values?.color_mkz09na;
-              const tl = parseTL(it.column_values?.timerange_mkzcqv0j);
-              const od = isOverdue(it);
-              return (
-                <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", padding: "3px 0", fontSize: 11 }}>
-                  <div style={{ width: 5, height: 5, borderRadius: "50%", background: PHASES[ph] || "var(--tx3)", flexShrink: 0 }} />
-                  <span style={{ flex: 1, color: od ? "var(--red)" : "var(--tx2)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.name}</span>
-                  {tl.end && <span style={{ fontSize: 10, color: od ? "var(--red)" : "var(--tx3)", fontFamily: "var(--mono)", flexShrink: 0 }}>{tl.end.toLocaleDateString("es-MX",{day:"2-digit",month:"short"})}</span>}
-                </div>
-              );
-            })}
-        </div>
-      )}
+      {isExpanded && <PersonDetailView detail={getPersonDetail(person, items)} />}
     </div>
   );
 });

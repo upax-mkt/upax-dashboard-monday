@@ -1,78 +1,30 @@
 'use client'
 import React, { useState } from 'react'
-// components/TabPanorama.jsx
-import { SQUADS, PHASES, TODAY, PERSONAS } from '../lib/constants'
-import { WEEK, parseTL, daysDiff, shortName, normalizeSquad, getPersonDetail } from '../lib/utils'
-import { Bar, Card, Chip, PersonDetailView } from './ui'
-
-function PanoramaPersonRow({ p, d, rank, items, expandedPerson, setExpandedPerson }) {
-  const open = expandedPerson === p;
-  const detail = open ? getPersonDetail(p, items) : null;
-  return (
-    <div>
-      <div onClick={() => setExpandedPerson(open ? null : p)} style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: "var(--r-sm)", marginBottom: 2, cursor: "pointer", background: open ? "var(--bg3)" : d.total > 8 ? "rgba(239,68,68,.06)" : "var(--bg2)", border: `1px solid ${open ? "var(--border)" : d.total > 8 ? "rgba(239,68,68,.2)" : "transparent"}` }}>
-        <span style={{ fontFamily: "var(--mono)", fontSize: 10, color: "var(--tx3)", minWidth: 16 }}>{rank}</span>
-        <span style={{ flex: 1, fontSize: 13, fontWeight: 600 }}>{shortName(p)} {d.total > 8 && "⚠️"}</span>
-        <span style={{ fontFamily: "var(--mono)", fontSize: 16, fontWeight: 700, color: d.total > 8 ? "var(--red)" : "var(--tx)", minWidth: 24, textAlign: "right" }}>{d.total}</span>
-        {d.stopped > 0 ? <span style={{ fontSize: 10, color: "var(--tx3)" }}><span style={{ color: "var(--tx2)" }}>{d.items} act</span> + <span style={{ color: "var(--red)" }}>{d.stopped} 🚫</span></span> : <span style={{ fontSize: 10, color: "var(--tx3)" }}>tareas</span>}
-        <span style={{ fontSize: 10, color: "var(--tx3)", transform: open ? "rotate(180deg)" : "none", transition: "transform .2s" }}>▾</span>
-      </div>
-      {open && detail && <PersonDetailView detail={detail} />}
-    </div>
-  );
-}
+// components/TabPanorama.jsx — Squads breakdown + Alertas completas
+import { SQUADS, PHASES, TODAY } from '../lib/constants'
+import { parseTL, daysDiff, shortName, normalizeSquad } from '../lib/utils'
+import { Bar, Card, Chip } from './ui'
 
 const TabPanorama = React.memo(function TabPanorama({ analysis: an, items }) {
   const [sec, setSec] = useState(() => {
-    try { return sessionStorage.getItem("panorama-tab") || "kanban"; } catch { return "kanban"; }
+    try {
+      const saved = sessionStorage.getItem("panorama-tab");
+      return (saved === "squads" || saved === "alertas") ? saved : "squads";
+    } catch { return "squads"; }
   });
   const setSecPersist = (s) => {
     setSec(s);
     try { sessionStorage.setItem("panorama-tab", s); } catch {}
   };
-  const [expandedPerson, setExpandedPerson] = useState(null);
 
   return (
     <div className="fade">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <h2 style={{ fontSize: 16, fontWeight: 700 }}>Panorama Semanal</h2>
         <div style={{ display: "flex", gap: 3 }}>
-          {["kanban", "squads", "carga", "alertas"].map((s) => <Chip key={s} label={s.charAt(0).toUpperCase() + s.slice(1)} active={sec === s} color="var(--purple)" onClick={() => setSecPersist(s)} />)}
+          {["squads", "alertas"].map((s) => <Chip key={s} label={s.charAt(0).toUpperCase() + s.slice(1)} active={sec === s} color="var(--purple)" onClick={() => setSecPersist(s)} />)}
         </div>
       </div>
-
-      {sec === "kanban" && (
-        <div>
-          <Card style={{ marginBottom: 8 }}>
-            <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
-              {[{ l: "Esta semana", v: (an.byPhaseWeek["🚧 Sprint"] || 0) + (an.byPhaseWeek["👀 Review"] || 0) + (an.byPhaseWeek["⚙️ Modificación"] || 0), c: "var(--blue)" }, { l: "Vencidos", v: (an.overdue || []).length, c: "var(--red)" }, { l: "Detenidos", v: an.byPhase["🚫 Detenido"] || 0, c: "var(--yellow)" }, { l: "Done sem.", v: (an.doneLastWeek || []).length, c: "var(--green)" }].map((k) => (
-                <div key={k.l} style={{ background: "var(--bg3)", borderRadius: 8, padding: "6px 12px", flex: "1 1 60px", textAlign: "center", borderTop: `2px solid ${k.c}` }}>
-                  <div style={{ fontFamily: "var(--mono)", fontSize: 20, fontWeight: 700, color: k.c }}>{k.v}</div>
-                  <div style={{ fontSize: 9, color: "var(--tx3)", fontWeight: 600, textTransform: "uppercase" }}>{k.l}</div>
-                </div>
-              ))}
-            </div>
-            <Bar h={26} segs={Object.entries(PHASES).map(([p, c]) => ({ l: p, v: an.byPhase[p] || 0, c }))} />
-            <div style={{ display: "flex", gap: 10, marginTop: 8, flexWrap: "wrap" }}>
-              {Object.entries(PHASES).map(([p, c]) => <div key={p} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 11, color: "var(--tx2)" }}><div style={{ width: 8, height: 8, borderRadius: "var(--r-sm)", background: c }} />{p}: <strong style={{ color: "var(--tx)" }}>{an.byPhase[p] || 0}</strong></div>)}
-            </div>
-          </Card>
-          {(an.doneLastWeek || []).length > 0 && (
-            <Card style={{ borderLeft: "4px solid var(--green)" }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
-                <span style={{ fontSize: 13, fontWeight: 700, color: "var(--green)" }}>✅ Completados semana anterior</span>
-                <span style={{ fontFamily: "var(--mono)", fontSize: 16, fontWeight: 700, color: "var(--green)" }}>{(an.doneLastWeek || []).length}</span>
-              </div>
-              <div style={{ maxHeight: 250, overflowY: "auto" }}>
-                {(an.doneLastWeek || []).map((it) => {
-                  const sq = SQUADS.find((s) => s.name === normalizeSquad(it.column_values?.color_mkz0s203));
-                  return <div key={it.id} style={{ display: "flex", gap: 6, alignItems: "center", padding: "4px 0", borderBottom: "1px solid var(--bg3)", fontSize: 12 }}><span style={{ width: 8, height: 8, borderRadius: "50%", background: sq?.color || "var(--tx3)", flexShrink: 0 }} /><span style={{ flex: 1, color: "var(--tx)" }}>{it.name}</span><span style={{ color: "var(--tx3)", fontSize: 11 }}>{shortName(it.column_values?.person)}</span></div>;
-                })}
-              </div>
-            </Card>
-          )}
-        </div>
-      )}
 
       {sec === "squads" && SQUADS.map((sq) => {
         const d = an.bySquad[sq.name]; if (!d) return null;
@@ -105,17 +57,6 @@ const TabPanorama = React.memo(function TabPanorama({ analysis: an, items }) {
           </Card>
         );
       })}
-
-      {sec === "carga" && (
-        <div>
-          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 10, color: "var(--tx3)" }}>
-            <span>Tareas por persona esta semana</span>
-            <span>{WEEK.start.toLocaleDateString("es-MX", { day: "numeric", month: "short" })} – {WEEK.end.toLocaleDateString("es-MX", { day: "numeric", month: "short" })}</span>
-          </div>
-          {Object.entries(an.byPersonWeek).filter(([name]) => PERSONAS.some((p) => p.name === name)).sort((a, b) => b[1].total - a[1].total).map(([p, d], i) => <PanoramaPersonRow key={p} p={p} d={d} rank={i + 1} items={items} expandedPerson={expandedPerson} setExpandedPerson={setExpandedPerson} />)}
-          {Object.keys(an.byPersonWeek).length === 0 && <div style={{ textAlign: "center", padding: "20px 0", color: "var(--tx3)", fontSize: 12 }}>No hay items con Fecha Definida esta semana</div>}
-        </div>
-      )}
 
       {sec === "alertas" && (
         <div>
@@ -156,9 +97,5 @@ const TabPanorama = React.memo(function TabPanorama({ analysis: an, items }) {
     </div>
   );
 });
-
-/* ═══════════════════════════════════════════════════════════════
-   TAB PANORAMA
-   ═══════════════════════════════════════════════════════════════ */
 
 export { TabPanorama }
