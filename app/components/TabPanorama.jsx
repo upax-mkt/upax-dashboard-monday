@@ -1,17 +1,18 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 // components/TabPanorama.jsx — Squads breakdown + Alertas completas
-import { SQUADS, PHASES, TODAY } from '../lib/constants'
+import { SQUADS, TODAY } from '../lib/constants'
 import { parseTL, daysDiff, shortName, normalizeSquad } from '../lib/utils'
 import { Bar, Card, Chip } from './ui'
 
 const TabPanorama = React.memo(function TabPanorama({ analysis: an, items }) {
-  const [sec, setSec] = useState(() => {
+  const [sec, setSec] = useState("squads");
+  useEffect(() => {
     try {
       const saved = sessionStorage.getItem("panorama-tab");
-      return (saved === "squads" || saved === "alertas") ? saved : "squads";
-    } catch { return "squads"; }
-  });
+      if (saved === "squads" || saved === "alertas") setSec(saved);
+    } catch {}
+  }, []);
   const setSecPersist = (s) => {
     setSec(s);
     try { sessionStorage.setItem("panorama-tab", s); } catch {}

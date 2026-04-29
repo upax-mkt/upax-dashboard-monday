@@ -1,5 +1,5 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 // components/TabHome.jsx — Tab Home + CargaRow + OverdueSection
 import { PERSONAS, SQUADS, TODAY } from '../lib/constants'
 import { WEEK, PREV_WEEK, parseTL, daysDiff, shortName, normalizeSquad, isActive, getPersonDetail } from '../lib/utils'
@@ -119,7 +119,8 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
   const [expandedWeek, setExpandedWeek] = useState(null);
   const [showAllWeeks, setShowAllWeeks] = useState(false);
   // On Mondays (weekly meeting day), default to showing last week's data
-  const [gddWeekView, setGddWeekView] = useState(() => new Date().getDay() === 1 ? "prev" : "current");
+  const [gddWeekView, setGddWeekView] = useState("current");
+  useEffect(() => { if (new Date().getDay() === 1) setGddWeekView("prev"); }, []);
 
   const gddData = propGddData;
 
