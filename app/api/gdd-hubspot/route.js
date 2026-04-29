@@ -238,33 +238,42 @@ export async function GET(request) {
     const counts = { semana: {}, anterior: {}, mes: {}, ytd: {} }
     const errors = []
 
-    for (let mi = 0; mi < metrics.length; mi++) {
-      if (mi > 0) await new Promise(r => setTimeout(r, 1100))
-      const metric = metrics[mi]
-      const def = metricDefs[metric]
-      const batch = periodNames.map(period => {
-        const { desde, hasta } = periods[period]
-        const dateFilters = [
-          { propertyName: def.dateField, operator: 'GTE', value: String(desde.getTime()) },
-          { propertyName: def.dateField, operator: 'LTE', value: String(hasta.getTime()) },
-        ]
-        return {
-          period,
-          promise: hubspotSearchSplit(
-            hsToken,
-            def.objectType,
-            [...def.baseFilters, ...dateFilters],
-            def.splitProp,
-            [],
-            def.sumField || null,
-          ),
-        }
+    // Run metrics in pairs to stay within Vercel 60s limit
+    // Pair 1: leads + sqls (contacts + meetings — different objectTypes, safe to parallel)
+    // Pair 2: mqls + opps (contacts + deals — different objectTypes, safe to parallel)
+    const metricPairs = [['leads', 'sqls'], ['mqls', 'opps']]
+
+    for (let pi = 0; pi < metricPairs.length; pi++) {
+      if (pi > 0) await new Promise(r => setTimeout(r, 300))
+      const pair = metricPairs[pi]
+
+      const allPromises = pair.flatMap(metric => {
+        const def = metricDefs[metric]
+        return periodNames.map(period => {
+          const { desde, hasta } = periods[period]
+          const dateFilters = [
+            { propertyName: def.dateField, operator: 'GTE', value: String(desde.getTime()) },
+            { propertyName: def.dateField, operator: 'LTE', value: String(hasta.getTime()) },
+          ]
+          return {
+            metric,
+            period,
+            promise: hubspotSearchSplit(
+              hsToken,
+              def.objectType,
+              [...def.baseFilters, ...dateFilters],
+              def.splitProp,
+              [],
+              def.sumField || null,
+            ),
+          }
+        })
       })
 
-      const batchResults = await Promise.allSettled(batch.map(b => b.promise))
+      const batchResults = await Promise.allSettled(allPromises.map(b => b.promise))
 
       batchResults.forEach((r, i) => {
-        const { period } = batch[i]
+        const { metric, period } = allPromises[i]
         if (r.status === 'fulfilled') {
           const v = r.value
           counts[period][metric] = v.total
