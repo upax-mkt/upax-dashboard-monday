@@ -8,8 +8,10 @@ const GDD_HISTORY_KEY = 'gdd_history'
 export async function GET(request) {
   // Proteger endpoint — requiere CRON_SECRET (mismo esquema que gdd-weekly-save)
   const auth = request.headers.get('authorization')
-  const secret = process.env.CRON_SECRET
-  if (!secret || auth !== `Bearer ${secret}`) {
+  const cronSecret = process.env.CRON_SECRET
+  const apiSecret  = process.env.API_SECRET
+  const validTokens = [cronSecret, apiSecret].filter(Boolean).map(s => `Bearer ${s}`)
+  if (!validTokens.length || !validTokens.includes(auth)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
