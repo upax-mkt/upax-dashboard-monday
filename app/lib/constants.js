@@ -7,10 +7,17 @@ export const GROUP_DELIVERY = "group_mm15cfz2"; // único grupo de trabajo
 export const GROUP_ACUERDOS = "group_mm1mhsd1"; // para crear compromisos de weekly
 // SLACK_GENERAL_CHANNEL removido — se usa process.env.SLACK_CHANNEL en /api/slack (server-side only)
 export const COL_IDS = ["person","color_mkz0s203","color_mkz09na","timerange_mkzcqv0j","date_mm1b10rx","date_mkzchmsq","color_mkzjvp66","timerange_mkzx7r55"];
-// Fecha LOCAL del sistema — no usar toISOString() que devuelve UTC
-// En México (UTC-6) la medianoche local = día anterior en UTC
-const _now = new Date();
-export const TODAY_STR = `${_now.getFullYear()}-${String(_now.getMonth()+1).padStart(2,"0")}-${String(_now.getDate()).padStart(2,"0")}`;
+// Fecha en timezone México — consistente entre servidor (UTC) y cliente (CDMX)
+// Evita hydration mismatch React #418/#423/#425 entre 00:00 UTC y 06:00 CDMX
+function _getTodayMexStr() {
+  const now = new Date();
+  const mxStr = now.toLocaleString('en-CA', {
+    timeZone: 'America/Mexico_City',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+  });
+  return mxStr.split(',')[0].trim();
+}
+export const TODAY_STR = _getTodayMexStr();
 export const TODAY = new Date(TODAY_STR + "T12:00:00");
 export const STORE_KEY = `weekly:${TODAY_STR}`;
 export const CACHE_KEY = "monday-cache-v3"; // v3: pagination con filtro de grupo correcto
