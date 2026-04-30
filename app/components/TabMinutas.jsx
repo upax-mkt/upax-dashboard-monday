@@ -49,8 +49,6 @@ const TabMinutasInline = React.memo(function TabMinutasInline({ wd, analysis, gd
   }
 
   const dateFmt = (k) => new Date(k.replace("weekly:", "")).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-  const isFixed = (k) => k === "weekly:2026-03-23";
-
   return (
     <div className="fade">
       <h2 style={{ fontSize: 16, fontWeight: 700, marginBottom: 16 }}>Minutas</h2>
@@ -88,11 +86,9 @@ const TabMinutasInline = React.memo(function TabMinutasInline({ wd, analysis, gd
               <button onClick={() => openMinuta(k)} style={{ background: "var(--bg3)", color: "var(--tx2)", border: "1px solid var(--bg4)", borderRadius: "var(--r-sm)", padding: "4px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
                 ✏️
               </button>
-              {!isFixed(k) && (
-                <button onClick={(e) => deleteMinuta(k, e)} style={{ background: "var(--bg3)", color: "var(--red)", border: "1px solid var(--bg4)", borderRadius: "var(--r-sm)", padding: "4px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
-                  🗑
-                </button>
-              )}
+              <button onClick={(e) => deleteMinuta(k, e)} style={{ background: "var(--bg3)", color: "var(--red)", border: "1px solid var(--bg4)", borderRadius: "var(--r-sm)", padding: "4px 10px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>
+                🗑
+              </button>
             </div>
           </div>
         );
