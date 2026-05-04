@@ -9,7 +9,12 @@ export const CSS = `
   --red:#FF3B30;--green:#34C759;--yellow:#FF9F0A;--orange:#FF9500;--blue:#007AFF;--purple:#AF52DE;--cyan:#5AC8FA;--pink:#FF2D55;
   --shadow:0 1px 3px rgba(0,0,0,.06),0 2px 8px rgba(0,0,0,.04);
   --mono:var(--font-mono,'JetBrains Mono',monospace);--sans:var(--font-sans,'Inter',-apple-system,BlinkMacSystemFont,sans-serif);
-  --r:14px;--r-sm:10px;--r-md:14px;--r-lg:18px;
+  --r:14px;--r-sm:10px;--r-lg:18px;
+  --ts-2xs:9px;--ts-xs:10px;--ts-sm:11px;--ts-base:12px;--ts-md:13px;--ts-lg:14px;--ts-xl:17px;--ts-display:28px;--ts-hero:36px;
+  --r-2xs:3px;--r-xs:6px;--r-full:9999px;
+  --s-1:4px;--s-2:6px;--s-3:8px;--s-4:10px;--s-5:12px;--s-6:16px;--s-7:20px;--s-8:24px;--s-10:32px;
+  --fw-regular:400;--fw-medium:500;--fw-semibold:600;--fw-bold:700;--fw-heavy:800;
+  --shadow-lg:0 4px 12px rgba(0,0,0,.08),0 8px 24px rgba(0,0,0,.06);
 }
 body{background:var(--bg);font-family:var(--sans);color:var(--tx);-webkit-font-smoothing:antialiased;font-size:14px;line-height:1.5}
 @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
