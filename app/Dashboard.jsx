@@ -546,6 +546,17 @@ export default function App() {
                 <div style={{ fontSize: 13, fontWeight: 600, color: "var(--tx)" }}>Resetear sesion de hoy?</div>
                 <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 2 }}>Borra focos, compromisos y presentadores. Las minutas historicas NO se eliminan.</div>
               </div>
+              <button onClick={() => {
+                const blob = new Blob([JSON.stringify(wd, null, 2)], { type: "application/json" });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `backup-weekly-${TODAY_STR}.json`;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+              }} style={{ background: "var(--bg3)", color: "var(--tx2)", border: "none", borderRadius: 8, padding: "5px 16px", fontSize: 12, cursor: "pointer", flexShrink: 0 }}>Descargar backup</button>
               <button onClick={async () => {
                 await logAudit("session_reset", "Reset de sesion: " + TODAY_STR, { date: TODAY_STR, focos_areas: Object.keys(wd.focos || {}), compromisos_count: (wd.compromisos || []).length });
                 await storeSet(STORE_KEY + ":before_reset", wd);
