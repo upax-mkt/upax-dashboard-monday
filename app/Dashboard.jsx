@@ -42,6 +42,7 @@ export default function App() {
   const [items, setItems] = useState([]);
   const [itemsFingerprint, setItemsFingerprint] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingElapsed, setLoadingElapsed] = useState(0);
   const [loadingMsg, setLoadingMsg] = useState("Iniciando...");
   const [err, setErr] = useState(null);
   const [tab, setTab] = useState("home");
@@ -233,7 +234,10 @@ export default function App() {
 
       if (hasCached) return;
 
+      const loadingTimer = setInterval(() => setLoadingElapsed(e => e + 1), 1000);
+
       const safetyTimer = setTimeout(() => {
+        clearInterval(loadingTimer);
         setErr("Tiempo de espera agotado -- Monday no respondio. Trabaja en modo sin conexion o presiona Sync.");
         setLoading(false);
       }, 65000);
@@ -255,6 +259,7 @@ export default function App() {
         clearTimeout(safetyTimer);
         setErr("Error al conectar: " + (e?.message || "desconocido"));
       }
+      clearInterval(loadingTimer);
       setLoading(false);
     })();
   }, []);
@@ -381,6 +386,12 @@ export default function App() {
       <style>{CSS}</style>
       <div style={{ fontSize: 32, marginBottom: 16, animation: "pulse 1.5s ease infinite" }}>⚡</div>
       <div style={{ fontSize: 11, fontWeight: 500, letterSpacing: "0.2em", textTransform: "uppercase" }}>{loadingMsg}</div>
+      {loadingElapsed >= 15 && (
+        <div style={{ fontSize: 11, color: "var(--yellow)", marginTop: 12, textAlign: "center", maxWidth: 280 }}>Monday está lento. Puedes esperar o trabajar offline.</div>
+      )}
+      {loadingElapsed >= 5 && loadingElapsed < 15 && (
+        <div style={{ fontSize: 11, color: "var(--tx3)", marginTop: 12 }}>Esto está tardando más de lo normal...</div>
+      )}
     </div>
   );
 
