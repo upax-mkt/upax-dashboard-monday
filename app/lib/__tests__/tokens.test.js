@@ -56,3 +56,53 @@ describe('Design system tokens in CSS', () => {
     it('declares --shadow-lg', () => { expect(CSS).toContain('--shadow-lg:'); });
   });
 });
+
+// Cross-validation: tokens.js values must reference vars that exist in css.js
+import { C, TS, R, F } from '../tokens.js';
+
+function extractVar(val) {
+  return val.match(/var\((--[^),]+)\)/)?.[1];
+}
+
+describe('tokens.js <-> css.js cross-validation', () => {
+
+  describe('C (colors)', () => {
+    Object.entries(C).forEach(([key, val]) => {
+      it(`C.${key} = "${val}" exists in CSS`, () => {
+        const v = extractVar(val);
+        expect(v).toBeTruthy();
+        expect(CSS).toContain(v);
+      });
+    });
+  });
+
+  describe('TS (type sizes)', () => {
+    Object.entries(TS).forEach(([key, val]) => {
+      it(`TS["${key}"] = "${val}" exists in CSS`, () => {
+        const v = extractVar(val);
+        expect(v).toBeTruthy();
+        expect(CSS).toContain(v);
+      });
+    });
+  });
+
+  describe('R (radius)', () => {
+    Object.entries(R).forEach(([key, val]) => {
+      it(`R["${key}"] = "${val}" exists in CSS`, () => {
+        const v = extractVar(val);
+        expect(v).toBeTruthy();
+        expect(CSS).toContain(v);
+      });
+    });
+  });
+
+  describe('F (font families)', () => {
+    Object.entries(F).forEach(([key, val]) => {
+      it(`F.${key} = "${val}" exists in CSS`, () => {
+        const v = extractVar(val);
+        expect(v).toBeTruthy();
+        expect(CSS).toContain(v);
+      });
+    });
+  });
+});
