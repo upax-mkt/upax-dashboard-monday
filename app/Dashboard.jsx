@@ -505,11 +505,11 @@ export default function App() {
         )}
 
         {/* Tabs sticky */}
-        <div className="sticky-nav" style={{ display: "flex", gap: 0, marginBottom: 0, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+        <div role="tablist" className="sticky-nav" style={{ display: "flex", gap: 0, marginBottom: 0, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
           {tabs.map((t) => {
             const isAct = tab === t.id, isLive = running && block.tab === t.id;
             return (
-              <button key={t.id} onClick={() => setTab(t.id)} aria-label={t.label} aria-current={isAct ? "page" : undefined} style={{ background: "transparent", color: isAct ? "var(--tx)" : "var(--tx3)", border: "none", borderBottom: isAct ? `2px solid ${t.color}` : "2px solid transparent", padding: "8px 12px", fontSize: 12, fontWeight: isAct ? 700 : 400, cursor: "pointer", fontFamily: "var(--sans)", marginBottom: -1, letterSpacing: "-0.01em", transition: "all .2s", flexShrink: 0, whiteSpace: "nowrap" }}>
+              <button key={t.id} role="tab" aria-selected={isAct} onClick={() => setTab(t.id)} aria-label={t.label} style={{ background: "transparent", color: isAct ? "var(--tx)" : "var(--tx3)", border: "none", borderBottom: isAct ? `2px solid ${t.color}` : "2px solid transparent", padding: "8px 12px", fontSize: 12, fontWeight: isAct ? 700 : 400, cursor: "pointer", fontFamily: "var(--sans)", marginBottom: -1, letterSpacing: "-0.01em", transition: "all .2s", flexShrink: 0, whiteSpace: "nowrap" }}>
                 {isLive && <span aria-hidden="true" style={{ display: "inline-block", width: 5, height: 5, borderRadius: "50%", background: block.color, animation: "liveDot 1s ease infinite", marginRight: 5, verticalAlign: "middle" }} />}
                 <span aria-hidden="true">{t.icon}</span> {t.label}
               </button>
@@ -517,13 +517,14 @@ export default function App() {
           })}
         </div>
         <div style={{ height: 20 }} />
-
+        <div role="tabpanel">
         {tab === "home"        && <ErrorBoundary name="Home"><TabHome analysis={an} items={items} elapsed={elapsed} onStart={startTimer} onViewAlerts={() => { setTab("panorama"); try { sessionStorage.setItem("panorama-tab","alertas"); } catch {} }} gddData={appGddData} mqlBreakdown={mqlBreakdown} mqlBreakdownPrev={mqlBreakdownPrev} gddTargets={gddTargets} gddHistory={gddHistory} setGddHistory={setGddHistory} gddLoading={gddLoading} /></ErrorBoundary>}
         {tab === "agenda"      && <ErrorBoundary name="Agenda"><TabAgenda wd={wd} setWd={setWd} save={saveFn} currentIdx={currentBlockIdx} blockTimes={blockTimes} onJumpToBlock={jumpToBlock} /></ErrorBoundary>}
         {tab === "panorama"    && <ErrorBoundary name="Panorama"><TabPanorama analysis={an} items={items} /></ErrorBoundary>}
         {tab === "focos"       && <ErrorBoundary name="Focos"><TabFocos items={items} wd={wd} setWd={setWd} save={saveFn} activeSquad={activeSquad} setActiveSquad={setActiveSquad} /></ErrorBoundary>}
         {tab === "compromisos" && <ErrorBoundary name="Compromisos"><TabCompromisos wd={wd} setWd={setWd} save={saveFn} analysis={an} onCopy={handleCopy} gddData={appGddData} /></ErrorBoundary>}
         {tab === "minutas"     && <ErrorBoundary name="Minutas"><TabMinutasInline wd={wd} analysis={an} gddData={appGddData} blockTimes={blockTimes} onOpenMinuta={(key, data, editMode) => setMinutaLightbox({ key, data, editMode })} /></ErrorBoundary>}
+        </div>
 
         {/* Footer */}
         <div style={{ marginTop: 32, padding: "12px 0", borderTop: "1px solid var(--bg4)" }}>
