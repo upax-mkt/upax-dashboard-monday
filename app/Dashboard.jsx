@@ -422,6 +422,7 @@ export default function App() {
   return (
     <div suppressHydrationWarning className={presenterMode ? "presenter-mode" : ""} style={{ fontFamily: "var(--sans)", background: "var(--bg)", minHeight: "100vh", color: "var(--tx)" }}>
       <style>{CSS}</style>
+      <a href="#main-content" className="sr-only" style={{ position: "absolute", top: -40, left: 0, background: "var(--blue)", color: "#fff", padding: "8px 16px", zIndex: 9999, borderRadius: "0 0 8px 0", fontWeight: 600, fontSize: 13, textDecoration: "none" }} onFocus={e => e.currentTarget.style.top = "0"} onBlur={e => e.currentTarget.style.top = "-40px"}>Saltar al contenido</a>
 
       {(running || elapsed > 0) && !finished && (
         <TimerZone
@@ -517,11 +518,19 @@ export default function App() {
         )}
 
         {/* Tabs sticky */}
-        <div role="tablist" className="sticky-nav" style={{ display: "flex", gap: 0, marginBottom: 0, overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+        <div role="tablist" className="sticky-nav" style={{ display: "flex", gap: 0, marginBottom: 0, overflowX: "auto", WebkitOverflowScrolling: "touch" }} onKeyDown={(e) => {
+          if (e.target.role !== "tab") return;
+          const ids = tabs.map(t => t.id);
+          const idx = ids.indexOf(tab);
+          if (e.key === "ArrowRight") { e.preventDefault(); setTab(ids[(idx + 1) % ids.length]); }
+          else if (e.key === "ArrowLeft") { e.preventDefault(); setTab(ids[(idx - 1 + ids.length) % ids.length]); }
+          else if (e.key === "Home") { e.preventDefault(); setTab(ids[0]); }
+          else if (e.key === "End") { e.preventDefault(); setTab(ids[ids.length - 1]); }
+        }}>
           {tabs.map((t) => {
             const isAct = tab === t.id, isLive = running && block.tab === t.id;
             return (
-              <button key={t.id} role="tab" aria-selected={isAct} onClick={() => setTab(t.id)} aria-label={t.label} style={{ background: "transparent", color: isAct ? "var(--tx)" : "var(--tx3)", border: "none", borderBottom: isAct ? `2px solid ${t.color}` : "2px solid transparent", padding: "8px 12px", fontSize: 12, fontWeight: isAct ? 700 : 400, cursor: "pointer", fontFamily: "var(--sans)", marginBottom: -1, letterSpacing: "-0.01em", transition: "all .2s", flexShrink: 0, whiteSpace: "nowrap" }}>
+              <button key={t.id} id={`tab-${t.id}`} role="tab" aria-selected={isAct} tabIndex={isAct ? 0 : -1} aria-controls="main-content" onClick={() => setTab(t.id)} aria-label={t.label} style={{ background: "transparent", color: isAct ? "var(--tx)" : "var(--tx3)", border: "none", borderBottom: isAct ? `2px solid ${t.color}` : "2px solid transparent", padding: "8px 12px", fontSize: 12, fontWeight: isAct ? 700 : 400, cursor: "pointer", fontFamily: "var(--sans)", marginBottom: -1, letterSpacing: "-0.01em", transition: "all .2s", flexShrink: 0, whiteSpace: "nowrap" }}>
                 {isLive && <span aria-hidden="true" style={{ display: "inline-block", width: 5, height: 5, borderRadius: "50%", background: block.color, animation: "liveDot 1s ease infinite", marginRight: 5, verticalAlign: "middle" }} />}
                 <span aria-hidden="true">{t.icon}</span> {t.label}
               </button>
@@ -529,7 +538,7 @@ export default function App() {
           })}
         </div>
         <div style={{ height: 20 }} />
-        <div role="tabpanel">
+        <div role="tabpanel" id="main-content" aria-labelledby={`tab-${tab}`}>
         {tab === "home"        && <ErrorBoundary name="Home"><TabHome analysis={an} items={items} elapsed={elapsed} onStart={startTimer} onViewAlerts={() => { setTab("panorama"); try { sessionStorage.setItem("panorama-tab","alertas"); } catch {} }} gddData={appGddData} mqlBreakdown={mqlBreakdown} mqlBreakdownPrev={mqlBreakdownPrev} gddTargets={gddTargets} gddHistory={gddHistory} setGddHistory={setGddHistory} gddLoading={gddLoading} /></ErrorBoundary>}
         {tab === "agenda"      && <ErrorBoundary name="Agenda"><TabAgenda wd={wd} setWd={setWd} save={saveFn} currentIdx={currentBlockIdx} blockTimes={blockTimes} onJumpToBlock={jumpToBlock} /></ErrorBoundary>}
         {tab === "panorama"    && <ErrorBoundary name="Panorama"><TabPanorama analysis={an} items={items} onDrillDown={setPhaseModal} /></ErrorBoundary>}
