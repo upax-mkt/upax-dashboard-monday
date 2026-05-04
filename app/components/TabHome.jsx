@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react'
 // components/TabHome.jsx — Tab Home + CargaRow + OverdueSection
 import { PERSONAS, SQUADS, TODAY } from '../lib/constants'
 import { WEEK, PREV_WEEK, parseTL, daysDiff, shortName, normalizeSquad, isActive, getPersonDetail } from '../lib/utils'
-import { Chip, Card, PersonDetailView } from './ui'
+import { Chip, Card, PersonDetailView, Accordion } from './ui'
 
 export function OverdueSection({ overdue }) {
   const [showAll, setShowAll] = useState(false);
@@ -167,6 +167,7 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
       </div>
 
       {/* Alertas compactas */}
+      <Accordion title="⚡ Alertas Ejecutivas" count={(an.overdue||[]).length + (an.stoppedWeek||[]).length + (an.noCrono||[]).length + (an.backlogWithDates||[]).length || null} defaultOpen={(an.overdue||[]).length > 0 || (an.stoppedWeek||[]).length > 0}>
       {(() => {
         const alertGroups = [
           { items: [...(an.overdue || [])].sort((a, b) => (parseTL(a.column_values?.timerange_mkzcqv0j).end || TODAY) - (parseTL(b.column_values?.timerange_mkzcqv0j).end || TODAY)), icon: "🔴", label: "Vencidos", color: "var(--red)", extra: (it) => { const d = parseTL(it.column_values?.timerange_mkzcqv0j).end ? daysDiff(TODAY, parseTL(it.column_values?.timerange_mkzcqv0j).end) : 0; return <span style={{ fontFamily: "var(--mono)", color: "var(--red)", fontWeight: 700, fontSize: 10, minWidth: 28 }}>-{d}d</span>; } },
@@ -211,6 +212,7 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
           </Card>
         );
       })()}
+      </Accordion>
 
       {/* GdD boxes — KPIs de generación de demanda */}
       {(() => {
@@ -368,6 +370,7 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
       })()}
 
       {/* MQLs por Canal — con selector de semana */}
+      <Accordion title="📊 MQLs por Canal" defaultOpen={false}>
       {(() => {
         if (gddLoading) {
           return (
@@ -451,8 +454,10 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
           </Card>
         );
       })()}
+      </Accordion>
 
       {/* Tendencia Semanal GDD — agrupado por mes */}
+      <Accordion title="📈 Tendencia Semanal" defaultOpen={false}>
       {(() => {
         if (gddLoading || !gddHistory || gddHistory.length === 0) return null;
         const metrics = ["leads", "mqls", "sqls", "opps"];
@@ -603,15 +608,10 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
           </Card>
         );
       })()}
+      </Accordion>
 
-      {/* Separador — diferenciado de Panorama */}
-      <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, marginTop: 4 }}>
-        <div style={{ flex: 1, height: 1, background: "var(--bg4)" }} />
-        <span style={{ fontSize: 10, fontWeight: 700, color: "var(--tx3)", textTransform: "uppercase", letterSpacing: "0.1em", whiteSpace: "nowrap" }}>Estado del sprint</span>
-        <button onClick={onViewAlerts} style={{ fontSize: 9, color: "var(--blue)", background: "none", border: "1px solid var(--blue)", borderRadius: 4, padding: "2px 8px", cursor: "pointer", fontWeight: 600, whiteSpace: "nowrap" }}>Ver detalle completo →</button>
-        <div style={{ flex: 1, height: 1, background: "var(--bg4)" }} />
-      </div>
-
+      {/* Estado Sprint — KPIs operativos */}
+      <Accordion title="Estado del Sprint" defaultOpen={false}>
       {/* KPIs operativos con comparativos */}
       {(() => {
         const thisMonthStart = new Date(TODAY.getFullYear(), TODAY.getMonth(), 1);
@@ -648,8 +648,10 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
           </div>
         );
       })()}
+      </Accordion>
 
       {/* Carga — tabla compacta de todo el equipo */}
+      <Accordion title="👥 Carga del Equipo" count={sortedPeople.length} defaultOpen={false}>
       <Card style={{ marginBottom: 16 }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
           <div style={{ fontSize: 14, fontWeight: 700 }}>👥 Carga del Equipo <span style={{ fontSize: 11, fontWeight: 400, color: "var(--tx3)" }}>{WEEK.start.toLocaleDateString("es-MX", { day: "numeric", month: "short" })} – {WEEK.end.toLocaleDateString("es-MX", { day: "numeric", month: "short" })}</span></div>
@@ -699,6 +701,7 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
         })()}
         {(an.noCrono || []).length > 0 && <div style={{ marginTop: 8, padding: "5px 10px", borderRadius: 6, background: "rgba(245,158,11,.06)", fontSize: 10, color: "var(--yellow)" }}>⚠️ {(an.noCrono || []).length} en Sprint sin Fecha</div>}
       </Card>
+      </Accordion>
 
     </div>
   );

@@ -157,9 +157,9 @@ const TabFocos = React.memo(function TabFocos({ items, wd, setWd, save, activeSq
             )}
             {(showForm || editIdx !== null || entries.length === 0) && (
               <div style={{ padding: entries.length > 0 ? "10px 0 0" : 0, borderTop: entries.length > 0 ? "1px dashed var(--bg4)" : "none" }}>
-                <SquadInputSection label="Focos" icon="🎯" field="focos" placeholder="Top 3: campaña X, proyecto Y, entregable Z..." rows={3} draft={draft} updateDraft={updateDraft} />
-                <SquadInputSection label="Blocker" icon="🚫" field="blocker" placeholder="¿Algo detenido?" rows={1} draft={draft} updateDraft={updateDraft} showMeta />
-                <SquadInputSection label="Necesito" icon="🤝" field="necesito" placeholder="¿Qué necesitas de otro squad?" rows={1} draft={draft} updateDraft={updateDraft} showMeta />
+                <SquadInputSection label="Focos" icon="🎯" field="focos" placeholder="Ej: Lanzamiento campaña Verano, planner DOOH, blogs marca Mayo" rows={3} draft={draft} updateDraft={updateDraft} />
+                <SquadInputSection label="Blocker" icon="🚫" field="blocker" placeholder="Ej: Espero brief de UDN MS para finalizar landing" rows={1} draft={draft} updateDraft={updateDraft} showMeta />
+                <SquadInputSection label="Necesito" icon="🤝" field="necesito" placeholder="Ej: Performance, ajustar trackers de campaña X" rows={1} draft={draft} updateDraft={updateDraft} showMeta />
                 <div style={{ display: "flex", gap: 6, alignItems: "center", justifyContent: "flex-end" }}>
                   {saved && <span style={{ fontSize: 11, color: "var(--green)", fontWeight: 600 }}>✓ Guardado</span>}
                   {editIdx !== null && <span onClick={() => { setDraft({}); setEditIdx(null); }} style={{ fontSize: 11, color: "var(--tx3)", cursor: "pointer" }}>Cancelar</span>}
@@ -184,6 +184,20 @@ const TabFocos = React.memo(function TabFocos({ items, wd, setWd, save, activeSq
                   {od && <span style={{ fontFamily: "var(--mono)", color: "var(--red)", fontWeight: 700, fontSize: 10 }}>-{tl.end ? daysDiff(TODAY, tl.end) : "?"}d</span>}
                   <span style={{ color: "var(--tx3)", fontSize: 10 }}>{shortName(it.column_values?.person)}</span>
                   {tl.end && <span style={{ fontFamily: "var(--mono)", color: od ? "var(--red)" : "var(--tx3)", fontWeight: od ? 700 : 400, fontSize: 10 }}>{tl.end.toLocaleDateString("es-MX", { day: "2-digit", month: "short" })}</span>}
+                  <button
+                    onClick={() => {
+                      setDraft(prev => ({
+                        ...prev,
+                        focos: (prev.focos ? prev.focos + "\n" : "") + it.name
+                      }));
+                      setShowForm(true);
+                    }}
+                    style={{ background: "var(--bg3)", color: "var(--blue)", border: "none",
+                      borderRadius: "var(--r-xs)", padding: "2px 6px", fontSize: 9,
+                      fontWeight: 600, cursor: "pointer", flexShrink: 0, whiteSpace: "nowrap" }}
+                  >
+                    → Foco
+                  </button>
                 </div>
               );
             })}

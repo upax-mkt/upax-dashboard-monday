@@ -5,7 +5,7 @@ import { SQUADS, TODAY } from '../lib/constants'
 import { parseTL, daysDiff, shortName, normalizeSquad } from '../lib/utils'
 import { Bar, Card, Chip } from './ui'
 
-const TabPanorama = React.memo(function TabPanorama({ analysis: an, items }) {
+const TabPanorama = React.memo(function TabPanorama({ analysis: an, items, onDrillDown }) {
   const [sec, setSec] = useState("squads");
   useEffect(() => {
     try {
@@ -51,7 +51,10 @@ const TabPanorama = React.memo(function TabPanorama({ analysis: an, items }) {
                 {(d.phases["🚫 Detenido"] || 0) > 0 && <span style={{ fontSize: 11, fontWeight: 700, color: "var(--red)" }}>🚫 {d.phases["🚫 Detenido"]} det.</span>}
               </div>
             </div>
-            <Bar h={14} segs={[{ l: "Spr", v: d.phases["🚧 Sprint"] || 0, c: "var(--yellow)" }, { l: "Rev", v: d.phases["👀 Review"] || 0, c: "var(--cyan)" }, { l: "Mod", v: d.phases["⚙️ Modificación"] || 0, c: "var(--purple)" }, { l: "Det", v: d.phases["🚫 Detenido"] || 0, c: "var(--red)" }, { l: "BL", v: d.phases["⏳Backlog"] || 0, c: "var(--bg4)" }]} />
+            <Bar h={14} segs={[{ l: "Spr", v: d.phases["🚧 Sprint"] || 0, c: "var(--yellow)", ph: "🚧 Sprint" }, { l: "Rev", v: d.phases["👀 Review"] || 0, c: "var(--cyan)", ph: "👀 Review" }, { l: "Mod", v: d.phases["⚙️ Modificación"] || 0, c: "var(--purple)", ph: "⚙️ Modificación" }, { l: "Det", v: d.phases["🚫 Detenido"] || 0, c: "var(--red)", ph: "🚫 Detenido" }, { l: "BL", v: d.phases["⏳Backlog"] || 0, c: "var(--bg4)", ph: "⏳Backlog" }]} onSegmentClick={onDrillDown ? (seg) => {
+              const filtered = items.filter(it => normalizeSquad(it.column_values?.color_mkz0s203) === sq.name && it.column_values?.color_mkz09na === seg.ph);
+              onDrillDown({ phase: `${sq.name} — ${seg.l}`, items: filtered });
+            } : undefined} />
             {sqOverdue.length > 0 && (
               <div style={{ marginTop: 8, background: "rgba(255,59,48,.06)", borderRadius: 8, padding: "6px 10px", borderLeft: "3px solid var(--red)" }}>
                 <div style={{ fontSize: 10, fontWeight: 700, color: "var(--red)", textTransform: "uppercase", letterSpacing: 1, marginBottom: 3 }}>Vencidos · {sqOverdue.length}</div>
@@ -68,6 +71,23 @@ const TabPanorama = React.memo(function TabPanorama({ analysis: an, items }) {
         );
       });
       })()}
+
+      {sec === "squads" && (
+        <div style={{ display: "flex", gap: 12, flexWrap: "wrap", padding: "8px 0", marginTop: 4, borderTop: "1px solid var(--bg4)" }}>
+          {[
+            { label: "Sprint", color: "var(--yellow)" },
+            { label: "Review", color: "var(--cyan)" },
+            { label: "Mod", color: "var(--purple)" },
+            { label: "Detenido", color: "var(--red)" },
+            { label: "Backlog", color: "var(--bg4)" },
+          ].map(p => (
+            <span key={p.label} style={{ display: "flex", alignItems: "center", gap: 4, fontSize: 10, color: "var(--tx3)" }}>
+              <span style={{ width: 10, height: 10, borderRadius: 2, background: p.color }} />
+              {p.label}
+            </span>
+          ))}
+        </div>
+      )}
 
       {sec === "alertas" && (
         <div>

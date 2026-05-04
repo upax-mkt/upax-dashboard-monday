@@ -4,12 +4,12 @@ import React, { useState, useEffect, useRef } from 'react'
 import { PERSONAS } from '../lib/constants'
 import { PHASE_SHORT } from '../lib/utils'
 
-export function Bar({ segs, h = 20 }) {
+export function Bar({ segs, h = 20, onSegmentClick }) {
   const t = segs.reduce((s, x) => s + x.v, 0); if (!t) return null;
   return (
     <div style={{ display: "flex", borderRadius: h / 2, overflow: "hidden", height: h, background: "var(--bg4)" }}>
       {segs.filter((x) => x.v > 0).map((x, i) => (
-        <div key={i} title={`${x.l}: ${x.v}`} style={{ width: `${(x.v / t) * 100}%`, background: x.c, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, fontFamily: "var(--mono)", color: "#fff", minWidth: 16, transition: "width .4s ease" }}>
+        <div key={i} title={`${x.l}: ${x.v}`} onClick={() => onSegmentClick?.(x)} style={{ width: `${(x.v / t) * 100}%`, background: x.c, display: "flex", alignItems: "center", justifyContent: "center", fontSize: 10, fontWeight: 700, fontFamily: "var(--mono)", color: "#fff", minWidth: 16, transition: "width .4s ease", cursor: onSegmentClick ? "pointer" : "default" }}>
           {x.v > 2 ? x.v : ""}
         </div>
       ))}
@@ -239,6 +239,24 @@ export function NumInput({ initial, onCommit, style }) {
       onBlur={() => onCommit(val === "" ? 0 : parseFloat(val))}
       style={{ width: 70, background: "var(--bg2)", border: "1px solid var(--bg4)", borderRadius: 6, padding: "6px 8px", fontSize: 14, fontFamily: "var(--mono)", fontWeight: 700, color: "var(--tx)", outline: "none", textAlign: "center", ...(style || {}) }}
     />
+  );
+}
+
+export function Accordion({ title, count, defaultOpen = false, children }) {
+  const [open, setOpen] = useState(defaultOpen);
+  return (
+    <div style={{ marginBottom: 8 }}>
+      <button onClick={() => setOpen(!open)} style={{
+        display: "flex", alignItems: "center", gap: 8, width: "100%",
+        background: "none", border: "none", padding: "8px 0", cursor: "pointer",
+        fontSize: "var(--ts-sm)", fontWeight: 700, color: "var(--tx2)", fontFamily: "var(--sans)",
+      }}>
+        <span style={{ fontSize: 9, display: "inline-block", transform: open ? "rotate(90deg)" : "none", transition: "transform .2s", color: "var(--tx3)" }}>▶</span>
+        {title}
+        {count != null && <span style={{ fontFamily: "var(--mono)", fontSize: "var(--ts-xs)", fontWeight: 700, color: "var(--tx3)" }}>{count}</span>}
+      </button>
+      {open && <div className="fade">{children}</div>}
+    </div>
   );
 }
 

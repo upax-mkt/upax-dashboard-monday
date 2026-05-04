@@ -2,7 +2,7 @@
 import React, { useState } from 'react'
 // components/TabAgenda.jsx
 import { AGENDA, SQUADS } from '../lib/constants'
-import { Alerta, PersonSelect } from './ui'
+import { Alerta, Card, PersonSelect } from './ui'
 
 const TabAgenda = React.memo(function TabAgenda({ wd, setWd, save, currentIdx, blockTimes, onJumpToBlock }) {
   const [edit, setEdit] = useState(false);
@@ -12,7 +12,26 @@ const TabAgenda = React.memo(function TabAgenda({ wd, setWd, save, currentIdx, b
 
   return (
     <div className="fade">
-      {missing.length > 0 && !edit && <Alerta icon="⚠️" text={`Faltan presentadores: ${missing.map((b) => b.label).join(", ")}`} />}
+      {missing.length > 0 && !edit && (
+        missing.length >= 3 ? (
+          <Card style={{ borderTop: "3px solid var(--yellow)", marginBottom: 12 }}>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "var(--yellow)", marginBottom: 8 }}>
+              ⚠️ {missing.length} bloques sin presentador
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: 8 }}>
+              {missing.map(b => (
+                <div key={b.id} style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                  <span style={{ width: 8, height: 8, borderRadius: "50%", background: b.color, flexShrink: 0 }} />
+                  <span style={{ fontSize: 11, fontWeight: 600, minWidth: 80 }}>{b.label}</span>
+                  <PersonSelect value={pr[b.id] || ""} onChange={(e) => setPr(b.id, e.target.value)} style={{ flex: 1 }} />
+                </div>
+              ))}
+            </div>
+          </Card>
+        ) : (
+          <Alerta icon="⚠️" text={`Faltan presentadores: ${missing.map((b) => b.label).join(", ")}`} />
+        )
+      )}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
         <div>
           <h2 style={{ fontSize: 16, fontWeight: 700 }}>Agenda</h2>

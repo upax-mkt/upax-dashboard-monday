@@ -108,7 +108,16 @@ describe('tokens.js <-> css.js cross-validation', () => {
 });
 
 // Component structural tests
-import { Button, Skeleton, Card } from '../../components/ui.jsx';
+import { Accordion, Button, Skeleton, Card } from '../../components/ui.jsx';
+
+describe('Accordion component', () => {
+  it('is exported as a function', () => {
+    expect(typeof Accordion).toBe('function');
+  });
+  it('accepts title, count, defaultOpen, children params', () => {
+    expect(Accordion.length).toBeGreaterThanOrEqual(1);
+  });
+});
 
 describe('Button component', () => {
   it('is exported as a function', () => {
