@@ -563,7 +563,7 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
         return (
           <div className="kpi-grid-mobile" style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 8, marginBottom: 16 }}>
             {KPIop("Esta semana", activeWeek, C.blue, `${activeCount} activos total`, `${activeCount - activeWeek} fuera de semana`, "⚡")}
-            {KPIop("Vencidos", overdueCount, overdueCount > 0 ? C.red : C.green, overdueCount > 0 ? `${overdueCritical} con más de 7 días` : "Al día ✓", `${(an.backlogWithDates||[]).length} en backlog con fecha`, "⏰")}
+            {KPIop("Vencidos", overdueCount, overdueCount > 0 ? C.red : C.green, overdueCount > 0 ? `${(an.overdue || []).filter(it => { const tl = parseTL(it.column_values?.timerange_mkzcqv0j); return tl.end && daysDiff(TODAY, tl.end) > 7; }).length} con más de 7 días` : "Al día ✓", `${(an.backlogWithDates||[]).length} en backlog con fecha`, "⏰")}
             {KPIop("Detenidos", detCount, detCount > 0 ? C.yellow : C.green, detCount > 0 ? `${(an.stoppedWeek||[]).length} con fecha esta semana` : "Sin bloqueos ✓", `${(an.noResp||[]).length} sin responsable`, "🚫")}
             {KPIop("Done sem.", doneCount, doneCount > 0 ? C.green : C.tx3, `${PREV_WEEK.start.toLocaleDateString("es-MX",{day:"numeric",month:"short"})} – ${PREV_WEEK.end.toLocaleDateString("es-MX",{day:"numeric",month:"short"})}`, `${doneThisMonth} este mes · ${an.doneTotal||0} total`, "✅")}
           </div>
