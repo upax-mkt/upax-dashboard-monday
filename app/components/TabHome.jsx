@@ -1,40 +1,11 @@
 'use client'
 import React, { useState, useEffect } from 'react'
-// components/TabHome.jsx — Tab Home + CargaRow + OverdueSection
+// components/TabHome.jsx — Tab Home + CargaRow
 import { PERSONAS, SQUADS, TODAY } from '../lib/constants'
 import { WEEK, PREV_WEEK, parseTL, daysDiff, shortName, normalizeSquad, isActive, getPersonDetail } from '../lib/utils'
 import { C, TS, R, F } from '../lib/tokens'
 import { Chip, Card, PersonDetailView, Accordion } from './ui'
-
-export function OverdueSection({ overdue }) {
-  const [showAll, setShowAll] = useState(false);
-  const visible = showAll ? overdue : overdue.slice(0, 5);
-  return (
-    <div style={{ marginBottom: 10 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-        <div style={{ fontSize: 11, fontWeight: 700, color: C.red, textTransform: "uppercase", letterSpacing: 1 }}>Vencidos · {overdue.length}</div>
-        {overdue.length > 5 && (
-          <button onClick={() => setShowAll(!showAll)} style={{ fontSize: 10, color: C.blue, background: "none", border: "none", cursor: "pointer", fontWeight: 600 }}>
-            {showAll ? "Ver menos ↑" : `+${overdue.length - 5} más ↓`}
-          </button>
-        )}
-      </div>
-      {visible.map((it) => {
-        const tl = parseTL(it.column_values?.timerange_mkzcqv0j);
-        const d = tl.end ? daysDiff(TODAY, tl.end) : 0;
-        const sq = SQUADS.find(s => s.name === normalizeSquad(it.column_values?.color_mkz0s203));
-        return (
-          <div key={it.id} style={{ display: "flex", gap: 6, alignItems: "center", padding: "3px 0", fontSize: 11 }}>
-            <span style={{ fontFamily: F.mono, color: C.red, fontWeight: 700, minWidth: 30 }}>-{d}d</span>
-            {sq && <span style={{ width: 6, height: 6, borderRadius: "50%", background: sq.color, flexShrink: 0 }} />}
-            <span style={{ flex: 1, color: C.tx2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.name}</span>
-            <span style={{ color: C.tx3, fontSize: 10 }}>{shortName(it.column_values?.person)}</span>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
+import { RoadmapTimeline } from './RoadmapTimeline'
 
 // CargaRow — fuera de TabHome para evitar re-creación en cada render (P3.8)
 export const CargaRow = React.memo(function CargaRow({ person, d, rank, maxVal, onClick, isExpanded, items }) {
@@ -111,8 +82,7 @@ const fmtDate = (s) => {
   return isNaN(d) ? s : d.toLocaleDateString("es-MX", { day: "numeric", month: "short" });
 };
 
-const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onStart, onViewAlerts, gddData: propGddData, mqlBreakdown, mqlBreakdownPrev, gddTargets, gddHistory, setGddHistory, gddLoading }) {
-  const [alertGroupsExpanded, setAlertGroupsExpanded] = useState({});
+const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onStart, gddData: propGddData, mqlBreakdown, mqlBreakdownPrev, gddTargets, gddHistory, setGddHistory, gddLoading }) {
   const [expandedPerson, setExpandedPerson] = useState(null);
   const [cargaSquad, setCargaSquad] = useState("all");
   const [showAllCarga, setShowAllCarga] = useState(false);
@@ -130,8 +100,6 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
   const activeWeek = (an.byPhaseWeek["🚧 Sprint"] || 0) + (an.byPhaseWeek["👀 Review"] || 0) + (an.byPhaseWeek["⚙️ Modificación"] || 0);
   const TEAM_NAMES = new Set(PERSONAS.map((p) => p.name));
   const sortedPeople = Object.entries(an.byPersonWeek).filter(([name]) => TEAM_NAMES.has(name) && !PERSONAS.find((p) => p.name === name)?.sdr).sort((a, b) => b[1].total - a[1].total);
-  const stoppedSquads = SQUADS.filter((sq) => an.bySquad[sq.name]?.phases["🚫 Detenido"] > 0);
-  const overdueCritical = (an.overdue || []).filter((it) => { const tl = parseTL(it.column_values?.timerange_mkzcqv0j); return tl.end && daysDiff(TODAY, tl.end) > 7; }).length;
 
   // Derive MQL data based on selected week + gddWeekView sync
   const mqlData = (() => {
@@ -166,54 +134,6 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
           <div style={{ fontSize: 11, color: C.tx3, marginTop: 2 }}>{activeWeek} en sprint esta semana · {(an.velocity || {}).done || 0} completados sem. anterior · {(an.velocity || {}).overdue || 0} vencidos</div>
         </div>
       </div>
-
-      {/* Alertas compactas */}
-      <Accordion title="⚡ Alertas Ejecutivas" count={(an.overdue||[]).length + (an.stoppedWeek||[]).length + (an.noCrono||[]).length + (an.backlogWithDates||[]).length || null} defaultOpen={(an.overdue||[]).length > 0 || (an.stoppedWeek||[]).length > 0}>
-      {(() => {
-        const alertGroups = [
-          { items: [...(an.overdue || [])].sort((a, b) => (parseTL(a.column_values?.timerange_mkzcqv0j).end || TODAY) - (parseTL(b.column_values?.timerange_mkzcqv0j).end || TODAY)), icon: "🔴", label: "Vencidos", color: C.red, extra: (it) => { const d = parseTL(it.column_values?.timerange_mkzcqv0j).end ? daysDiff(TODAY, parseTL(it.column_values?.timerange_mkzcqv0j).end) : 0; return <span style={{ fontFamily: F.mono, color: C.red, fontWeight: 700, fontSize: 10, minWidth: 28 }}>-{d}d</span>; } },
-          { items: an.stoppedWeek || [], icon: "🚫", label: "Detenidos", color: C.red },
-          { items: an.noCrono || [], icon: "📅", label: "Sin Fecha", color: C.yellow },
-          { items: an.backlogWithDates || [], icon: "⚠️", label: "Backlog c/fecha", color: C.yellow },
-        ].filter((g) => g.items.length > 0);
-        if (alertGroups.length === 0) return <Card style={{ textAlign: "center", padding: 24, marginBottom: 12 }}><div style={{ fontSize: 28, marginBottom: 4 }}>✅</div><div style={{ color: C.green, fontSize: 14, fontWeight: 600 }}>Sin alertas críticas</div></Card>;
-        return (
-          <Card style={{ marginBottom: 12 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-              <span style={{ fontSize: 14, fontWeight: 700 }}>⚡ Alertas Ejecutivas</span>
-              <button onClick={onViewAlerts} style={{ background: C.bg3, color: C.blue, border: "none", borderRadius: R.sm, padding: "4px 12px", fontSize: 11, fontWeight: 600, cursor: "pointer" }}>Ver las {alertGroups.reduce((s, g) => s + g.items.length, 0)} alertas →</button>
-            </div>
-            {alertGroups.map((g, gi) => (
-              <div key={gi} style={{ marginBottom: gi < alertGroups.length - 1 ? 10 : 0 }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 4 }}>
-                  <span style={{ fontSize: 12 }}>{g.icon}</span>
-                  <span style={{ fontSize: 12, fontWeight: 700, color: g.color }}>{g.label}</span>
-                  <span style={{ fontFamily: F.mono, fontSize: 14, fontWeight: 700, color: g.color }}>{g.items.length}</span>
-                </div>
-                {(alertGroupsExpanded[(["overdue","stopped","noCrono","backlog","noResp"][gi] || gi)] ? g.items : g.items.slice(0, 4)).map((it) => {
-                  const sq = SQUADS.find((s) => s.name === normalizeSquad(it.column_values?.color_mkz0s203));
-                  // For overdue items, color dot by severity (days overdue) instead of squad
-                  const overdueEnd = parseTL(it.column_values?.timerange_mkzcqv0j).end;
-                  const overdueDays = overdueEnd ? daysDiff(TODAY, overdueEnd) : 0;
-                  const dotBg = g.label === "Vencidos"
-                    ? (overdueDays >= 14 ? C.red : overdueDays >= 7 ? C.orange : overdueDays >= 3 ? C.yellow : C.tx3)
-                    : (sq?.color || C.tx3);
-                  return (
-                    <div key={it.id} style={{ display: "flex", gap: 5, alignItems: "center", padding: "3px 0 3px 20px", fontSize: 12 }}>
-                      <span style={{ width: 6, height: 6, borderRadius: "50%", background: dotBg, flexShrink: 0 }} />
-                      {g.extra && g.extra(it)}
-                      <span style={{ flex: 1, color: C.tx2, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{it.name}</span>
-                      <span style={{ color: C.tx3, fontSize: 10 }}>{shortName(it.column_values?.person)}</span>
-                    </div>
-                  );
-                })}
-                {g.items.length > 4 && <div style={{ fontSize: 10, color: C.tx3, paddingLeft: 20, marginTop: 2 }}>+{g.items.length - 4} más</div>}
-              </div>
-            ))}
-          </Card>
-        );
-      })()}
-      </Accordion>
 
       {/* GdD boxes — KPIs de generación de demanda */}
       {(() => {
@@ -703,6 +623,9 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
         {(an.noCrono || []).length > 0 && <div style={{ marginTop: 8, padding: "5px 10px", borderRadius: 6, background: "rgba(245,158,11,.06)", fontSize: 10, color: C.yellow }}>⚠️ {(an.noCrono || []).length} en Sprint sin Fecha</div>}
       </Card>
       </Accordion>
+
+      {/* Zona 3 — Roadmap Timeline */}
+      <RoadmapTimeline items={items} />
 
     </div>
   );
