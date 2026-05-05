@@ -159,7 +159,7 @@ export default function App() {
   useEffect(() => {
     if (finished && !minutaGeneratedRef.current) {
       minutaGeneratedRef.current = true;
-      const draft = generateMinuta(wdRef.current, analysisRef.current, appGddData, blockTimesRef.current);
+      const draft = generateMinuta(wdRef.current, analysisRef.current, appGddData, mqlBreakdown, blockTimesRef.current, items);
       setMinutaDraft(draft);
       if (!wdRef.current?.minutaText) {
         storeSet(STORE_KEY, { ...wdRef.current, minutaText: draft, gdd_snapshot: appGddData, analysis_snapshot: analysisRef.current });
@@ -500,7 +500,7 @@ export default function App() {
             </div>
             <textarea value={minutaDraft} onChange={(e) => { setMinutaDraft(e.target.value); setMinutaSaved(false); }} style={{ width: "100%", minHeight: 280, background: C.bg2, color: C.tx, border: `1px solid ${C.bg4}`, padding: 16, fontSize: 12, fontFamily: F.mono, resize: "vertical", outline: "none", lineHeight: 1.7 }} />
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 8 }}>
-              <button onClick={() => setMinutaDraft(generateMinuta(wd, an, appGddData, blockTimes))} style={{ background: "transparent", color: C.tx3, border: `1px solid ${C.bg4}`, padding: "4px 12px", fontSize: 10, cursor: "pointer", fontFamily: F.mono }}>Regenerar</button>
+              <button onClick={() => setMinutaDraft(generateMinuta(wd, an, appGddData, mqlBreakdown, blockTimes, items))} style={{ background: "transparent", color: C.tx3, border: `1px solid ${C.bg4}`, padding: "4px 12px", fontSize: 10, cursor: "pointer", fontFamily: F.mono }}>Regenerar</button>
               <span style={{ fontSize: 10, color: C.tx3, fontFamily: F.mono }}>{minutaDraft.length} chars</span>
               {slackStatus && (
                 <span style={{ fontSize: 11, fontWeight: 600, fontFamily: F.mono, color: slackStatus === "ok" ? C.green : slackStatus === "error" ? C.red : C.yellow }}>
@@ -540,7 +540,7 @@ export default function App() {
         </div>
         <div style={{ height: 20 }} />
         <div role="tabpanel" id="main-content" aria-labelledby={`tab-${tab}`}>
-        {tab === "home"        && <ErrorBoundary name="Home"><TabHome analysis={an} items={items} elapsed={elapsed} onStart={startTimer} onViewAlerts={() => { setTab("panorama"); try { sessionStorage.setItem("panorama-tab","alertas"); } catch {} }} gddData={appGddData} mqlBreakdown={mqlBreakdown} mqlBreakdownPrev={mqlBreakdownPrev} gddTargets={gddTargets} gddHistory={gddHistory} setGddHistory={setGddHistory} gddLoading={gddLoading} /></ErrorBoundary>}
+        {tab === "home"        && <ErrorBoundary name="Home"><TabHome analysis={an} items={items} elapsed={elapsed} onStart={startTimer} gddData={appGddData} mqlBreakdown={mqlBreakdown} mqlBreakdownPrev={mqlBreakdownPrev} gddTargets={gddTargets} gddHistory={gddHistory} setGddHistory={setGddHistory} gddLoading={gddLoading} /></ErrorBoundary>}
         {tab === "agenda"      && <ErrorBoundary name="Agenda"><TabAgenda wd={wd} setWd={setWd} save={saveFn} currentIdx={currentBlockIdx} blockTimes={blockTimes} onJumpToBlock={jumpToBlock} /></ErrorBoundary>}
         {tab === "panorama"    && <ErrorBoundary name="Panorama"><TabPanorama analysis={an} items={items} onDrillDown={setPhaseModal} /></ErrorBoundary>}
         {tab === "focos"       && <ErrorBoundary name="Focos"><TabFocos items={items} wd={wd} setWd={setWd} save={saveFn} activeSquad={activeSquad} setActiveSquad={setActiveSquad} /></ErrorBoundary>}
