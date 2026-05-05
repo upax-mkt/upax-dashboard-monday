@@ -135,6 +135,27 @@ const TabHome = React.memo(function TabHome({ analysis: an, items, elapsed, onSt
         </div>
       </div>
 
+      {/* Zona 1 — Control de Weekly */}
+      {elapsed === 0 && (
+        <Card style={{ marginBottom: 12, textAlign: "center", padding: "20px 16px" }}>
+          <div style={{ fontSize: 11, color: C.tx3, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 8 }}>
+            {WEEK.start.toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long" })} · ~60 min
+          </div>
+          <button
+            onClick={onStart}
+            style={{ background: C.tx, color: C.bg, border: "none", borderRadius: R.default, padding: "14px 36px", fontSize: 16, fontWeight: 700, cursor: "pointer", letterSpacing: "-0.02em" }}
+          >
+            Iniciar Weekly
+          </button>
+        </Card>
+      )}
+      {elapsed > 0 && (
+        <div style={{ marginBottom: 12, padding: "8px 14px", borderRadius: R.default, background: "rgba(52,199,89,.06)", border: "1px solid rgba(52,199,89,.2)", display: "flex", alignItems: "center", gap: 10, fontSize: 12 }}>
+          <span style={{ fontFamily: F.mono, fontWeight: 700, color: C.green }}>{Math.floor(elapsed / 60)}:{String(elapsed % 60).padStart(2, "0")}</span>
+          <span style={{ color: C.tx3 }}>Weekly en curso</span>
+        </div>
+      )}
+
       {/* GdD boxes — KPIs de generación de demanda */}
       {(() => {
         if (gddLoading && !gddData) {
