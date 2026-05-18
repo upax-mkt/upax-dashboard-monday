@@ -143,11 +143,20 @@ export function getDateRanges() {
     return `${y}-${m}-${day}`
   }
 
+  // The Date objects above are correct for determining which CDMX calendar
+  // day each boundary falls on, but their internal moment is server-local
+  // (UTC on Vercel). Re-anchor each boundary to CDMX wall-clock midnight or
+  // end-of-day so the Unix timestamps sent to HubSpot match the user-expected
+  // week/month/year window. CDMX is UTC-6 year-round (no DST since 2022).
+  const CDMX = '-06:00'
+  const cdmxStart = (d) => new Date(fmtDate(d) + 'T00:00:00.000' + CDMX)
+  const cdmxEnd   = (d) => new Date(fmtDate(d) + 'T23:59:59.999' + CDMX)
+
   return {
-    semana:   { desde: monday,     hasta: sunday },
-    anterior: { desde: prevMonday, hasta: prevSunday },
-    mes:      { desde: mesDesde,   hasta: mesHasta },
-    ytd:      { desde: ytdDesde,   hasta: mxNow },
+    semana:   { desde: cdmxStart(monday),     hasta: cdmxEnd(sunday) },
+    anterior: { desde: cdmxStart(prevMonday), hasta: cdmxEnd(prevSunday) },
+    mes:      { desde: cdmxStart(mesDesde),   hasta: cdmxEnd(mesHasta) },
+    ytd:      { desde: cdmxStart(ytdDesde),   hasta: new Date() },
     formatted: {
       semana_desde: fmtDate(monday),
       semana_hasta: fmtDate(sunday),
@@ -186,7 +195,7 @@ export const METRIC_DEFS = {
     baseFilters: [
       { propertyName: 'hs_activity_type', operator: 'EQ', value: 'Credenciales' },
       { propertyName: 'hs_meeting_outcome', operator: 'EQ', value: 'COMPLETED' },
-      { propertyName: 'contactos_asociados', operator: 'EQ', value: '1' },
+      { propertyName: 'reunion_generado_por', operator: 'HAS_PROPERTY' },
     ],
   },
   opps: {

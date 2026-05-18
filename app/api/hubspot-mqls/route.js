@@ -153,9 +153,11 @@ export async function GET(request) {
   }
 
   // Fetch from HubSpot
-  // HubSpot date filters require Unix timestamps in milliseconds
-  const desdeMs = new Date(semana_desde + 'T00:00:00Z').getTime()
-  const hastaMs = new Date(semana_hasta + 'T23:59:59Z').getTime()
+  // HubSpot date filters require Unix timestamps in milliseconds.
+  // Anchor to CDMX (UTC-6) so the week boundaries match getDateRanges() in
+  // gdd-hubspot/helpers.js — parsing as 'Z' would shift the window 6h earlier.
+  const desdeMs = new Date(semana_desde + 'T00:00:00-06:00').getTime()
+  const hastaMs = new Date(semana_hasta + 'T23:59:59-06:00').getTime()
 
   try {
     const contacts = await hubspotSearchAll(
