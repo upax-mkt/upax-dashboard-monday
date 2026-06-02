@@ -356,12 +356,22 @@ function renderMinutaVisual(text, wd2, an, gdd2) {
 function PdfButton({ text, dateStr, wd, analysis, gddData }) {
   function handlePdf() {
     const gdd = gddData || {};
-    const s = gdd.semana || {}, a = gdd.anterior || {}, mes = gdd.mes || {}, y = gdd.ytd || {}, f = gdd.fechas || {};
-    const pTotal = s.pipeline_mkt || 0;
+    const a = gdd.anterior || {}, mes = gdd.mes || {}, y = gdd.ytd || {}, f = gdd.fechas || {};
+    // KPIs por default = semana pasada (datos cerrados). La semana en curso
+    // todavía cambia y suele ser parcial.
+    const pTotal = a.pipeline_mkt || 0;
     const fmtN = (v) => (v||0).toLocaleString("es-MX");
     const fmtM = (v) => v >= 1000000 ? "$"+(v/1000000).toFixed(1)+"M" : v >= 1000 ? "$"+(v/1000).toFixed(0)+"K" : "$"+(v||0);
-    const pct = (cur, prev) => { if (!prev) return ""; const p = Math.round(((cur-prev)/prev)*100); return `<span style="color:${p>=0?"#16a34a":"#dc2626"};font-weight:700">${p>=0?"▲":"▼"}${Math.abs(p)}%</span>`; };
     const dateLabel = new Date(dateStr).toLocaleDateString("es-MX", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    // Rango de la semana pasada = (semana_desde - 7) … (semana_desde - 1).
+    const prevRange = (() => {
+      if (!f.semana_desde) return "";
+      const base = new Date(f.semana_desde + "T12:00:00");
+      const start = new Date(base); start.setDate(start.getDate() - 7);
+      const end = new Date(base); end.setDate(end.getDate() - 1);
+      const fmt = d => d.toLocaleDateString("es-MX", { day: "numeric", month: "short" });
+      return `${fmt(start)} – ${fmt(end)}`;
+    })();
 
     let focosHtml = "";
     if (wd) {
@@ -543,17 +553,17 @@ function PdfButton({ text, dateStr, wd, analysis, gddData }) {
   <h1>⚡ Minuta Weekly · Mkt Corp</h1>
   <div class="meta">📅 ${dateLabel} · Grupo UPAX</div>
 
-  <h2>📊 Generación de Demanda${f.semana_desde ? ` · ${f.semana_desde}${f.semana_hasta?" al "+f.semana_hasta:""}` : ""}</h2>
+  <h2>📊 Generación de Demanda · Semana pasada${prevRange ? ` · ${prevRange}` : ""}</h2>
   <div class="kpi-grid">
     ${[
-      {l:"Leads",cur:s.leads||0,prev:a.leads||0,mes:mes.leads||0,ytd:y.leads||0,c:"#0a84ff"},
-      {l:"MQLs",cur:s.mqls||0,prev:a.mqls||0,mes:mes.mqls||0,ytd:y.mqls||0,c:"#af52de"},
-      {l:"SQLs",cur:s.sqls||0,prev:a.sqls||0,mes:mes.sqls||0,ytd:y.sqls||0,c:"#34c759"},
-      {l:"Opps",cur:s.opps||0,prev:a.opps||0,mes:mes.opps||0,ytd:y.opps||0,c:"#ff9f0a"},
+      {l:"Leads",cur:a.leads||0,mes:mes.leads||0,ytd:y.leads||0,c:"#0a84ff"},
+      {l:"MQLs", cur:a.mqls||0, mes:mes.mqls||0, ytd:y.mqls||0, c:"#af52de"},
+      {l:"SQLs", cur:a.sqls||0, mes:mes.sqls||0, ytd:y.sqls||0, c:"#34c759"},
+      {l:"Opps", cur:a.opps||0, mes:mes.opps||0, ytd:y.opps||0, c:"#ff9f0a"},
     ].map(m => `<div class="kpi">
       <div class="kpi-label">${m.l}</div>
       <div class="kpi-val" style="color:${m.c}">${fmtN(m.cur)}</div>
-      <div class="kpi-sub">${pct(m.cur,m.prev)} vs sem. ant.</div>
+      <div class="kpi-sub">datos cerrados</div>
       ${m.mes ? `<div class="kpi-mes">${fmtN(m.mes)} acum. mes</div>` : ""}
     </div>`).join("")}
   </div>
